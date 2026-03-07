@@ -16,13 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-go@v5
         with:
-          node-version: 18
-
-      - name: Install Dependencies
-        run: npm install
-        working-directory: pulumi/
+          go-version: '1.21'
 
       - name: Pulumi Preview
         uses: pulumi/actions@v3
@@ -43,13 +39,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-go@v5
         with:
-          node-version: 18
-
-      - name: Install Dependencies
-        run: npm install
-        working-directory: pulumi/
+          go-version: '1.21'
 
       - name: Pulumi Up
         uses: pulumi/actions@v3
