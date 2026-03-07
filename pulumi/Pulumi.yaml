@@ -1,0 +1,5 @@
+name: chalupa-tech-local
+runtime: nodejs
+description: A minimal Pulumi TypeScript project for Proxmox and Talos
+backend:
+  url: pulumi://
