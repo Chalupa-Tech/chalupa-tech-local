@@ -1,0 +1,6 @@
+---
+- name: Prepare Proxmox Host
+  hosts: proxmox
+  become: yes
+  roles:
+    - proxmox-prep
