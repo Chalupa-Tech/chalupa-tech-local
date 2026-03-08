@@ -12,7 +12,7 @@
 - name: Add IOMMU kernel parameters (GRUB)
   ansible.builtin.lineinfile:
     path: /etc/default/grub
-    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(.*)"'
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(?!.*{{ proxmox_prep_cpu_vendor }}_iommu=on)(.*)"'
     line: 'GRUB_CMDLINE_LINUX_DEFAULT="\1 {{ proxmox_prep_cpu_vendor }}_iommu=on iommu=pt"'
     backrefs: true
   when: proxmox_prep_grub_file.stat.exists

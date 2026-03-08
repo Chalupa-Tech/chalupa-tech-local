@@ -16,3 +16,4 @@ This repository is managed with the help of the Gemini CLI agent. Gemini should 
    - What changes were made.
    - Why the changes were made (rationale).
    - The specific Pull Request (PR) number or link that aligns with those changes.
+9. **Autonomous Pull Requests**: You are encouraged to create commits and pull requests autonomously. However, you must monitor the associated GitHub Actions workflows and ensure all linting, tests, and Pulumi previews pass before notifying the user that the PR is ready for review.
