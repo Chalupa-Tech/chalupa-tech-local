@@ -43,6 +43,13 @@ jobs:
       - name: Install Ansible
         run: pip install ansible
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
       # Assuming connection requires SSH keys stored in secrets
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -99,6 +106,13 @@ jobs:
 
       - name: Install Ansible
         run: pip install ansible
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0

@@ -20,6 +20,13 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
       - name: Pulumi Preview
         uses: pulumi/actions@v3
         with:
@@ -42,6 +49,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
 
       - name: Pulumi Up
         uses: pulumi/actions@v3
