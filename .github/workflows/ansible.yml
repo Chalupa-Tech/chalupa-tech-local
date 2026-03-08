@@ -74,14 +74,16 @@ jobs:
 
       - name: Comment PR with output
         uses: actions/github-script@v7
+        env:
+          ANSIBLE_OUTPUT: ${{ steps.ansible_check.outputs.output }}
         with:
           script: |
             const output = `### Ansible Check & Diff
             <details><summary>Show Output</summary>
 
-            ```
-            ${{ steps.ansible_check.outputs.output }}
-            ```
+            \`\`\`
+            ${process.env.ANSIBLE_OUTPUT}
+            \`\`\`
 
             </details>`;
             github.rest.issues.createComment({

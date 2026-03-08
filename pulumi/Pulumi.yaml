@@ -1,3 +1,3 @@
-name: proxmox
+name: tayvenb13/chalupa-infra/proxmox
 runtime: go
 description: A Pulumi Go project for Proxmox and Talos
