@@ -24,6 +24,7 @@ jobs:
         with:
           version: latest
           working-directory: pulumi/
+          install-mode: goinstall
 
   preview:
     name: Pulumi Preview
