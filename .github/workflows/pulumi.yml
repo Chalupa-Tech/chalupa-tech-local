@@ -31,8 +31,7 @@ jobs:
         uses: pulumi/actions@v3
         with:
           command: preview
-          stack-name: chalupa-infra/proxmox
-          upsert: true
+          stack-name: proxmox
           work-dir: pulumi/
           comment-on-pr: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,8 +62,7 @@ jobs:
         uses: pulumi/actions@v3
         with:
           command: up
-          stack-name: chalupa-infra/proxmox
-          upsert: true
+          stack-name: proxmox
           work-dir: pulumi/
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
