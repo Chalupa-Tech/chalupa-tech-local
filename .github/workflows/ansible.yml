@@ -52,7 +52,6 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-runner
 
-      # Assuming connection requires SSH keys stored in secrets
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -61,9 +60,6 @@ jobs:
       - name: Add Proxmox to known_hosts
         run: ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
         
-      # Using a GitHub Action to create a VPN connection might be needed if the Proxmox host isn't public,
-      # but standard Tailscale setup or a self-hosted runner is typical here. Assuming runner has access for now.
-
       - name: Run Ansible Check & Diff
         id: ansible_check
         run: |
