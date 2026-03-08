@@ -10,4 +10,4 @@ The `pulumi up` command failed because it was unable to verify the TLS certifica
 The Proxmox host in the local lab environment uses a self-signed certificate. By setting `insecure: true`, Pulumi can connect to the API without failing on certificate validation.
 
 ## PR Link
-[Will be updated after PR creation]
+https://github.com/Chalupa-Tech/chalupa-tech-local/pull/6
