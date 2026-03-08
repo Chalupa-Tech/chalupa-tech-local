@@ -7,18 +7,18 @@ import (
 
 func createTrueNASVM(ctx *pulumi.Context) error {
 	_, err := vm.NewVirtualMachine(ctx, "truenas-scale", &vm.VirtualMachineArgs{
-		NodeName: pulumi.String("proxmox"),
-		Name:     pulumi.String("truenas-scale"),
+		NodeName:    pulumi.String("proxmox"),
+		Name:        pulumi.String("truenas-scale"),
 		Description: pulumi.String("TrueNAS SCALE VM (Managed by Pulumi)"),
-		Bios:     pulumi.String("ovmf"),
-		Machine:  pulumi.String("q35"),
+		Bios:        pulumi.String("ovmf"),
+		Machine:     pulumi.String("q35"),
 
 		Cpu: &vm.VirtualMachineCpuArgs{
 			Cores: pulumi.Int(4),
 			Type:  pulumi.String("host"),
 		},
 		Memory: &vm.VirtualMachineMemoryArgs{
-			Dedicated: pulumi.Int(8192),
+			Dedicated: pulumi.Int(16000),
 		},
 		NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
 			&vm.VirtualMachineNetworkDeviceArgs{

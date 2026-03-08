@@ -14,7 +14,7 @@ This repository manages the infrastructure and configuration for a local Proxmox
 ### Virtual Machines (VMs)
 
 1. **TrueNAS Scale (Storage NAS)**
-   * **Resources:** 4 Cores, 8GB RAM
+   * **Resources:** 4 Cores, 12GB RAM
    * **Hardware Details:** PCIe Passthrough for HBA (ensures TrueNAS has direct, exclusive access to HDDs; bypasses Proxmox ZFS).
    * **File Shares:** Personal, Plex, Shared
 
@@ -24,7 +24,7 @@ This repository manages the infrastructure and configuration for a local Proxmox
    * **Note:** Talos is an immutable OS built for K8s, bootstrapped via API.
 
 3. **Ubuntu Server (Plex Media Server)**
-   * **Resources:** 4 Cores, 32GB RAM
+   * **Resources:** 8 Cores, 32GB RAM
    * **Hardware Details:** GPU Passthrough for hardware transcoding.
    * **Storage:** Mounts the "Plex" share from the TrueNAS VM.
 
