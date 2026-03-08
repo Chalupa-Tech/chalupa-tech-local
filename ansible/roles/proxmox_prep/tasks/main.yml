@@ -4,3 +4,44 @@
   ansible.builtin.apt:
     update_cache: true
     upgrade: dist
+
+- name: Check if GRUB is used
+  ansible.builtin.stat:
+    path: /etc/default/grub
+  register: grub_file
+
+- name: Add IOMMU kernel parameters (GRUB)
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(.*)"'
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="\1 {{ cpu_vendor }}_iommu=on iommu=pt"'
+    backrefs: true
+  when: grub_file.stat.exists
+  notify:
+    - update-grub
+
+- name: Check if systemd-boot is used
+  ansible.builtin.stat:
+    path: /etc/kernel/cmdline
+  register: systemd_boot_file
+
+- name: Add IOMMU kernel parameters (systemd-boot)
+  ansible.builtin.lineinfile:
+    path: /etc/kernel/cmdline
+    line: "root=ZFS=rpool/ROOT/pve-1 boot=zfs {{ cpu_vendor }}_iommu=on iommu=pt"
+  when: systemd_boot_file.stat.exists
+  notify:
+    - proxmox-boot-tool refresh
+
+- name: Ensure VFIO kernel modules are loaded
+  ansible.builtin.lineinfile:
+    path: /etc/modules
+    line: "{{ item }}"
+    create: true
+  loop:
+    - vfio
+    - vfio_iommu_type1
+    - vfio_pci
+    - vfio_virqfd
+  notify:
+    - update-initramfs
