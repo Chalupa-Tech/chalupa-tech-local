@@ -1,19 +1,22 @@
 ---
-- name: update-grub
+- name: Update GRUB
   ansible.builtin.command: update-grub
+  changed_when: true
   notify:
-    - prompt-reboot
+    - Prompt reboot
 
-- name: proxmox-boot-tool refresh
+- name: Refresh Proxmox boot tool
   ansible.builtin.command: proxmox-boot-tool refresh
+  changed_when: true
   notify:
-    - prompt-reboot
+    - Prompt reboot
 
-- name: update-initramfs
+- name: Update initramfs
   ansible.builtin.command: update-initramfs -u -k all
+  changed_when: true
   notify:
-    - prompt-reboot
+    - Prompt reboot
 
-- name: prompt-reboot
+- name: Prompt reboot
   ansible.builtin.debug:
     msg: "A system reboot is required for IOMMU and VFIO changes to take effect."

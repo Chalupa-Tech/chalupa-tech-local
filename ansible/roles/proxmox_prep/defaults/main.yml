@@ -1,2 +1,2 @@
 ---
-cpu_vendor: amd
+proxmox_prep_cpu_vendor: amd
