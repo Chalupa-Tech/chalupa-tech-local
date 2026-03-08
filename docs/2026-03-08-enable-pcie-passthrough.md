@@ -1,4 +1,4 @@
-# Add Tailscale
+# Enable IOMMU and PCIe Passthrough
 
 - **Changes made**: Configured Ansible to enable IOMMU and PCIe passthrough on the Proxmox host. This involves adding `intel_iommu=on iommu=pt` or `amd_iommu=on iommu=pt` (based on `cpu_vendor` which defaults to `amd`) to the kernel command line (supporting both GRUB and systemd-boot). Also added tasks to ensure VFIO modules are loaded (`vfio`, `vfio_iommu_type1`, `vfio_pci`, `vfio_virqfd`).
 - **Rationale**: PCIe passthrough is required to pass the SAS HBA card directly to the TrueNAS VM, which is the upcoming project. Without IOMMU, PCIe devices cannot be passed through effectively. We default to `amd` for the CPU vendor per the Framework Desktop specs but keep it a configurable variable.
