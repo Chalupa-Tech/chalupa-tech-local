@@ -15,4 +15,4 @@ Updates the TrueNAS VM configuration for startup order and display type, and add
 - Adding linting to the CI/CD pipeline helps maintain code quality in the Pulumi Go project.
 
 ## PR Link
-(TBD)
+https://github.com/Chalupa-Tech/chalupa-tech-local/pull/9
