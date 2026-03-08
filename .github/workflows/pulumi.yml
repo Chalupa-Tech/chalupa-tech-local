@@ -26,12 +26,14 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-runner
+      
+      - run: go mod download
 
       - name: Pulumi Preview
         uses: pulumi/actions@v3
         with:
           command: preview
-          stack-name: proxmox
+          stack-name: tayvenb13/chalupa-infra/proxmox
           work-dir: pulumi/
           comment-on-pr: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -58,11 +60,13 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-runner
 
+      - run: go mod download
+
       - name: Pulumi Up
         uses: pulumi/actions@v3
         with:
           command: up
-          stack-name: proxmox
+          stack-name: tayvenb13/chalupa-infra/proxmox
           work-dir: pulumi/
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
