@@ -1,4 +1,2 @@
 # Stack configuration
-config:
-  proxmox:endpoint: ${PROXMOX_VE_ENDPOINT}
-  proxmox:apiToken: ${PROXMOX_VE_API_TOKEN}
+config: {}
