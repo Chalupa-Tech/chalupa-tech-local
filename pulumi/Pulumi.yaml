@@ -1,5 +1,3 @@
-name: proxmox
+name: chalupa-infra
 runtime: go
 description: A Pulumi Go project for Proxmox and Talos
-backend:
-  url: pulumi://

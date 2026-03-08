@@ -12,18 +12,28 @@ jobs:
   preview:
     name: Pulumi Preview
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25.6'
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
 
       - name: Pulumi Preview
         uses: pulumi/actions@v3
         with:
           command: preview
+          stack-name: tayvenb13/chalupa-infra/proxmox
           work-dir: pulumi/
           comment-on-pr: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -41,12 +51,20 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25.6'
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
 
       - name: Pulumi Up
         uses: pulumi/actions@v3
         with:
           command: up
+          stack-name: tayvenb13/chalupa-infra/proxmox
           work-dir: pulumi/
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}

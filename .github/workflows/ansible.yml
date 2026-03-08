@@ -31,6 +31,8 @@ jobs:
     name: Check & Diff (PR)
     runs-on: ubuntu-latest
     needs: lint
+    permissions:
+      pull-requests: write
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +45,13 @@ jobs:
       - name: Install Ansible
         run: pip install ansible
 
-      # Assuming connection requires SSH keys stored in secrets
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -52,9 +60,6 @@ jobs:
       - name: Add Proxmox to known_hosts
         run: ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
         
-      # Using a GitHub Action to create a VPN connection might be needed if the Proxmox host isn't public,
-      # but standard Tailscale setup or a self-hosted runner is typical here. Assuming runner has access for now.
-
       - name: Run Ansible Check & Diff
         id: ansible_check
         run: |
@@ -67,14 +72,16 @@ jobs:
 
       - name: Comment PR with output
         uses: actions/github-script@v7
+        env:
+          ANSIBLE_OUTPUT: ${{ steps.ansible_check.outputs.output }}
         with:
           script: |
             const output = `### Ansible Check & Diff
             <details><summary>Show Output</summary>
 
-            ```
-            ${{ steps.ansible_check.outputs.output }}
-            ```
+            \`\`\`
+            ${process.env.ANSIBLE_OUTPUT}
+            \`\`\`
 
             </details>`;
             github.rest.issues.createComment({
@@ -99,6 +106,13 @@ jobs:
 
       - name: Install Ansible
         run: pip install ansible
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
