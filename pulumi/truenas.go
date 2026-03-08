@@ -27,16 +27,16 @@ func createTrueNASVM(ctx *pulumi.Context) error {
 		},
 		Hostpcis: vm.VirtualMachineHostpciArray{
 			&vm.VirtualMachineHostpciArgs{
-				Device: pulumi.String("hostpci0"),
-				Id:     pulumi.String("0000:c4:00.0"),
-				Pcie:   pulumi.Bool(true),
-				Rombar: pulumi.Bool(true),
+				Device:  pulumi.String("hostpci0"),
+				Mapping: pulumi.String("hba_part_1"),
+				Pcie:    pulumi.Bool(true),
+				Rombar:  pulumi.Bool(true),
 			},
 			&vm.VirtualMachineHostpciArgs{
-				Device: pulumi.String("hostpci1"),
-				Id:     pulumi.String("0000:c6:00.0"),
-				Pcie:   pulumi.Bool(true),
-				Rombar: pulumi.Bool(true),
+				Device:  pulumi.String("hostpci1"),
+				Mapping: pulumi.String("hba_part_2"),
+				Pcie:    pulumi.Bool(true),
+				Rombar:  pulumi.Bool(true),
 			},
 		},
 		Disks: vm.VirtualMachineDiskArray{
