@@ -31,7 +31,7 @@ jobs:
         uses: pulumi/actions@v3
         with:
           command: preview
-          stack-name: chalupa-infra/proxmox
+          stack-name: proxmox
           upsert: true
           work-dir: pulumi/
           comment-on-pr: true
@@ -63,7 +63,7 @@ jobs:
         uses: pulumi/actions@v3
         with:
           command: up
-          stack-name: chalupa-infra/proxmox
+          stack-name: proxmox
           upsert: true
           work-dir: pulumi/
         env:
