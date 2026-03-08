@@ -1,6 +1,6 @@
 ---
 - name: Prepare Proxmox Host
   hosts: proxmox
-  become: yes
+  become: true
   roles:
-    - proxmox-prep
+    - proxmox_prep

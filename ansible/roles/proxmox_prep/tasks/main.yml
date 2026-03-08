@@ -1,0 +1,6 @@
+---
+# Tasks for preparing the Proxmox host (e.g., IOMMU, passthrough)
+- name: Ensure Proxmox system is up to date
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
