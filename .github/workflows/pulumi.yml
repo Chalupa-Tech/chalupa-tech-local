@@ -26,8 +26,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-runner
-      
-      - run: go mod download
 
       - name: Pulumi Preview
         uses: pulumi/actions@v3
@@ -59,8 +57,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-runner
-
-      - run: go mod download
 
       - name: Pulumi Up
         uses: pulumi/actions@v3
