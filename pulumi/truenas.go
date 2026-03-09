@@ -54,6 +54,12 @@ func createTrueNASVM(ctx *pulumi.Context) error {
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
+		Startup: &vm.VirtualMachineStartupArgs{
+			Order: pulumi.Int(1),
+		},
+		Vga: &vm.VirtualMachineVgaArgs{
+			Type: pulumi.String("vmware"),
+		},
 	})
 	return err
 }

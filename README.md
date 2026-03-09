@@ -28,6 +28,10 @@ This repository manages the infrastructure and configuration for a local Proxmox
    * **Hardware Details:** GPU Passthrough for hardware transcoding.
    * **Storage:** Mounts the "Plex" share from the TrueNAS VM.
 
+4. **Tailscale LXC (Manual Setup)**
+   * **Purpose:** Provides secure remote access to the local network.
+   * **Note:** This container and Tailscale were both installed manually and are not currently managed by Pulumi.
+
 ## Repository Structure
 
 * `ansible/`: Contains playbooks, inventory, and roles for configuring the Proxmox host (e.g., enabling IOMMU, configuring GPU/HBA passthrough).

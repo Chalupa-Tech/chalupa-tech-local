@@ -9,9 +9,27 @@ on:
       - main
 
 jobs:
+  lint:
+    name: Lint Pulumi (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.6'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: pulumi/
+          install-mode: goinstall
+
   preview:
     name: Pulumi Preview
     runs-on: ubuntu-latest
+    needs: lint
     permissions:
       pull-requests: write
     if: github.event_name == 'pull_request'
@@ -45,6 +63,7 @@ jobs:
   up:
     name: Pulumi Up
     runs-on: ubuntu-latest
+    needs: lint
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
