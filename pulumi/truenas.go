@@ -51,6 +51,8 @@ func createTrueNASVM(ctx *pulumi.Context) error {
 			Enabled: pulumi.Bool(true),
 			FileId:  pulumi.String("local:iso/TrueNAS-SCALE-25.10-RC.1.iso"),
 		},
+		Started: pulumi.Bool(true),
+		OnBoot:  pulumi.Bool(true),
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
@@ -60,6 +62,6 @@ func createTrueNASVM(ctx *pulumi.Context) error {
 		Vga: &vm.VirtualMachineVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
-	})
+	}, pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 	return err
 }
