@@ -1,0 +1,7 @@
+# Go cache directories created during build/get
+pulumi/.go/
+pulumi/.go_cache/
+pulumi/.go_mod_cache/
+
+# Local Pulumi state/cache
+.pulumi/

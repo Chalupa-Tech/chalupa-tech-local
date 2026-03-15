@@ -15,6 +15,11 @@ func main() {
 			return err
 		}
 
+		// Create Talos Cluster
+		if err := setupTalosCluster(ctx); err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
