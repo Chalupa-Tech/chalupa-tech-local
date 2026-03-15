@@ -5,6 +5,7 @@ go 1.25.6
 require (
 	github.com/muhlba91/pulumi-proxmoxve/sdk/v6 v6.18.1
 	github.com/pulumi/pulumi/sdk/v3 v3.225.1
+	github.com/pulumiverse/pulumi-talos/sdk v0.7.1
 )
 
 require (
