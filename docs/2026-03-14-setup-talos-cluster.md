@@ -20,4 +20,4 @@ To provide a container orchestration layer for internal services and application
 - Pulumi stack exports `talosconfig` for easy access.
 
 ## Pull Request
-[PR #X] - (To be updated after PR creation)
+[PR #11](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/11)
