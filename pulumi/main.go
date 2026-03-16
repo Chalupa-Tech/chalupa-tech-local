@@ -9,6 +9,12 @@ import (
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
+		// Use "root" as default SSH username if not provided, matching ansible inventory
+		sshUsername := os.Getenv("PROXMOX_VE_SSH_USERNAME")
+		if sshUsername == "" {
+			sshUsername = "root"
+		}
+
 		// Create a Proxmox provider with SSH agent support
 		// This matches the SSH method used by Ansible
 		pveProvider, err := proxmoxve.NewProvider(ctx, "proxmox-provider", &proxmoxve.ProviderArgs{
@@ -17,7 +23,7 @@ func main() {
 			Insecure: pulumi.Bool(true),
 			Ssh: &proxmoxve.ProviderSshArgs{
 				Agent:    pulumi.Bool(true),
-				Username: pulumi.String(os.Getenv("PROXMOX_VE_SSH_USERNAME")),
+				Username: pulumi.String(sshUsername),
 			},
 		})
 		if err != nil {
