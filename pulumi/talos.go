@@ -67,7 +67,7 @@ machine:
 		Bios:        pulumi.String("ovmf"),
 		Machine:     pulumi.String("q35"),
 		Cpu: &vm.VirtualMachineCpuArgs{
-			Cores: pulumi.Int(4),
+			Cores: pulumi.Int(6),
 			Type:  pulumi.String("host"),
 		},
 		Memory: &vm.VirtualMachineMemoryArgs{
@@ -82,7 +82,7 @@ machine:
 			&vm.VirtualMachineDiskArgs{
 				DatastoreId: pulumi.String("local-lvm"),
 				Interface:   pulumi.String("scsi0"),
-				Size:        pulumi.Int(40),
+				Size:        pulumi.Int(120),
 				FileFormat:  pulumi.String("raw"),
 			},
 		},
@@ -151,7 +151,7 @@ machine:
 			Bios:        pulumi.String("ovmf"),
 			Machine:     pulumi.String("q35"),
 			Cpu: &vm.VirtualMachineCpuArgs{
-				Cores: pulumi.Int(4),
+				Cores: pulumi.Int(6),
 				Type:  pulumi.String("host"),
 			},
 			Memory: &vm.VirtualMachineMemoryArgs{
@@ -166,7 +166,7 @@ machine:
 				&vm.VirtualMachineDiskArgs{
 					DatastoreId: pulumi.String("local-lvm"),
 					Interface:   pulumi.String("scsi0"),
-					Size:        pulumi.Int(40),
+					Size:        pulumi.Int(120),
 					FileFormat:  pulumi.String("raw"),
 				},
 			},
