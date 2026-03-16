@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/storage"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/vm"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/client"
@@ -10,7 +11,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func setupTalosCluster(ctx *pulumi.Context) error {
+func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	clusterName := "proxmox-cluster"
 	controlPlaneIP := "192.168.1.41"
 	worker1IP := "192.168.1.42"
@@ -46,7 +47,7 @@ func setupTalosCluster(ctx *pulumi.Context) error {
 			Data:     cpConfig.MachineConfiguration(),
 			FileName: pulumi.String("talos-cp-config.yaml"),
 		},
-	})
+	}, pulumi.Provider(pveProvider))
 	if err != nil {
 		return err
 	}
@@ -59,7 +60,7 @@ func setupTalosCluster(ctx *pulumi.Context) error {
 			Data:     workerConfig.MachineConfiguration(),
 			FileName: pulumi.String("talos-worker-config.yaml"),
 		},
-	})
+	}, pulumi.Provider(pveProvider))
 	if err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func setupTalosCluster(ctx *pulumi.Context) error {
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
-	}, pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 	if err != nil {
 		return err
 	}
@@ -151,7 +152,7 @@ func setupTalosCluster(ctx *pulumi.Context) error {
 			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 				Type: pulumi.String("l26"),
 			},
-		}, pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 		if err != nil {
 			return err
 		}

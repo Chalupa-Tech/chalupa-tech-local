@@ -1,11 +1,12 @@
 package main
 
 import (
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/vm"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func createTrueNASVM(ctx *pulumi.Context) error {
+func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	_, err := vm.NewVirtualMachine(ctx, "truenas-scale", &vm.VirtualMachineArgs{
 		NodeName:    pulumi.String("proxmox"),
 		Name:        pulumi.String("truenas-scale"),
@@ -62,6 +63,6 @@ func createTrueNASVM(ctx *pulumi.Context) error {
 		Vga: &vm.VirtualMachineVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
-	}, pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 	return err
 }
