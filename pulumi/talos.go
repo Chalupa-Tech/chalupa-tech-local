@@ -6,9 +6,9 @@ import (
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/storage"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/vm"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/client"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/machine"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
@@ -94,7 +94,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 		},
 		Cdrom: &vm.VirtualMachineCdromArgs{
 			Enabled: pulumi.Bool(true),
-			FileId:  pulumi.String("local:iso/talos-nocloud-amd64.iso"),
+			FileId:  pulumi.String("local:iso/talos-metal-amd64.iso"),
 		},
 		Initialization: &vm.VirtualMachineInitializationArgs{
 			DatastoreId:    pulumi.String("local-lvm"),
@@ -141,7 +141,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 			},
 			Cdrom: &vm.VirtualMachineCdromArgs{
 				Enabled: pulumi.Bool(true),
-				FileId:  pulumi.String("local:iso/talos-nocloud-amd64.iso"),
+				FileId:  pulumi.String("local:iso/talos-metal-amd64.iso"),
 			},
 			Initialization: &vm.VirtualMachineInitializationArgs{
 				DatastoreId:    pulumi.String("local-lvm"),
