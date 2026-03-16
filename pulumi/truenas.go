@@ -19,7 +19,7 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 			Type:  pulumi.String("host"),
 		},
 		Memory: &vm.VirtualMachineMemoryArgs{
-			Dedicated: pulumi.Int(16000),
+			Dedicated: pulumi.Int(32768),
 		},
 		NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
 			&vm.VirtualMachineNetworkDeviceArgs{
