@@ -4,6 +4,14 @@
     update_cache: true
     upgrade: dist
 
+- name: Ensure snippets directory exists on local storage
+  ansible.builtin.file:
+    path: /var/lib/vz/snippets
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
 - name: Check if GRUB is used
   ansible.builtin.stat:
     path: /etc/default/grub
