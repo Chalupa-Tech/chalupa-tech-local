@@ -73,11 +73,11 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 		Bios:        pulumi.String("ovmf"),
 		Machine:     pulumi.String("q35"),
 		Cpu: &vm.VirtualMachineCpuArgs{
-			Cores: pulumi.Int(2),
+			Cores: pulumi.Int(4),
 			Type:  pulumi.String("host"),
 		},
 		Memory: &vm.VirtualMachineMemoryArgs{
-			Dedicated: pulumi.Int(4096),
+			Dedicated: pulumi.Int(16384),
 		},
 		NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
 			&vm.VirtualMachineNetworkDeviceArgs{
@@ -120,11 +120,11 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 			Bios:        pulumi.String("ovmf"),
 			Machine:     pulumi.String("q35"),
 			Cpu: &vm.VirtualMachineCpuArgs{
-				Cores: pulumi.Int(2),
+				Cores: pulumi.Int(4),
 				Type:  pulumi.String("host"),
 			},
 			Memory: &vm.VirtualMachineMemoryArgs{
-				Dedicated: pulumi.Int(4096),
+				Dedicated: pulumi.Int(16384),
 			},
 			NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
 				&vm.VirtualMachineNetworkDeviceArgs{
