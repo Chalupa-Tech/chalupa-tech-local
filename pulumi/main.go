@@ -1,26 +1,41 @@
 package main
 
 import (
+	"os"
+
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		// Example base configuration
-		// Real configurations for TrueNAS, Talos, and Ubuntu Plex will be defined here.
+		// Create a Proxmox provider with SSH agent support
+		// This matches the SSH method used by Ansible
+		pveProvider, err := proxmoxve.NewProvider(ctx, "proxmox-provider", &proxmoxve.ProviderArgs{
+			Endpoint: pulumi.String(os.Getenv("PROXMOX_VE_ENDPOINT")),
+			ApiToken: pulumi.String(os.Getenv("PROXMOX_VE_API_TOKEN")),
+			Insecure: pulumi.Bool(true),
+			Ssh: &proxmoxve.ProviderSshArgs{
+				Agent:    pulumi.Bool(true),
+				Username: pulumi.String(os.Getenv("PROXMOX_VE_SSH_USERNAME")),
+			},
+		})
+		if err != nil {
+			return err
+		}
+
 		ctx.Export("message", pulumi.String("Pulumi setup initialized with Go."))
-		
+
 		// Create TrueNAS VM
-		if err := createTrueNASVM(ctx); err != nil {
+		if err := createTrueNASVM(ctx, pveProvider); err != nil {
 			return err
 		}
 
 		// Create Talos Cluster
-		if err := setupTalosCluster(ctx); err != nil {
+		if err := setupTalosCluster(ctx, pveProvider); err != nil {
 			return err
 		}
 
 		return nil
 	})
 }
-
