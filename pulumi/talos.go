@@ -16,6 +16,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 	controlPlaneIP := "192.168.1.41"
 	worker1IP := "192.168.1.42"
 	worker2IP := "192.168.1.43"
+	gateway := "192.168.1.1"
 
 	// 1. Generate Talos Secrets
 	secrets, err := machine.NewSecrets(ctx, "talos-secrets", nil)
@@ -23,22 +24,28 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 		return err
 	}
 
-	// 2. Generate Machine Configurations
+	// 2. Generate Control Plane Machine Configuration
 	cpConfig := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
 		ClusterName:     pulumi.String(clusterName),
 		MachineType:     pulumi.String("controlplane"),
 		ClusterEndpoint: pulumi.String(fmt.Sprintf("https://%s:6443", controlPlaneIP)),
 		MachineSecrets:  secrets.MachineSecrets,
+		ConfigPatches: pulumi.StringArray{
+			pulumi.String(fmt.Sprintf(`
+machine:
+  network:
+    interfaces:
+      - interface: eth0
+        addresses:
+          - %s/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: %s
+`, controlPlaneIP, gateway)),
+		},
 	})
 
-	workerConfig := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
-		ClusterName:     pulumi.String(clusterName),
-		MachineType:     pulumi.String("worker"),
-		ClusterEndpoint: pulumi.String(fmt.Sprintf("https://%s:6443", controlPlaneIP)),
-		MachineSecrets:  secrets.MachineSecrets,
-	})
-
-	// 3. Upload Talos configs as snippets
+	// 3. Upload Control Plane config as snippet
 	cpSnippet, err := storage.NewFile(ctx, "talos-cp-config", &storage.FileArgs{
 		NodeName:    pulumi.String("proxmox"),
 		DatastoreId: pulumi.String("local"),
@@ -46,19 +53,6 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 		SourceRaw: &storage.FileSourceRawArgs{
 			Data:     cpConfig.MachineConfiguration(),
 			FileName: pulumi.String("talos-cp-config.yaml"),
-		},
-	}, pulumi.Provider(pveProvider))
-	if err != nil {
-		return err
-	}
-
-	workerSnippet, err := storage.NewFile(ctx, "talos-worker-config", &storage.FileArgs{
-		NodeName:    pulumi.String("proxmox"),
-		DatastoreId: pulumi.String("local"),
-		ContentType: pulumi.String("snippets"),
-		SourceRaw: &storage.FileSourceRawArgs{
-			Data:     workerConfig.MachineConfiguration(),
-			FileName: pulumi.String("talos-worker-config.yaml"),
 		},
 	}, pulumi.Provider(pveProvider))
 	if err != nil {
@@ -73,7 +67,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 		Bios:        pulumi.String("ovmf"),
 		Machine:     pulumi.String("q35"),
 		Cpu: &vm.VirtualMachineCpuArgs{
-			Cores: pulumi.Int(4),
+			Cores: pulumi.Int(6),
 			Type:  pulumi.String("host"),
 		},
 		Memory: &vm.VirtualMachineMemoryArgs{
@@ -88,7 +82,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 			&vm.VirtualMachineDiskArgs{
 				DatastoreId: pulumi.String("local-lvm"),
 				Interface:   pulumi.String("scsi0"),
-				Size:        pulumi.Int(40),
+				Size:        pulumi.Int(120),
 				FileFormat:  pulumi.String("raw"),
 			},
 		},
@@ -112,15 +106,52 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 
 	// 5. Provision Worker VMs
 	workerIPs := []string{worker1IP, worker2IP}
-	for i := range workerIPs {
-		_, err := vm.NewVirtualMachine(ctx, fmt.Sprintf("talos-worker-%d", i+1), &vm.VirtualMachineArgs{
+	for i, ip := range workerIPs {
+		nodeIdx := i + 1
+
+		// Generate Worker Machine Configuration with Static IP
+		workerConfig := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
+			ClusterName:     pulumi.String(clusterName),
+			MachineType:     pulumi.String("worker"),
+			ClusterEndpoint: pulumi.String(fmt.Sprintf("https://%s:6443", controlPlaneIP)),
+			MachineSecrets:  secrets.MachineSecrets,
+			ConfigPatches: pulumi.StringArray{
+				pulumi.String(fmt.Sprintf(`
+machine:
+  network:
+    interfaces:
+      - interface: eth0
+        addresses:
+          - %s/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: %s
+`, ip, gateway)),
+			},
+		})
+
+		// Upload Worker config as snippet
+		workerSnippet, err := storage.NewFile(ctx, fmt.Sprintf("talos-worker-config-%d", nodeIdx), &storage.FileArgs{
 			NodeName:    pulumi.String("proxmox"),
-			Name:        pulumi.String(fmt.Sprintf("talos-worker-%02d", i+1)),
-			Description: pulumi.String(fmt.Sprintf("Talos Worker %d", i+1)),
+			DatastoreId: pulumi.String("local"),
+			ContentType: pulumi.String("snippets"),
+			SourceRaw: &storage.FileSourceRawArgs{
+				Data:     workerConfig.MachineConfiguration(),
+				FileName: pulumi.String(fmt.Sprintf("talos-worker-config-%d.yaml", nodeIdx)),
+			},
+		}, pulumi.Provider(pveProvider))
+		if err != nil {
+			return err
+		}
+
+		_, err = vm.NewVirtualMachine(ctx, fmt.Sprintf("talos-worker-%d", nodeIdx), &vm.VirtualMachineArgs{
+			NodeName:    pulumi.String("proxmox"),
+			Name:        pulumi.String(fmt.Sprintf("talos-worker-%02d", nodeIdx)),
+			Description: pulumi.String(fmt.Sprintf("Talos Worker %d", nodeIdx)),
 			Bios:        pulumi.String("ovmf"),
 			Machine:     pulumi.String("q35"),
 			Cpu: &vm.VirtualMachineCpuArgs{
-				Cores: pulumi.Int(4),
+				Cores: pulumi.Int(6),
 				Type:  pulumi.String("host"),
 			},
 			Memory: &vm.VirtualMachineMemoryArgs{
@@ -135,7 +166,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 				&vm.VirtualMachineDiskArgs{
 					DatastoreId: pulumi.String("local-lvm"),
 					Interface:   pulumi.String("scsi0"),
-					Size:        pulumi.Int(40),
+					Size:        pulumi.Int(120),
 					FileFormat:  pulumi.String("raw"),
 				},
 			},
