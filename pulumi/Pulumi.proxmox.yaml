@@ -1,3 +1,4 @@
-# Stack configuration
+environment:
+  - chalupa-infra/proxmox
 config:
   proxmoxve:insecure: true
