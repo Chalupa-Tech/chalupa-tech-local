@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/storage"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/vm"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/client"
@@ -41,23 +40,15 @@ machine:
         routes:
           - network: 0.0.0.0/0
             gateway: %s
+    nameservers:
+      - 1.1.1.1
+      - 8.8.8.8
 `, controlPlaneIP, gateway)),
 		},
 	})
 
-	// 3. Upload Control Plane config as snippet
-	cpSnippet, err := storage.NewFile(ctx, "talos-cp-config", &storage.FileArgs{
-		NodeName:    pulumi.String("proxmox"),
-		DatastoreId: pulumi.String("local"),
-		ContentType: pulumi.String("snippets"),
-		SourceRaw: &storage.FileSourceRawArgs{
-			Data:     cpConfig.MachineConfiguration(),
-			FileName: pulumi.String("talos-cp-config.yaml"),
-		},
-	}, pulumi.Provider(pveProvider))
-	if err != nil {
-		return err
-	}
+	// 3. Export the control plane machine configuration for use with talosctl
+	ctx.Export("talos-cp-config", cpConfig.MachineConfiguration())
 
 	// 4. Provision Control Plane VM
 	cpVM, err := vm.NewVirtualMachine(ctx, "talos-cp", &vm.VirtualMachineArgs{
@@ -89,20 +80,7 @@ machine:
 		Cdrom: &vm.VirtualMachineCdromArgs{
 			FileId: pulumi.String("local:iso/talos-metal-amd64.iso"),
 		},
-		Initialization: &vm.VirtualMachineInitializationArgs{
-			DatastoreId:    pulumi.String("local-lvm"),
-			UserDataFileId: cpSnippet.ID(),
-			Interface:      pulumi.String("ide0"),
-			Type:           pulumi.String("nocloud"),
-			IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
-				&vm.VirtualMachineInitializationIpConfigArgs{
-					Ipv4: &vm.VirtualMachineInitializationIpConfigIpv4Args{
-						Address: pulumi.String(fmt.Sprintf("%s/24", controlPlaneIP)),
-						Gateway: pulumi.String(gateway),
-					},
-				},
-			},
-		},
+
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
@@ -135,23 +113,15 @@ machine:
         routes:
           - network: 0.0.0.0/0
             gateway: %s
+    nameservers:
+      - 1.1.1.1
+      - 8.8.8.8
 `, ip, gateway)),
 			},
 		})
 
-		// Upload Worker config as snippet
-		workerSnippet, err := storage.NewFile(ctx, fmt.Sprintf("talos-worker-config-%d", nodeIdx), &storage.FileArgs{
-			NodeName:    pulumi.String("proxmox"),
-			DatastoreId: pulumi.String("local"),
-			ContentType: pulumi.String("snippets"),
-			SourceRaw: &storage.FileSourceRawArgs{
-				Data:     workerConfig.MachineConfiguration(),
-				FileName: pulumi.String(fmt.Sprintf("talos-worker-config-%d.yaml", nodeIdx)),
-			},
-		}, pulumi.Provider(pveProvider))
-		if err != nil {
-			return err
-		}
+		// Export the worker machine configuration for use with talosctl
+		ctx.Export(fmt.Sprintf("talos-worker-config-%d", nodeIdx), workerConfig.MachineConfiguration())
 
 		_, err = vm.NewVirtualMachine(ctx, fmt.Sprintf("talos-worker-%d", nodeIdx), &vm.VirtualMachineArgs{
 			NodeName:    pulumi.String("proxmox"),
@@ -182,20 +152,7 @@ machine:
 			Cdrom: &vm.VirtualMachineCdromArgs{
 				FileId: pulumi.String("local:iso/talos-metal-amd64.iso"),
 			},
-			Initialization: &vm.VirtualMachineInitializationArgs{
-				DatastoreId:    pulumi.String("local-lvm"),
-				UserDataFileId: workerSnippet.ID(),
-				Interface:      pulumi.String("ide0"),
-				Type:           pulumi.String("nocloud"),
-				IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
-					&vm.VirtualMachineInitializationIpConfigArgs{
-						Ipv4: &vm.VirtualMachineInitializationIpConfigIpv4Args{
-							Address: pulumi.String(fmt.Sprintf("%s/24", ip)),
-							Gateway: pulumi.String(gateway),
-						},
-					},
-				},
-			},
+
 			Started: pulumi.Bool(true),
 			OnBoot:  pulumi.Bool(true),
 			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
