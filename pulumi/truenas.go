@@ -47,10 +47,6 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 				Size:        pulumi.Int(32),
 				FileFormat:  pulumi.String("raw"),
 			},
-			&vm.VirtualMachineDiskArgs{
-				FileId:    pulumi.String("none"),
-				Interface: pulumi.String("ide2"),
-			},
 		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
