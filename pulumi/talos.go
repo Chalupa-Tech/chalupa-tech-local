@@ -85,10 +85,9 @@ machine:
 				Size:        pulumi.Int(120),
 				FileFormat:  pulumi.String("raw"),
 			},
-			&vm.VirtualMachineDiskArgs{
-				FileId:    pulumi.String("local:iso/talos-metal-amd64.iso"),
-				Interface: pulumi.String("ide2"),
-			},
+		},
+		Cdrom: &vm.VirtualMachineCdromArgs{
+			FileId: pulumi.String("local:iso/talos-metal-amd64.iso"),
 		},
 		Initialization: &vm.VirtualMachineInitializationArgs{
 			DatastoreId:    pulumi.String("local-lvm"),
@@ -109,7 +108,7 @@ machine:
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 	if err != nil {
 		return err
 	}
@@ -179,10 +178,9 @@ machine:
 					Size:        pulumi.Int(120),
 					FileFormat:  pulumi.String("raw"),
 				},
-				&vm.VirtualMachineDiskArgs{
-					FileId:    pulumi.String("local:iso/talos-metal-amd64.iso"),
-					Interface: pulumi.String("ide2"),
-				},
+			},
+			Cdrom: &vm.VirtualMachineCdromArgs{
+				FileId: pulumi.String("local:iso/talos-metal-amd64.iso"),
 			},
 			Initialization: &vm.VirtualMachineInitializationArgs{
 				DatastoreId:    pulumi.String("local-lvm"),
@@ -203,7 +201,7 @@ machine:
 			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 				Type: pulumi.String("l26"),
 			},
-		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
+		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 		if err != nil {
 			return err
 		}
