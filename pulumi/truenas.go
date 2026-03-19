@@ -63,6 +63,6 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 		Vga: &vm.VirtualMachineVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}), pulumi.Protect(true))
 	return err
-}
+	}
