@@ -47,10 +47,10 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 				Size:        pulumi.Int(32),
 				FileFormat:  pulumi.String("raw"),
 			},
-		},
-		Cdrom: &vm.VirtualMachineCdromArgs{
-			Enabled: pulumi.Bool(true),
-			FileId:  pulumi.String("local:iso/TrueNAS-SCALE-25.10-RC.1.iso"),
+			&vm.VirtualMachineDiskArgs{
+				FileId:    pulumi.String("local:iso/TrueNAS-SCALE-25.10-RC.1.iso"),
+				Interface: pulumi.String("ide2"),
+			},
 		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
@@ -63,6 +63,6 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 		Vga: &vm.VirtualMachineVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}), pulumi.Protect(true))
 	return err
-}
+	}
