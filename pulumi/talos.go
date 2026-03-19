@@ -35,7 +35,7 @@ func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) err
 machine:
   network:
     interfaces:
-      - interface: eth0
+      - interface: enp0s18
         addresses:
           - %s/24
         routes:
@@ -85,21 +85,31 @@ machine:
 				Size:        pulumi.Int(120),
 				FileFormat:  pulumi.String("raw"),
 			},
-		},
-		Cdrom: &vm.VirtualMachineCdromArgs{
-			Enabled: pulumi.Bool(true),
-			FileId:  pulumi.String("local:iso/talos-metal-amd64.iso"),
+			&vm.VirtualMachineDiskArgs{
+				FileId:    pulumi.String("local:iso/talos-metal-amd64.iso"),
+				Interface: pulumi.String("ide2"),
+			},
 		},
 		Initialization: &vm.VirtualMachineInitializationArgs{
 			DatastoreId:    pulumi.String("local-lvm"),
 			UserDataFileId: cpSnippet.ID(),
+			Interface:      pulumi.String("ide0"),
+			Type:           pulumi.String("nocloud"),
+			IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
+				&vm.VirtualMachineInitializationIpConfigArgs{
+					Ipv4: &vm.VirtualMachineInitializationIpConfigIpv4Args{
+						Address: pulumi.String(fmt.Sprintf("%s/24", controlPlaneIP)),
+						Gateway: pulumi.String(gateway),
+					},
+				},
+			},
 		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
 	if err != nil {
 		return err
 	}
@@ -120,7 +130,7 @@ machine:
 machine:
   network:
     interfaces:
-      - interface: eth0
+      - interface: enp0s18
         addresses:
           - %s/24
         routes:
@@ -169,21 +179,31 @@ machine:
 					Size:        pulumi.Int(120),
 					FileFormat:  pulumi.String("raw"),
 				},
-			},
-			Cdrom: &vm.VirtualMachineCdromArgs{
-				Enabled: pulumi.Bool(true),
-				FileId:  pulumi.String("local:iso/talos-metal-amd64.iso"),
+				&vm.VirtualMachineDiskArgs{
+					FileId:    pulumi.String("local:iso/talos-metal-amd64.iso"),
+					Interface: pulumi.String("ide2"),
+				},
 			},
 			Initialization: &vm.VirtualMachineInitializationArgs{
 				DatastoreId:    pulumi.String("local-lvm"),
 				UserDataFileId: workerSnippet.ID(),
+				Interface:      pulumi.String("ide0"),
+				Type:           pulumi.String("nocloud"),
+				IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
+					&vm.VirtualMachineInitializationIpConfigArgs{
+						Ipv4: &vm.VirtualMachineInitializationIpConfigIpv4Args{
+							Address: pulumi.String(fmt.Sprintf("%s/24", ip)),
+							Gateway: pulumi.String(gateway),
+						},
+					},
+				},
 			},
 			Started: pulumi.Bool(true),
 			OnBoot:  pulumi.Bool(true),
 			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
 				Type: pulumi.String("l26"),
 			},
-		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
 		if err != nil {
 			return err
 		}
