@@ -14,12 +14,11 @@ Fixed an issue where Talos nodes were not picking up static IP configurations fr
     - Updated `ConfigPatches` to use `enp0s18` as the network interface name.
     - Removed `cdrom` block from `IgnoreChanges`.
 - **Pulumi (`truenas.go`)**:
-    - Moved TrueNAS ISO to the `disks` array with `interface: ide2`.
-    - Removed `cdrom` block and updated `IgnoreChanges`.
+    - Reverted changes to TrueNAS VM to prevent its destruction/replacement. The deprecation warning will persist for this VM to maintain stability.
 
 ## Verification
-- CI Validation: Monitor the next `Pulumi Up` run on `main`. The VMs should boot with correct static IPs and the bootstrap process should succeed.
-- Logs: Check for the absence of `verification warning: Remove this attribute's configuration as it is no longer used`.
+- CI Validation: Monitor the `Pulumi Preview` run for this PR. TrueNAS should now show as `unchanged` or `no changes`.
+- Logs: Check for the absence of `verification warning` for Talos VMs, but expect it to remain for TrueNAS.
 
 ## Pull Request
 [Pending]
