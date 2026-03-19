@@ -49,8 +49,7 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 			},
 		},
 		Cdrom: &vm.VirtualMachineCdromArgs{
-			Enabled: pulumi.Bool(true),
-			FileId:  pulumi.String("none"),
+			FileId: pulumi.String("none"),
 		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
