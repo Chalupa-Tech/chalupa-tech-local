@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/vm"
@@ -9,23 +10,6 @@ import (
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/client"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/machine"
 )
-
-// extractVMIP extracts the first non-loopback IPv4 address from a Proxmox VM's
-// QEMU guest agent output. The Ipv4Addresses output is a [][]string where each
-// outer element is a network interface and each inner element is an IP on that
-// interface. We skip 127.0.0.1 (loopback) and return the first real IP found.
-func extractVMIP(vmResource *vm.VirtualMachine) pulumi.StringOutput {
-	return vmResource.Ipv4Addresses.ApplyT(func(addrs [][]string) string {
-		for _, iface := range addrs {
-			for _, ip := range iface {
-				if ip != "127.0.0.1" && ip != "" {
-					return ip
-				}
-			}
-		}
-		return ""
-	}).(pulumi.StringOutput)
-}
 
 func setupTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	clusterName := "proxmox-cluster"
@@ -100,7 +84,32 @@ machine:
 		Agent: &vm.VirtualMachineAgentArgs{
 			Enabled: pulumi.Bool(true),
 		},
-
+		Initialization: &vm.VirtualMachineInitializationArgs{
+			Type: pulumi.String("nocloud"),
+			IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
+				&vm.VirtualMachineInitializationIpConfigArgs{
+					Ipv4: &vm.VirtualMachineInitializationIpConfigIpv4Args{
+						Address: pulumi.String(fmt.Sprintf("%s/24", controlPlaneIP)),
+						Gateway: pulumi.String(gateway),
+					},
+				},
+			},
+			Dns: &vm.VirtualMachineInitializationDnsArgs{
+				Servers: pulumi.StringArray{
+					pulumi.String("1.1.1.1"),
+					pulumi.String("8.8.8.8"),
+				},
+			},
+			// Passing the talos machine config directly as raw user-data content.
+			// Proxmox will map this to the cloud-init user-data drive which Talos nocloud reads on boot.
+			UserAccount: &vm.VirtualMachineInitializationUserAccountArgs{
+				Keys: pulumi.StringArray{
+					// We must provide Keys or Password if using UserAccount,
+					// but since Talos ignores SSH keys, we provide a dummy key just to satisfy Proxmox
+					pulumi.String(strings.TrimSpace("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC2/t/G dummy")),
+				},
+			},
+		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
 		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
@@ -112,16 +121,12 @@ machine:
 	}
 
 	// 5. Apply the Talos machine config to the Control Plane VM.
-	//    The VM boots from the nocloud ISO into maintenance mode with a DHCP IP.
-	//    We extract the DHCP IP from the QEMU guest agent output, then apply
-	//    the machine config (which includes the static IP) to initiate setup.
-	cpDHCPIP := extractVMIP(cpVM)
-
+	// Now the VM initializes with its static IP directly, so we can connect to it securely.
 	cpApply, err := machine.NewConfigurationApply(ctx, "talos-cp-apply", &machine.ConfigurationApplyArgs{
 		ClientConfiguration:       secrets.ClientConfiguration,
 		MachineConfigurationInput: cpConfig.MachineConfiguration(),
-		Node:                      cpDHCPIP,
-		Endpoint:                  cpDHCPIP,
+		Node:                      pulumi.String(controlPlaneIP),
+		Endpoint:                  pulumi.String(controlPlaneIP),
 		ApplyMode:                 pulumi.String("reboot"),
 		Timeouts: &machine.TimeoutArgs{
 			Create: pulumi.String("15m"),
@@ -196,6 +201,28 @@ machine:
 			Agent: &vm.VirtualMachineAgentArgs{
 				Enabled: pulumi.Bool(true),
 			},
+			Initialization: &vm.VirtualMachineInitializationArgs{
+				Type: pulumi.String("nocloud"),
+				IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
+					&vm.VirtualMachineInitializationIpConfigArgs{
+						Ipv4: &vm.VirtualMachineInitializationIpConfigIpv4Args{
+							Address: pulumi.String(fmt.Sprintf("%s/24", ip)),
+							Gateway: pulumi.String(gateway),
+						},
+					},
+				},
+				Dns: &vm.VirtualMachineInitializationDnsArgs{
+					Servers: pulumi.StringArray{
+						pulumi.String("1.1.1.1"),
+						pulumi.String("8.8.8.8"),
+					},
+				},
+				UserAccount: &vm.VirtualMachineInitializationUserAccountArgs{
+					Keys: pulumi.StringArray{
+						pulumi.String(strings.TrimSpace("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC2/t/G dummy")),
+					},
+				},
+			},
 			Started: pulumi.Bool(true),
 			OnBoot:  pulumi.Bool(true),
 			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
@@ -206,14 +233,12 @@ machine:
 			return err
 		}
 
-		// Apply the Talos machine config to the worker VM via its DHCP IP
-		workerDHCPIP := extractVMIP(workerVM)
-
+		// Apply the Talos machine config to the worker VM via its now-configured static IP
 		workerApply, err := machine.NewConfigurationApply(ctx, fmt.Sprintf("talos-worker-%d-apply", nodeIdx), &machine.ConfigurationApplyArgs{
 			ClientConfiguration:       secrets.ClientConfiguration,
 			MachineConfigurationInput: workerConfig.MachineConfiguration(),
-			Node:                      workerDHCPIP,
-			Endpoint:                  workerDHCPIP,
+			Node:                      pulumi.String(ip),
+			Endpoint:                  pulumi.String(ip),
 			ApplyMode:                 pulumi.String("reboot"),
 			Timeouts: &machine.TimeoutArgs{
 				Create: pulumi.String("15m"),
@@ -226,8 +251,6 @@ machine:
 	}
 
 	// 7. Bootstrap the Cluster — depends on CP config being applied
-	//    After ConfigurationApply, the CP VM reboots with its static IP,
-	//    so we target the static IP for bootstrap.
 	_, err = machine.NewBootstrap(ctx, "talos-bootstrap", &machine.BootstrapArgs{
 		Node:                pulumi.String(controlPlaneIP),
 		Endpoint:            pulumi.String(controlPlaneIP),
