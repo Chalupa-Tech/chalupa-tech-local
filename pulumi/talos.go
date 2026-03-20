@@ -122,6 +122,7 @@ machine:
 		MachineConfigurationInput: cpConfig.MachineConfiguration(),
 		Node:                      cpDHCPIP,
 		Endpoint:                  cpDHCPIP,
+		ApplyMode:                 pulumi.String("reboot"),
 		Timeouts: &machine.TimeoutArgs{
 			Create: pulumi.String("15m"),
 		},
@@ -213,6 +214,7 @@ machine:
 			MachineConfigurationInput: workerConfig.MachineConfiguration(),
 			Node:                      workerDHCPIP,
 			Endpoint:                  workerDHCPIP,
+			ApplyMode:                 pulumi.String("reboot"),
 			Timeouts: &machine.TimeoutArgs{
 				Create: pulumi.String("15m"),
 			},
