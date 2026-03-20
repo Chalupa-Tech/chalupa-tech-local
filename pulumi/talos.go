@@ -78,7 +78,10 @@ machine:
 			},
 		},
 		Cdrom: &vm.VirtualMachineCdromArgs{
-			FileId: pulumi.String("local:iso/talos-metal-amd64.iso"),
+			FileId: pulumi.String("local:iso/nocloud-amd64.iso"),
+		},
+		Agent: &vm.VirtualMachineAgentArgs{
+			Enabled: pulumi.Bool(true),
 		},
 
 		Started: pulumi.Bool(true),
@@ -150,9 +153,11 @@ machine:
 				},
 			},
 			Cdrom: &vm.VirtualMachineCdromArgs{
-				FileId: pulumi.String("local:iso/talos-metal-amd64.iso"),
+				FileId: pulumi.String("local:iso/nocloud-amd64.iso"),
 			},
-
+			Agent: &vm.VirtualMachineAgentArgs{
+				Enabled: pulumi.Bool(true),
+			},
 			Started: pulumi.Bool(true),
 			OnBoot:  pulumi.Bool(true),
 			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
