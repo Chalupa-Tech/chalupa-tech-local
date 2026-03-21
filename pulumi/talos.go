@@ -30,9 +30,18 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 	for _, node := range nodes {
 		// 2. Generate configuration with patches for static IP
 		// Note from plan: The patch updates the network interface to use the desired static IP.
-		patch := fmt.Sprintf(`[
-			{"op": "add", "path": "/machine/network", "value": {"interfaces": [{"interface": "eth0", "dhcp": false, "addresses": ["%s/24"], "routes": [{"network": "0.0.0.0/0", "gateway": "192.168.1.1"}]}]}}
-		]`, node.ip)
+		// Using a YAML strategic merge patch since JSON6902 is not supported for multi-document outputs.
+		patch := fmt.Sprintf(`machine:
+  network:
+    interfaces:
+      - interface: eth0
+        dhcp: false
+        addresses:
+          - %s/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.1.1
+`, node.ip)
 
 		configArgs := machine.GetConfigurationOutputArgs{
 			ClusterName:     pulumi.String("talos-cluster"),
