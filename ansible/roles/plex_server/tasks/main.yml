@@ -1,0 +1,137 @@
+---
+# ──────────────────────────────────────────────────────────
+# 1. Wait for cloud-init to finish and SSH to become available
+# ──────────────────────────────────────────────────────────
+- name: Wait for VM to be reachable
+  ansible.builtin.wait_for_connection:
+    delay: 10
+    timeout: 300
+
+# ──────────────────────────────────────────────────────────
+# 2. Gather system facts (needed for ansible_os_family, etc.)
+# ──────────────────────────────────────────────────────────
+- name: Gather facts
+  ansible.builtin.setup:
+
+# ──────────────────────────────────────────────────────────
+# 3. Install and start QEMU Guest Agent
+#    Lets Proxmox see VM IP, issue clean shutdowns, freeze FS for snapshots
+# ──────────────────────────────────────────────────────────
+- name: Install qemu-guest-agent
+  ansible.builtin.dnf:
+    name: qemu-guest-agent
+    state: present
+
+- name: Enable and start qemu-guest-agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+# ──────────────────────────────────────────────────────────
+# 4. Create personal user with sudo access
+# ──────────────────────────────────────────────────────────
+- name: Create user {{ plex_user }}
+  ansible.builtin.user:
+    name: "{{ plex_user }}"
+    groups: wheel
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Add SSH authorized key for {{ plex_user }}
+  ansible.posix.authorized_key:
+    user: "{{ plex_user }}"
+    key: "{{ plex_ssh_key }}"
+    state: present
+
+# Separate sudoers drop-in file so we don't edit the main /etc/sudoers
+- name: Grant passwordless sudo to wheel group
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/wheel-nopasswd
+    line: "%wheel ALL=(ALL) NOPASSWD: ALL"
+    create: true
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+# ──────────────────────────────────────────────────────────
+# 5. Install NFS client utilities
+# ──────────────────────────────────────────────────────────
+- name: Install nfs-utils
+  ansible.builtin.dnf:
+    name: nfs-utils
+    state: present
+
+# ──────────────────────────────────────────────────────────
+# 6. Create NFS mount points and mount shares
+#    Uses x-systemd.automount so the VM won't hang at boot
+#    if TrueNAS is temporarily unreachable.
+# ──────────────────────────────────────────────────────────
+- name: Create Plex media mount points
+  ansible.builtin.file:
+    path: "{{ item.dest }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ plex_nfs_shares }}"
+
+- name: Mount TrueNAS NFS shares
+  ansible.posix.mount:
+    src: "{{ plex_nfs_server }}:{{ item.src }}"
+    path: "{{ item.dest }}"
+    fstype: nfs
+    opts: "defaults,_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s"
+    state: mounted
+  loop: "{{ plex_nfs_shares }}"
+
+# ──────────────────────────────────────────────────────────
+# 7. Add Plex Media Server RPM repository
+# ──────────────────────────────────────────────────────────
+- name: Add Plex RPM repository
+  ansible.builtin.yum_repository:
+    name: plex
+    description: Plex Media Server
+    baseurl: "{{ plex_repo_url }}"
+    enabled: true
+    gpgcheck: true
+    gpgkey: "{{ plex_repo_gpgkey }}"
+
+# ──────────────────────────────────────────────────────────
+# 8. Install Plex Media Server
+# ──────────────────────────────────────────────────────────
+- name: Install plexmediaserver
+  ansible.builtin.dnf:
+    name: plexmediaserver
+    state: present
+  notify: Restart plexmediaserver
+
+# ──────────────────────────────────────────────────────────
+# 9. Ensure plex user can read NFS-mounted media
+#    The plexmediaserver package creates a 'plex' system user.
+#    Adding it to the tbigelow group gives it read access
+#    (assuming NFS files are group-readable).
+# ──────────────────────────────────────────────────────────
+- name: Add plex user to {{ plex_user }} group for media access
+  ansible.builtin.user:
+    name: plex
+    groups: "{{ plex_user }}"
+    append: true
+  notify: Restart plexmediaserver
+
+# ──────────────────────────────────────────────────────────
+# 10. Open firewall port 32400/tcp (Plex Web UI + streaming)
+# ──────────────────────────────────────────────────────────
+- name: Open Plex port in firewalld
+  ansible.posix.firewalld:
+    port: 32400/tcp
+    permanent: true
+    immediate: true
+    state: enabled
+
+# ──────────────────────────────────────────────────────────
+# 11. Enable and start Plex
+# ──────────────────────────────────────────────────────────
+- name: Enable and start plexmediaserver
+  ansible.builtin.systemd:
+    name: plexmediaserver
+    enabled: true
+    state: started

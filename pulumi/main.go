@@ -37,8 +37,8 @@ func main() {
 			return err
 		}
 
-		// Create Talos Kubernetes Cluster
-		if err := createTalosCluster(ctx, pveProvider); err != nil {
+		// Create Plex Media Server VM
+		if err := createPlexVM(ctx, pveProvider); err != nil {
 			return err
 		}
 

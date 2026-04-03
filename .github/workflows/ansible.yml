@@ -1,9 +1,6 @@
 name: Ansible
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -99,45 +96,4 @@ jobs:
               body: output
             })
 
-  deploy:
-    name: Run Ansible Playbook
-    runs-on: ubuntu-latest
-    needs: lint
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Ansible
-        run: pip install ansible
-
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:github-runner
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
-          
-      - name: Ensure Proxmox host resolution
-        run: |
-          echo "192.168.1.223 proxmox" | sudo tee -a /etc/hosts
-          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
-
-      - name: Add Proxmox to known_hosts
-        run: |
-          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
-          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
-          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
-
-      - name: Run Ansible Playbook
-        run: ansible-playbook -i inventory.yml site.yml
-        working-directory: ansible/
