@@ -23,4 +23,4 @@ To automate the full lifecycle of the Plex Media Server, from VM template creati
 through software configuration, using the existing CI/CD pipeline.
 
 ## Related PR
-PR #XX
+PR #28
