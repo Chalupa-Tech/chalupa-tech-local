@@ -61,6 +61,7 @@ jobs:
           ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
 
       - name: Clean up old Pulumi state
+        working-directory: pulumi/
         run: |
           curl -fsSL https://get.pulumi.com | sh
           export PATH=$PATH:$HOME/.pulumi/bin
