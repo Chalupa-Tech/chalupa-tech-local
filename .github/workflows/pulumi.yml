@@ -60,6 +60,19 @@ jobs:
           ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
           ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
 
+      - name: Clean up old Pulumi state
+        run: |
+          curl -fsSL https://get.pulumi.com | sh
+          export PATH=$PATH:$HOME/.pulumi/bin
+          pulumi login
+          pulumi stack select tayvenb13/chalupa-infra/proxmox
+          for urn in $(pulumi stack --show-urns | grep -iE 'plex|talos' | awk '{print $3}'); do
+            echo "Deleting $urn from state..."
+            pulumi state delete "$urn" --force -y || true
+          done
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       - name: Pulumi Preview
         uses: pulumi/actions@v3
         with:

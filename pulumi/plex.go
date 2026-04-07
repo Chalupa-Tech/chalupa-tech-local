@@ -7,7 +7,7 @@ import (
 )
 
 func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
-	_, err := vm.NewVirtualMachine(ctx, "plex", &vm.VirtualMachineArgs{
+	_, err := vm.NewVirtualMachine(ctx, "plex-server", &vm.VirtualMachineArgs{
 		NodeName:    pulumi.String("proxmox"),
 		VmId:        pulumi.Int(200),
 		Name:        pulumi.String("plex"),
