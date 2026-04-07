@@ -31,7 +31,7 @@
 # ──────────────────────────────────────────────────────────
 # 4. Create personal user with sudo access
 # ──────────────────────────────────────────────────────────
-- name: Create user {{ plex_server_user }}
+- name: Create personal user
   ansible.builtin.user:
     name: "{{ plex_server_user }}"
     groups: wheel
@@ -39,8 +39,8 @@
     shell: /bin/bash
     create_home: true
 
-- name: Add SSH authorized key for {{ plex_server_user }}
-  ansible.builtin.authorized_key:
+- name: Add SSH authorized key for personal user
+  ansible.posix.authorized_key:
     user: "{{ plex_server_user }}"
     key: "{{ plex_server_ssh_key }}"
     state: present
@@ -110,7 +110,7 @@
 #    Adding it to the tbigelow group gives it read access
 #    (assuming NFS files are group-readable).
 # ──────────────────────────────────────────────────────────
-- name: Add plex user to {{ plex_server_user }} group for media access
+- name: Add plex user to personal group for media access
   ansible.builtin.user:
     name: plex
     groups: "{{ plex_server_user }}"

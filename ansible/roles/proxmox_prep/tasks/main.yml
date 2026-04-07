@@ -120,4 +120,3 @@
       ansible.builtin.file:
         path: "{{ proxmox_prep_fedora_cloud_image_dest }}"
         state: absent
-
