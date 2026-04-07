@@ -1,7 +1,3 @@
 name: chalupa-infra
 runtime: go
 description: A Pulumi Go project for Proxmox and Talos
-plugins:
-  providers:
-    - name: proxmoxve
-      version: "6.18.1"
