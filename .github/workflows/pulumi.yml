@@ -67,10 +67,21 @@ jobs:
           export PATH=$PATH:$HOME/.pulumi/bin
           pulumi login
           pulumi stack select tayvenb13/chalupa-infra/proxmox
-          for urn in $(pulumi stack export | jq -r '.deployment.resources[].urn' | grep -iE 'plex|talos|8_0_0'); do
-            echo "Deleting $urn from state..."
-            pulumi state delete "$urn" --force -y || true
-          done
+          echo "Exporting state..."
+          pulumi stack export > state.json
+          echo "Filtering state to keep only Stack, proxmox-provider, and truenas..."
+          jq '{
+            "version": .version,
+            "deployment": {
+              "manifest": .deployment.manifest,
+              "secrets_providers": .deployment.secrets_providers,
+              "resources": [
+                .deployment.resources[] | select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider"))
+              ]
+            }
+          }' state.json > clean-state.json
+          echo "Importing cleaned state..."
+          pulumi stack import --file clean-state.json
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
