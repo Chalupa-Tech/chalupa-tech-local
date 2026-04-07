@@ -67,7 +67,7 @@ jobs:
           export PATH=$PATH:$HOME/.pulumi/bin
           pulumi login
           pulumi stack select tayvenb13/chalupa-infra/proxmox
-          for urn in $(pulumi stack --show-urns | grep -iE 'plex|talos' | awk '{print $3}'); do
+          for urn in $(pulumi stack export | jq -r '.deployment.resources[].urn' | grep -iE 'plex|talos|8_0_0'); do
             echo "Deleting $urn from state..."
             pulumi state delete "$urn" --force -y || true
           done
