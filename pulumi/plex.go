@@ -111,7 +111,7 @@ func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 
 		SerialDevices: vm.VirtualMachineSerialDeviceArray{
 			&vm.VirtualMachineSerialDeviceArgs{
-				Device: pulumi.String("serial0"),
+				Device: pulumi.String("socket"),
 			},
 		},
 	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))

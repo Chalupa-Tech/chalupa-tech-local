@@ -31,18 +31,18 @@
 # ──────────────────────────────────────────────────────────
 # 4. Create personal user with sudo access
 # ──────────────────────────────────────────────────────────
-- name: Create user {{ plex_user }}
+- name: Create user {{ plex_server_user }}
   ansible.builtin.user:
-    name: "{{ plex_user }}"
+    name: "{{ plex_server_user }}"
     groups: wheel
     append: true
     shell: /bin/bash
     create_home: true
 
-- name: Add SSH authorized key for {{ plex_user }}
-  ansible.posix.authorized_key:
-    user: "{{ plex_user }}"
-    key: "{{ plex_ssh_key }}"
+- name: Add SSH authorized key for {{ plex_server_user }}
+  ansible.builtin.authorized_key:
+    user: "{{ plex_server_user }}"
+    key: "{{ plex_server_ssh_key }}"
     state: present
 
 # Separate sudoers drop-in file so we don't edit the main /etc/sudoers
@@ -72,16 +72,16 @@
     path: "{{ item.dest }}"
     state: directory
     mode: "0755"
-  loop: "{{ plex_nfs_shares }}"
+  loop: "{{ plex_server_nfs_shares }}"
 
 - name: Mount TrueNAS NFS shares
   ansible.posix.mount:
-    src: "{{ plex_nfs_server }}:{{ item.src }}"
+    src: "{{ plex_server_nfs_server }}:{{ item.src }}"
     path: "{{ item.dest }}"
     fstype: nfs
     opts: "defaults,_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s"
     state: mounted
-  loop: "{{ plex_nfs_shares }}"
+  loop: "{{ plex_server_nfs_shares }}"
 
 # ──────────────────────────────────────────────────────────
 # 7. Add Plex Media Server RPM repository
@@ -90,10 +90,10 @@
   ansible.builtin.yum_repository:
     name: plex
     description: Plex Media Server
-    baseurl: "{{ plex_repo_url }}"
+    baseurl: "{{ plex_server_repo_url }}"
     enabled: true
     gpgcheck: true
-    gpgkey: "{{ plex_repo_gpgkey }}"
+    gpgkey: "{{ plex_server_repo_gpgkey }}"
 
 # ──────────────────────────────────────────────────────────
 # 8. Install Plex Media Server
@@ -110,10 +110,10 @@
 #    Adding it to the tbigelow group gives it read access
 #    (assuming NFS files are group-readable).
 # ──────────────────────────────────────────────────────────
-- name: Add plex user to {{ plex_user }} group for media access
+- name: Add plex user to {{ plex_server_user }} group for media access
   ansible.builtin.user:
     name: plex
-    groups: "{{ plex_user }}"
+    groups: "{{ plex_server_user }}"
     append: true
   notify: Restart plexmediaserver
 

@@ -1,11 +1,11 @@
 ---
-plex_nfs_server: "{{ truenas_vm_ip }}"
-plex_nfs_shares:
+plex_server_nfs_server: "{{ truenas_vm_ip }}"
+plex_server_nfs_shares:
   - src: "/mnt/PlexMedia/Movies"
     dest: "/mnt/plex/movies"
   - src: "/mnt/PlexMedia/TVShows"
     dest: "/mnt/plex/tvshows"
-plex_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"
-plex_user: "tbigelow"
-plex_repo_url: "https://downloads.plex.tv/repo/rpm/x86_64/"
-plex_repo_gpgkey: "https://downloads.plex.tv/plex-keys/PlexSign.v2.key"
+plex_server_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"
+plex_server_user: "tbigelow"
+plex_server_repo_url: "https://downloads.plex.tv/repo/rpm/x86_64/"
+plex_server_repo_gpgkey: "https://downloads.plex.tv/plex-keys/PlexSign.v2.key"
