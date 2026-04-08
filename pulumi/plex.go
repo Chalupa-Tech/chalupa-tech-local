@@ -54,16 +54,6 @@ func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
-		// GPU passthrough via Proxmox Resource Mapping
-		Hostpcis: vm.VirtualMachineHostpciArray{
-			&vm.VirtualMachineHostpciArgs{
-				Device:  pulumi.String("hostpci0"),
-				Mapping: pulumi.String("strix_halo_gpu"),
-				Pcie:    pulumi.Bool(true),
-				Rombar:  pulumi.Bool(true),
-			},
-		},
-
 		// Cloud-init configuration — applied on first boot
 		Initialization: &vm.VirtualMachineInitializationArgs{
 			DatastoreId: pulumi.String("local-lvm"),
@@ -89,10 +79,8 @@ func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
-		// Display: none — required for GPU passthrough, prevents virtual VGA
-		// from conflicting with the passed-through GPU
 		Vga: &vm.VirtualMachineVgaArgs{
-			Type: pulumi.String("none"),
+			Type: pulumi.String("virtio"),
 		},
 
 		Agent: &vm.VirtualMachineAgentArgs{
