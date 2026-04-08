@@ -69,17 +69,21 @@ jobs:
           pulumi stack select tayvenb13/chalupa-infra/proxmox
           echo "Exporting state..."
           pulumi stack export > state.json
-          echo "Filtering state to keep only Stack, proxmox-provider, and truenas..."
+          echo "Filtering resources and pinning proxmoxve plugin to v6.18.1..."
           jq '{
             "version": .version,
             "deployment": {
-              "manifest": .deployment.manifest,
+              "manifest": (.deployment.manifest | .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "6.18.1" else . end]),
               "secrets_providers": .deployment.secrets_providers,
               "resources": [
                 .deployment.resources[] | select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider"))
               ]
             }
           }' state.json > clean-state.json
+          echo "Resources in cleaned state:"
+          jq '.deployment.resources[].urn' clean-state.json
+          echo "Plugins in cleaned state:"
+          jq '.deployment.manifest.plugins' clean-state.json
           echo "Importing cleaned state..."
           pulumi stack import --file clean-state.json
         env:
