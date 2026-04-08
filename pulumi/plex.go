@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve"
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v6/go/proxmoxve/vm"
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve/vm"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
