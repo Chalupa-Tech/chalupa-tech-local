@@ -54,6 +54,13 @@ func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
+		// Disable the default empty CD-ROM at ide3. Without this, the provider
+		// adds a host_cdrom device with no file, causing QEMU to fail with
+		// "The 'host_cdrom' block driver requires a file name".
+		Cdrom: &vm.VirtualMachineCdromArgs{
+			FileId: pulumi.String("none"),
+		},
+
 		// Cloud-init configuration — applied on first boot
 		Initialization: &vm.VirtualMachineInitializationArgs{
 			DatastoreId: pulumi.String("local-lvm"),
