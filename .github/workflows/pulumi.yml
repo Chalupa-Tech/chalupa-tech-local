@@ -73,7 +73,7 @@ jobs:
           jq '{
             "version": .version,
             "deployment": {
-              "manifest": (.deployment.manifest | .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "6.18.1" else . end]),
+              "manifest": (.deployment.manifest | if .plugins then .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "6.18.1" else . end] else . end),
               "secrets_providers": .deployment.secrets_providers,
               "resources": [
                 .deployment.resources[] | select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider"))
