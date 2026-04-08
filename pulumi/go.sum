@@ -153,8 +153,8 @@ github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELU
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/muesli/termenv v0.15.2 h1:GohcuySI0QmI3wN8Ok9PtKGkgkFIk7y6Vpb5PvrY+Wo=
 github.com/muesli/termenv v0.15.2/go.mod h1:Epx+iuz8sNs7mNKhxzH4fWXGNpZwUaJKRS1noLXviQ8=
-github.com/muhlba91/pulumi-proxmoxve/sdk/v6 v6.18.1 h1:9fNXREcspBHDTRLJjKL8P9eqLlZaUbd8Dxo0980V+XQ=
-github.com/muhlba91/pulumi-proxmoxve/sdk/v6 v6.18.1/go.mod h1:GJBU+EMS0VuOB1BaA9mfk9vIlISj5wxa260cZQou4g0=
+github.com/muhlba91/pulumi-proxmoxve/sdk/v7 v7.13.0 h1:gvUzrGee1nhWpWmp1ASbCaZs/pQzRqkVnPYR7u+ir7c=
+github.com/muhlba91/pulumi-proxmoxve/sdk/v7 v7.13.0/go.mod h1:q4qP5KgfgqwPYOg0q/uLBLvKCDom6Kl0c0rent7NLDY=
 github.com/onsi/gomega v1.34.1 h1:EUMJIKUjM8sKjYbtxQI9A4z2o+rruxnzNvpknOXie6k=
 github.com/onsi/gomega v1.34.1/go.mod h1:kU1QgUvBDLXBJq618Xvm2LUX6rSAfRaFRTcdOeDLwwY=
 github.com/opentracing/basictracer-go v1.1.0 h1:Oa1fTSBvAl8pa3U+IJYqrKm0NALwH9OsgwOqDv4xJW0=

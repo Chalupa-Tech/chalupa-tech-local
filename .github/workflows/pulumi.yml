@@ -69,16 +69,16 @@ jobs:
           pulumi stack select tayvenb13/chalupa-infra/proxmox
           echo "Exporting state..."
           pulumi stack export > state.json
-          echo "Filtering resources and pinning proxmoxve to v6.18.1..."
+          echo "Filtering resources and pinning proxmoxve to v7.13.0..."
           jq '{
             "version": .version,
             "deployment": {
-              "manifest": (.deployment.manifest | if .plugins then .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "6.18.1" else . end] else . end),
+              "manifest": (.deployment.manifest | if .plugins then .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "7.13.0" else . end] else . end),
               "secrets_providers": .deployment.secrets_providers,
               "resources": [
                 .deployment.resources[] |
                 select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider")) |
-                if (.urn | contains("providers:proxmoxve")) then .inputs.version = "6.18.1" else . end
+                if (.urn | contains("providers:proxmoxve")) then .inputs.version = "7.13.0" else . end
               ]
             }
           }' state.json > clean-state.json
