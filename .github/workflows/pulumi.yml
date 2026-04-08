@@ -69,21 +69,21 @@ jobs:
           pulumi stack select tayvenb13/chalupa-infra/proxmox
           echo "Exporting state..."
           pulumi stack export > state.json
-          echo "Filtering resources and pinning proxmoxve plugin to v6.18.1..."
+          echo "Filtering resources and pinning proxmoxve to v6.18.1..."
           jq '{
             "version": .version,
             "deployment": {
               "manifest": (.deployment.manifest | if .plugins then .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "6.18.1" else . end] else . end),
               "secrets_providers": .deployment.secrets_providers,
               "resources": [
-                .deployment.resources[] | select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider"))
+                .deployment.resources[] |
+                select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider")) |
+                if (.urn | contains("providers:proxmoxve")) then .inputs.version = "6.18.1" else . end
               ]
             }
           }' state.json > clean-state.json
           echo "Resources in cleaned state:"
-          jq '.deployment.resources[].urn' clean-state.json
-          echo "Plugins in cleaned state:"
-          jq '.deployment.manifest.plugins' clean-state.json
+          jq '.deployment.resources[] | {urn, version: .inputs.version}' clean-state.json
           echo "Importing cleaned state..."
           pulumi stack import --file clean-state.json
         env:
