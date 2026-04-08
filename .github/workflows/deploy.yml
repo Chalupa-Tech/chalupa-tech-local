@@ -1,0 +1,184 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # ════════════════════════════════════════════════════
+  # Stage 1: Run Ansible against Proxmox host
+  #   - Updates host packages
+  #   - Enables IOMMU/VFIO if needed
+  #   - Creates Fedora 43 cloud template (VMID 9000)
+  # ════════════════════════════════════════════════════
+  deploy-proxmox-prep:
+    name: "Stage 1: Proxmox Host Prep"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible + collections
+        run: |
+          pip install ansible
+          ansible-galaxy collection install ansible.posix
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Ensure Proxmox host resolution
+        run: |
+          echo "192.168.1.223 proxmox" | sudo tee -a /etc/hosts
+          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
+
+      - name: Add Proxmox to known_hosts
+        run: |
+          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
+          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
+          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
+
+      - name: Run Ansible Playbook (Proxmox Prep)
+        run: ansible-playbook -i inventory.yml site.yml
+        working-directory: ansible/
+
+  # ════════════════════════════════════════════════════
+  # Stage 2: Run Pulumi to provision VMs
+  #   - Clones Fedora template → creates Plex VM (VMID 200)
+  #   - Manages TrueNAS VM config
+  #   - Exports Plex IP for Stage 3
+  # ════════════════════════════════════════════════════
+  deploy-pulumi:
+    name: "Stage 2: Pulumi VM Provision"
+    runs-on: ubuntu-latest
+    needs: deploy-proxmox-prep
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.6'
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Ensure Proxmox host resolution
+        run: |
+          echo "192.168.1.223 proxmox" | sudo tee -a /etc/hosts
+          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
+
+      - name: Add Proxmox to known_hosts
+        run: |
+          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
+          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
+          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
+
+      - name: Pulumi Up
+        uses: pulumi/actions@v3
+        with:
+          command: up
+          stack-name: tayvenb13/chalupa-infra/proxmox
+          work-dir: pulumi/
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PROXMOX_VE_ENDPOINT: ${{ secrets.PROXMOX_VE_ENDPOINT }}
+          PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_VE_API_TOKEN }}
+          PROXMOX_VE_SSH_USERNAME: ${{ secrets.PROXMOX_VE_SSH_USERNAME }}
+
+      # Generate VM inventory from Pulumi outputs for Stage 3
+      - name: Generate VM inventory
+        run: |
+          PLEX_IP=$(pulumi stack output plex-ip --stack tayvenb13/chalupa-infra/proxmox)
+          cat > inventory-vms.yml <<EOF
+          all:
+            children:
+              plex_servers:
+                hosts:
+                  plex:
+                    ansible_host: ${PLEX_IP}
+                    ansible_user: fedora
+          EOF
+        working-directory: pulumi/
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Upload VM inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventory-vms
+          path: pulumi/inventory-vms.yml
+
+  # ════════════════════════════════════════════════════
+  # Stage 3: Run Ansible against the new VM
+  #   - Installs Plex, NFS mounts, user config, firewall
+  #   - Uses the same SSH key as Stages 1 & 2
+  # ════════════════════════════════════════════════════
+  deploy-vm-configure:
+    name: "Stage 3: VM Software Config"
+    runs-on: ubuntu-latest
+    needs: deploy-pulumi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible + collections
+        run: |
+          pip install ansible
+          ansible-galaxy collection install ansible.posix
+
+      - name: Download VM inventory artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: inventory-vms
+          path: ansible/
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
+      # Same SSH key — authenticates as 'fedora' on the Plex VM
+      # because cloud-init injects the matching public key
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Add Plex VM to known_hosts
+        run: |
+          echo "192.168.1.224 plex" | sudo tee -a /etc/hosts
+          ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
+
+      # The wait_for_connection task in the plex_server role handles
+      # waiting for cloud-init. No need for a separate sleep step.
+      - name: Run Ansible Playbook (VM Configure)
+        run: ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml
+        working-directory: ansible/
