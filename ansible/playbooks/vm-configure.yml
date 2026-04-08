@@ -1,0 +1,6 @@
+---
+- name: Configure Plex Media Server VM
+  hosts: plex_servers
+  become: true
+  roles:
+    - plex_server
