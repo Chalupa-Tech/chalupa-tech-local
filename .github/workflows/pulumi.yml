@@ -60,35 +60,6 @@ jobs:
           ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
           ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
 
-      - name: Clean up old Pulumi state
-        working-directory: pulumi/
-        run: |
-          curl -fsSL https://get.pulumi.com | sh
-          export PATH=$PATH:$HOME/.pulumi/bin
-          pulumi login
-          pulumi stack select tayvenb13/chalupa-infra/proxmox
-          echo "Exporting state..."
-          pulumi stack export > state.json
-          echo "Filtering resources and pinning proxmoxve to v7.13.0..."
-          jq '{
-            "version": .version,
-            "deployment": {
-              "manifest": (.deployment.manifest | if .plugins then .plugins = [.plugins[] | if .name == "proxmoxve" then .version = "7.13.0" else . end] else . end),
-              "secrets_providers": .deployment.secrets_providers,
-              "resources": [
-                .deployment.resources[] |
-                select(.urn | contains("truenas") or contains("pulumi:pulumi:Stack") or contains("proxmox-provider")) |
-                if (.urn | contains("providers:proxmoxve")) then .inputs.version = "7.13.0" else . end
-              ]
-            }
-          }' state.json > clean-state.json
-          echo "Resources in cleaned state:"
-          jq '.deployment.resources[] | {urn, version: .inputs.version}' clean-state.json
-          echo "Importing cleaned state..."
-          pulumi stack import --file clean-state.json
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-
       - name: Pulumi Preview
         uses: pulumi/actions@v3
         with:
