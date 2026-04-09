@@ -63,9 +63,19 @@ jobs:
 
       - name: Add Proxmox to known_hosts
         run: |
-          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
-          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
-          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
+          # ansible_host in inventory.yml is the IP address, so only the
+          # IP entry is required. Proxmox sshd intermittently drops
+          # back-to-back unauthenticated keyscan connections from the
+          # same source IP, so retry on transient failure.
+          for attempt in 1 2 3; do
+            if ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts; then
+              exit 0
+            fi
+            echo "ssh-keyscan attempt $attempt failed, retrying in 5s..." >&2
+            sleep 5
+          done
+          echo "ERROR: ssh-keyscan failed after 3 attempts" >&2
+          exit 1
         
       - name: Run Ansible Check & Diff
         id: ansible_check

@@ -21,7 +21,8 @@ Sequence:
 The proxmoxve `v7.13.0` version-pinning side effect of the cleanup step is no longer needed — the version is already pinned in `pulumi/go.mod`.
 
 ## Changes
-- **Workflow Update**: Removed the `Clean up old Pulumi state` step (and its inline pulumi CLI install) from `.github/workflows/pulumi.yml`. The `Pulumi Preview` step now runs directly after the SSH/known_hosts setup steps.
+- **Workflow Update (Pulumi)**: Removed the `Clean up old Pulumi state` step (and its inline pulumi CLI install) from `.github/workflows/pulumi.yml`. The `Pulumi Preview` step now runs directly after the SSH/known_hosts setup steps.
+- **Workflow Update (Ansible)**: Hardened the `Add Proxmox to known_hosts` step in `.github/workflows/ansible.yml`. The previous version invoked `ssh-keyscan` three times back-to-back (against the IP, the `proxmox` alias, and the `pve1` alias — all the same host). Proxmox sshd was rate-limiting/dropping the second batch with `Connection closed by remote host`, causing the step to exit non-zero. Since `inventory.yml` uses `ansible_host: 192.168.1.223`, only the IP entry is needed. The step now scans only the IP and retries up to 3 times with a 5s backoff. Run [24166803727](https://github.com/Chalupa-Tech/chalupa-tech-local/actions/runs/24166803727) was the first observed failure of this kind. The same flaky pattern still exists in `pulumi.yml` and `deploy.yml` and may need similar treatment in a follow-up.
 
 ## Action Required
 The orphaned VMID 200 must be destroyed manually on the Proxmox host before the next deploy can succeed. The Plex VM has never reached Stage 3 successfully and contains no Plex data:
