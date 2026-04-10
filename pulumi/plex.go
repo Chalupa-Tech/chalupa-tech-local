@@ -113,7 +113,15 @@ func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 				Device: pulumi.String("socket"),
 			},
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
+		// Ignore "initialization" drift on existing VMs. Changing cloud-init
+		// userdata would require swapping the cloud-init ISO at ide2, which
+		// Proxmox refuses to hotplug on a running VM ("ide2: hotplug problem
+		// - unable to change media type"). It would also be a no-op: cloud-init's
+		// users-groups module runs once per instance on first boot, so a new
+		// userdata blob never re-injects keys on an already-booted VM. The
+		// spec is still applied on Create, so any future VM recreation boots
+		// with the correct cloud-init from the start.
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "initialization"}))
 	if err != nil {
 		return err
 	}
