@@ -7,10 +7,6 @@ plex_server_nfs_shares:
     dest: "/mnt/plex/tvshows"
 plex_server_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"
 plex_server_user: "tbigelow"
-# Current Plex RPM repository, as set up by
-# https://repo.plex.tv/scripts/setupRepo.sh. The old
-# downloads.plex.tv/repo/rpm/x86_64/ URL still serves packages but
-# they're signed with a legacy key; the new repo.plex.tv/rpm/ URL
-# is signed with PlexSign.v2.key (ed25519, fpr 6EFF...FFDE).
-plex_server_repo_url: "https://repo.plex.tv/rpm/"
+# Plex DEB repository — Ubuntu equivalent of the RPM repo at repo.plex.tv/rpm/
+plex_server_repo_url: "deb https://downloads.plex.tv/repo/deb public main"
 plex_server_repo_gpgkey: "https://downloads.plex.tv/plex-keys/PlexSign.v2.key"

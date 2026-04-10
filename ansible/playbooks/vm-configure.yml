@@ -1,12 +1,6 @@
 ---
-- name: Configure Plex Media Server VM
+- name: Configure Plex Media Server LXC
   hosts: plex_servers
   become: true
-  # Disable implicit fact gathering. The VM is freshly cloned in Stage 2
-  # and cloud-init may not have injected the fedora user's SSH key yet
-  # when this play starts. The plex_server role's first task is
-  # wait_for_connection, followed by an explicit setup task to gather
-  # facts after the VM is reachable.
-  gather_facts: false
   roles:
     - plex_server
