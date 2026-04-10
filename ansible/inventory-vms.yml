@@ -4,4 +4,4 @@ all:
       hosts:
         plex:
           ansible_host: 192.168.1.224
-          ansible_user: fedora
+          ansible_user: root
