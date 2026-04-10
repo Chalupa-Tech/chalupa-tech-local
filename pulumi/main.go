@@ -45,8 +45,8 @@ func main() {
 			return err
 		}
 
-		// Create Plex Media Server VM
-		if err := createPlexVM(ctx, pveProvider); err != nil {
+		// Create Plex Media Server LXC container
+		if err := createPlexLXC(ctx, pveProvider); err != nil {
 			return err
 		}
 

@@ -56,8 +56,8 @@ jobs:
         working-directory: ansible/
 
   # ════════════════════════════════════════════════════
-  # Stage 2: Run Pulumi to provision VMs
-  #   - Clones Fedora template → creates Plex VM (VMID 200)
+  # Stage 2: Run Pulumi to provision VMs + LXC containers
+  #   - Creates Plex LXC container (VMID 200) with GPU passthrough
   #   - Manages TrueNAS VM config
   #   - Exports Plex IP for Stage 3
   # ════════════════════════════════════════════════════
@@ -118,7 +118,7 @@ jobs:
                 hosts:
                   plex:
                     ansible_host: ${PLEX_IP}
-                    ansible_user: fedora
+                    ansible_user: root
           EOF
         working-directory: pulumi/
         env:
@@ -131,8 +131,8 @@ jobs:
           path: pulumi/inventory-vms.yml
 
   # ════════════════════════════════════════════════════
-  # Stage 3: Run Ansible against the new VM
-  #   - Installs Plex, NFS mounts, user config, firewall
+  # Stage 3: Run Ansible against the Plex LXC container
+  #   - Installs Plex, VA-API drivers, NFS mounts, firewall
   #   - Uses the same SSH key as Stages 1 & 2
   # ════════════════════════════════════════════════════
   deploy-vm-configure:
@@ -165,8 +165,8 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:github-runner
 
-      # Same SSH key — authenticates as 'fedora' on the Plex VM
-      # because cloud-init injects the matching public key
+      # Same SSH key — authenticates as 'root' on the Plex LXC
+      # because Pulumi injects the matching public key via initialization
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -178,7 +178,7 @@ jobs:
           ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
 
       # The wait_for_connection task in the plex_server role handles
-      # waiting for cloud-init. No need for a separate sleep step.
+      # waiting for the LXC to be reachable.
       - name: Run Ansible Playbook (VM Configure)
         run: ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml
         working-directory: ansible/

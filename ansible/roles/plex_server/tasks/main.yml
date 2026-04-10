@@ -1,10 +1,10 @@
 ---
 # ──────────────────────────────────────────────────────────
-# 1. Wait for cloud-init to finish and SSH to become available
+# 1. Wait for LXC to be reachable via SSH
 # ──────────────────────────────────────────────────────────
-- name: Wait for VM to be reachable
+- name: Wait for LXC to be reachable
   ansible.builtin.wait_for_connection:
-    delay: 10
+    delay: 5
     timeout: 300
 
 # ──────────────────────────────────────────────────────────
@@ -14,27 +14,12 @@
   ansible.builtin.setup:
 
 # ──────────────────────────────────────────────────────────
-# 3. Install and start QEMU Guest Agent
-#    Lets Proxmox see VM IP, issue clean shutdowns, freeze FS for snapshots
-# ──────────────────────────────────────────────────────────
-- name: Install qemu-guest-agent
-  ansible.builtin.dnf:
-    name: qemu-guest-agent
-    state: present
-
-- name: Enable and start qemu-guest-agent
-  ansible.builtin.systemd:
-    name: qemu-guest-agent
-    enabled: true
-    state: started
-
-# ──────────────────────────────────────────────────────────
-# 4. Create personal user with sudo access
+# 3. Create personal user with sudo access
 # ──────────────────────────────────────────────────────────
 - name: Create personal user
   ansible.builtin.user:
     name: "{{ plex_server_user }}"
-    groups: wheel
+    groups: sudo
     append: true
     shell: /bin/bash
     create_home: true
@@ -45,33 +30,40 @@
     key: "{{ plex_server_ssh_key }}"
     state: present
 
-# Separate sudoers drop-in file so we don't edit the main /etc/sudoers
-- name: Grant passwordless sudo to wheel group
+- name: Grant passwordless sudo to sudo group
   ansible.builtin.lineinfile:
-    path: /etc/sudoers.d/wheel-nopasswd
-    line: "%wheel ALL=(ALL) NOPASSWD: ALL"
+    path: /etc/sudoers.d/sudo-nopasswd
+    line: "%sudo ALL=(ALL) NOPASSWD: ALL"
     create: true
     mode: "0440"
     validate: "visudo -cf %s"
 
 # ──────────────────────────────────────────────────────────
+# 4. Install VA-API drivers for GPU hardware transcoding
+#    Requires /dev/dri/renderD128 passed through from host
+# ──────────────────────────────────────────────────────────
+- name: Install VA-API drivers for AMD GPU
+  ansible.builtin.apt:
+    name:
+      - mesa-va-drivers
+      - libva2
+      - vainfo
+    state: present
+    update_cache: true
+
+# ──────────────────────────────────────────────────────────
 # 5. Install NFS client utilities
 # ──────────────────────────────────────────────────────────
-- name: Install nfs-utils
-  ansible.builtin.dnf:
-    name: nfs-utils
+- name: Install nfs-common
+  ansible.builtin.apt:
+    name: nfs-common
     state: present
 
 # ──────────────────────────────────────────────────────────
 # 6. Create NFS mount points and mount shares
-#    Uses x-systemd.automount so the VM won't hang at boot
+#    Uses x-systemd.automount so the LXC won't hang at boot
 #    if TrueNAS is temporarily unreachable.
 # ──────────────────────────────────────────────────────────
-# Note: intentionally do NOT set `mode` here. Once these paths are
-# mounted, the "file" module would chmod through to the NFS share
-# root on TrueNAS, which rejects it (EPERM). On first run the
-# directory is created with root's umask (0755), which is fine;
-# on subsequent runs the existing mount point is left alone.
 - name: Create Plex media mount points  # noqa: risky-file-permissions
   ansible.builtin.file:
     path: "{{ item.dest }}"
@@ -88,81 +80,61 @@
   loop: "{{ plex_server_nfs_shares }}"
 
 # ──────────────────────────────────────────────────────────
-# 7. Add Plex Media Server RPM repository
-#    Mirrors what Plex's own setupRepo.sh does for RPM distros
-#    (new baseurl https://repo.plex.tv/rpm/, PlexSign.v2 key).
-#    We can't run the script directly because it reads y/n
-#    prompts from /dev/tty, so we replicate it declaratively.
-#
-#    Two details matter for non-interactive dnf:
-#    1. The key is pre-imported with rpm_key so `gpgcheck`
-#       (package signature verification) can find it in the
-#       RPM keyring during install without prompting.
-#    2. `repo_gpgcheck` is deliberately OFF. setupRepo.sh turns
-#       it on but only works because it calls `dnf -y`, which
-#       auto-confirms an interactive key import for repomd.xml
-#       validation. Ansible's dnf module can't auto-confirm that
-#       prompt, so enabling repo_gpgcheck hangs / fails. Package
-#       gpgcheck still covers the RPM payload, which is the
-#       security-critical check.
+# 7. Add Plex Media Server DEB repository
 # ──────────────────────────────────────────────────────────
-- name: Import Plex repository GPG key
-  ansible.builtin.rpm_key:
-    key: "{{ plex_server_repo_gpgkey }}"
-    state: present
+- name: Download Plex repository GPG key
+  ansible.builtin.get_url:
+    url: "{{ plex_server_repo_gpgkey }}"
+    dest: /usr/share/keyrings/plex-archive-keyring.asc
+    mode: "0644"
 
-- name: Add Plex RPM repository
-  ansible.builtin.yum_repository:
-    name: plex
-    description: Plex Media Server
-    baseurl: "{{ plex_server_repo_url }}"
-    enabled: true
-    gpgcheck: true
-    gpgkey: "{{ plex_server_repo_gpgkey }}"
+- name: Add Plex DEB repository
+  ansible.builtin.apt_repository:
+    repo: "{{ plex_server_repo_url }}"
+    filename: plexmediaserver
+    state: present
 
 # ──────────────────────────────────────────────────────────
 # 8. Install Plex Media Server
 # ──────────────────────────────────────────────────────────
 - name: Install plexmediaserver
-  ansible.builtin.dnf:
+  ansible.builtin.apt:
     name: plexmediaserver
     state: present
+    update_cache: true
   notify: Restart plexmediaserver
 
 # ──────────────────────────────────────────────────────────
-# 9. Ensure plex user can read NFS-mounted media
-#    The plexmediaserver package creates a 'plex' system user.
-#    Adding it to the tbigelow group gives it read access
-#    (assuming NFS files are group-readable).
+# 9. Grant plex user GPU and media access
+#    - video + render groups: access to /dev/dri devices
+#    - personal user group: read access to NFS-mounted media
 # ──────────────────────────────────────────────────────────
-- name: Add plex user to personal group for media access
+- name: Add plex user to GPU and media groups
   ansible.builtin.user:
     name: plex
-    groups: "{{ plex_server_user }}"
+    groups:
+      - video
+      - render
+      - "{{ plex_server_user }}"
     append: true
   notify: Restart plexmediaserver
 
 # ──────────────────────────────────────────────────────────
-# 10. Open firewall port 32400/tcp (Plex Web UI + streaming)
-#     Fedora cloud images don't ship firewalld; install + enable
-#     it before the firewalld module runs.
+# 10. Firewall — open port 32400/tcp (Plex Web UI + streaming)
 # ──────────────────────────────────────────────────────────
-- name: Install firewalld
-  ansible.builtin.dnf:
-    name: firewalld
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
     state: present
 
-- name: Enable and start firewalld
-  ansible.builtin.systemd:
-    name: firewalld
-    enabled: true
-    state: started
+- name: Allow Plex port through ufw
+  community.general.ufw:
+    rule: allow
+    port: '32400'
+    proto: tcp
 
-- name: Open Plex port in firewalld
-  ansible.posix.firewalld:
-    port: 32400/tcp
-    permanent: true
-    immediate: true
+- name: Enable ufw
+  community.general.ufw:
     state: enabled
 
 # ──────────────────────────────────────────────────────────
