@@ -150,7 +150,7 @@ jobs:
       - name: Install Ansible + collections
         run: |
           pip install ansible
-          ansible-galaxy collection install ansible.posix
+          ansible-galaxy collection install ansible.posix community.general
 
       - name: Download VM inventory artifact
         uses: actions/download-artifact@v4
