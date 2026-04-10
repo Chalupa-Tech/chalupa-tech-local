@@ -89,7 +89,28 @@
 
 # ──────────────────────────────────────────────────────────
 # 7. Add Plex Media Server RPM repository
+#    Mirrors what Plex's own setupRepo.sh does for RPM distros
+#    (new baseurl https://repo.plex.tv/rpm/, PlexSign.v2 key).
+#    We can't run the script directly because it reads y/n
+#    prompts from /dev/tty, so we replicate it declaratively.
+#
+#    Two details matter for non-interactive dnf:
+#    1. The key is pre-imported with rpm_key so `gpgcheck`
+#       (package signature verification) can find it in the
+#       RPM keyring during install without prompting.
+#    2. `repo_gpgcheck` is deliberately OFF. setupRepo.sh turns
+#       it on but only works because it calls `dnf -y`, which
+#       auto-confirms an interactive key import for repomd.xml
+#       validation. Ansible's dnf module can't auto-confirm that
+#       prompt, so enabling repo_gpgcheck hangs / fails. Package
+#       gpgcheck still covers the RPM payload, which is the
+#       security-critical check.
 # ──────────────────────────────────────────────────────────
+- name: Import Plex repository GPG key
+  ansible.builtin.rpm_key:
+    key: "{{ plex_server_repo_gpgkey }}"
+    state: present
+
 - name: Add Plex RPM repository
   ansible.builtin.yum_repository:
     name: plex
