@@ -67,7 +67,11 @@ func createPlexVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			UserAccount: &vm.VirtualMachineInitializationUserAccountArgs{
 				Username: pulumi.String("fedora"),
 				Keys: pulumi.StringArray{
+					// Personal key (tbigelow@Mac) — for manual SSH access
 					pulumi.String("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"),
+					// CI runner key (pulumi_proxmox_runner) — matches secrets.PROXMOX_SSH_KEY,
+					// required for Stage 3 Ansible to SSH as fedora
+					pulumi.String("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8mSi1hjt/MpS6JtS06rwI1pWHMF9hBet6rKHADCiUp"),
 				},
 			},
 			IpConfigs: vm.VirtualMachineInitializationIpConfigArray{
