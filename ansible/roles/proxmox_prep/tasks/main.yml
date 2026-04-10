@@ -90,7 +90,7 @@
 # --- Kernel 7 opt-in (pve-test repo) ---
 - name: Enable pve-test repository for kernel 7
   ansible.builtin.apt_repository:
-    repo: "deb http://download.proxmox.com/debian/pve bookworm pvetest"
+    repo: "deb http://download.proxmox.com/debian/pve trixie pve-test"
     filename: pve-test
     state: present
   when: proxmox_prep_kernel_7_enabled
