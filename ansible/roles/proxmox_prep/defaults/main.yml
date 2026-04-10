@@ -1,9 +1,6 @@
 ---
 proxmox_prep_cpu_vendor: amd
 
-# GPU passthrough (VFIO) — disabled for LXC GPU sharing
-proxmox_prep_gpu_passthrough_enabled: false
-
 # Kernel 7 opt-in (pve-test repo)
 proxmox_prep_kernel_7_enabled: true
 
