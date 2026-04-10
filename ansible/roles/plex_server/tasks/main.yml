@@ -67,11 +67,15 @@
 #    Uses x-systemd.automount so the VM won't hang at boot
 #    if TrueNAS is temporarily unreachable.
 # ──────────────────────────────────────────────────────────
-- name: Create Plex media mount points
+# Note: intentionally do NOT set `mode` here. Once these paths are
+# mounted, the "file" module would chmod through to the NFS share
+# root on TrueNAS, which rejects it (EPERM). On first run the
+# directory is created with root's umask (0755), which is fine;
+# on subsequent runs the existing mount point is left alone.
+- name: Create Plex media mount points  # noqa: risky-file-permissions
   ansible.builtin.file:
     path: "{{ item.dest }}"
     state: directory
-    mode: "0755"
   loop: "{{ plex_server_nfs_shares }}"
 
 - name: Mount TrueNAS NFS shares
@@ -119,7 +123,20 @@
 
 # ──────────────────────────────────────────────────────────
 # 10. Open firewall port 32400/tcp (Plex Web UI + streaming)
+#     Fedora cloud images don't ship firewalld; install + enable
+#     it before the firewalld module runs.
 # ──────────────────────────────────────────────────────────
+- name: Install firewalld
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+
 - name: Open Plex port in firewalld
   ansible.posix.firewalld:
     port: 32400/tcp
