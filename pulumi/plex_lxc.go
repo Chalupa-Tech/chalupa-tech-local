@@ -76,10 +76,11 @@ func createPlexLXC(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
-		// Nesting for systemd inside the container; NFS mount support for TrueNAS shares
+		// Nesting for systemd inside the container
+		// Note: mount=nfs feature flag requires root@pam (not API token),
+		// so NFS is mounted inside the container without the explicit flag
 		Features: &ct.ContainerFeaturesArgs{
 			Nesting: pulumi.Bool(true),
-			Mounts:  pulumi.StringArray{pulumi.String("nfs")},
 		},
 
 		Unprivileged: pulumi.Bool(true),
