@@ -9,7 +9,7 @@ Infrastructure-as-code for a local Proxmox hypervisor (AMD Strix Halo Framework 
 ## Architecture
 
 **3-stage CI/CD pipeline** (`.github/workflows/deploy.yml`, triggered on merge to `main`):
-1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, Ubuntu LXC template, Fedora cloud template)
+1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, Ubuntu LXC template)
 2. **Stage 2** — Pulumi provisions TrueNAS VM + Plex LXC container, exports Plex IP as artifact for Stage 3
 3. **Stage 3** — Ansible configures Plex LXC (VA-API drivers, Plex install, NFS mounts, firewall)
 
@@ -45,6 +45,11 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 cd pulumi && go build ./...          # Compile check
 cd pulumi && golangci-lint run       # Lint
 pulumi preview                       # Dry-run (requires env vars + Tailscale)
+```
+
+### SSH to Proxmox host
+```bash
+ssh -i ~/.ssh/pulumi_proxmox_runner root@192.168.1.223   # Verify host state
 ```
 
 ### Ansible (from `ansible/`)
