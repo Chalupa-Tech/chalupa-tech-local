@@ -104,8 +104,20 @@
   notify:
     - Prompt reboot
 
+- name: Find installed kernel 7.0 version
+  ansible.builtin.shell: >
+    set -o pipefail &&
+    ls /boot/vmlinuz-7.0*-pve 2>/dev/null | sed 's|/boot/vmlinuz-||' | sort -V | tail -1
+  args:
+    executable: /bin/bash
+  register: proxmox_prep_kernel_7_version
+  changed_when: false
+  failed_when: proxmox_prep_kernel_7_version.stdout == ""
+  when: proxmox_prep_kernel_7_enabled
+
 - name: Pin kernel 7 as default boot kernel
-  ansible.builtin.command: proxmox-boot-tool kernel pin 7.0
+  ansible.builtin.command: >
+    proxmox-boot-tool kernel pin {{ proxmox_prep_kernel_7_version.stdout }}
   register: proxmox_prep_kernel_pin
   changed_when: "'pinned' in proxmox_prep_kernel_pin.stdout"
   failed_when: proxmox_prep_kernel_pin.rc != 0
