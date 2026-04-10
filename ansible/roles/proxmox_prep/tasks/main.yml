@@ -58,6 +58,48 @@
   notify:
     - Update initramfs
 
+# --- GPU Passthrough: VFIO Device Binding ---
+# Blacklist host GPU drivers and bind the Strix Halo iGPU to vfio-pci
+# at boot so Proxmox can pass it through to a VM.
+# Reference: Level1Techs Strix Halo GPU passthrough guide.
+
+- name: Blacklist GPU drivers for VFIO passthrough
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/blacklist-gpu.conf
+    content: |
+      {% for driver in proxmox_prep_gpu_blacklist_drivers %}
+      blacklist {{ driver }}
+      {% endfor %}
+    mode: '0644'
+  when: proxmox_prep_gpu_passthrough_enabled
+  notify:
+    - Update initramfs
+
+- name: Bind GPU devices to vfio-pci at boot
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/vfio-pci.conf
+    content: |
+      options vfio-pci ids={{ proxmox_prep_gpu_vfio_ids }} disable_vga=1
+      softdep amdgpu pre: vfio-pci
+      softdep radeon pre: vfio-pci
+      softdep snd_hda_intel pre: vfio-pci
+    mode: '0644'
+  when: proxmox_prep_gpu_passthrough_enabled
+  notify:
+    - Update initramfs
+
+- name: Add initcall_blacklist to kernel parameters (GRUB)
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(?!.*initcall_blacklist=)(.*)"'
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="\1 initcall_blacklist=sysfb_init"'
+    backrefs: true
+  when:
+    - proxmox_prep_gpu_passthrough_enabled
+    - proxmox_prep_grub_file.stat.exists
+  notify:
+    - Update GRUB
+
 # --- Fedora Cloud Template Creation (VMID 9000) ---
 - name: Check if Fedora cloud template already exists
   ansible.builtin.command: qm status {{ proxmox_prep_fedora_template_vmid }}

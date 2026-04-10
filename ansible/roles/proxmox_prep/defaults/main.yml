@@ -9,3 +9,14 @@ proxmox_prep_fedora_template_vmid: 9000
 proxmox_prep_fedora_template_name: "fedora-43-cloud-template"
 proxmox_prep_fedora_template_storage: "local-lvm"
 proxmox_prep_fedora_cloud_image_dest: "/tmp/fedora-cloud-base.qcow2"
+
+# GPU passthrough: VFIO device binding + driver blacklisting
+# Binds the Strix Halo iGPU (1002:1586) and its HD Audio function
+# (1002:1640) to vfio-pci at boot, and blacklists host GPU drivers
+# so they don't claim the device before vfio-pci does.
+proxmox_prep_gpu_passthrough_enabled: true
+proxmox_prep_gpu_vfio_ids: "1002:1586,1002:1640"
+proxmox_prep_gpu_blacklist_drivers:
+  - amdgpu
+  - radeon
+  - snd_hda_intel
