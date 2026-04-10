@@ -58,6 +58,75 @@
   notify:
     - Update initramfs
 
+# --- VFIO GPU cleanup (remove stale configs from abandoned passthrough branch) ---
+- name: Remove stale GPU driver blacklist config
+  ansible.builtin.file:
+    path: /etc/modprobe.d/blacklist-gpu.conf
+    state: absent
+  when: not proxmox_prep_gpu_passthrough_enabled
+  notify:
+    - Update initramfs
+
+- name: Remove stale vfio-pci device binding config
+  ansible.builtin.file:
+    path: /etc/modprobe.d/vfio-pci.conf
+    state: absent
+  when: not proxmox_prep_gpu_passthrough_enabled
+  notify:
+    - Update initramfs
+
+- name: Remove initcall_blacklist from kernel parameters (GRUB)
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=".*)\s+initcall_blacklist=sysfb_init(.*")'
+    line: '\1\2'
+    backrefs: true
+  when:
+    - not proxmox_prep_gpu_passthrough_enabled
+    - proxmox_prep_grub_file.stat.exists
+  notify:
+    - Update GRUB
+
+# --- Kernel 7 opt-in (pve-test repo) ---
+- name: Enable pve-test repository for kernel 7
+  ansible.builtin.apt_repository:
+    repo: "deb http://download.proxmox.com/debian/pve bookworm pvetest"
+    filename: pve-test
+    state: present
+  when: proxmox_prep_kernel_7_enabled
+
+- name: Install Proxmox kernel 7.0
+  ansible.builtin.apt:
+    name: proxmox-kernel-7.0
+    state: present
+    update_cache: true
+  when: proxmox_prep_kernel_7_enabled
+  notify:
+    - Prompt reboot
+
+- name: Pin kernel 7 as default boot kernel
+  ansible.builtin.command: proxmox-boot-tool kernel pin 7.0
+  register: proxmox_prep_kernel_pin
+  changed_when: "'pinned' in proxmox_prep_kernel_pin.stdout"
+  failed_when: proxmox_prep_kernel_pin.rc != 0
+  when: proxmox_prep_kernel_7_enabled
+  notify:
+    - Refresh Proxmox boot tool
+
+# --- LXC Container Template ---
+- name: Check if Ubuntu LXC template already exists
+  ansible.builtin.command: >
+    pveam list {{ proxmox_prep_lxc_template_storage }}
+  register: proxmox_prep_lxc_template_check
+  changed_when: false
+
+- name: Download Ubuntu 24.04 LTS container template
+  ansible.builtin.command: >
+    pveam download {{ proxmox_prep_lxc_template_storage }}
+    {{ proxmox_prep_lxc_template_name }}
+  when: proxmox_prep_lxc_template_name not in proxmox_prep_lxc_template_check.stdout
+  changed_when: true
+
 # --- Fedora Cloud Template Creation (VMID 9000) ---
 - name: Check if Fedora cloud template already exists
   ansible.builtin.command: qm status {{ proxmox_prep_fedora_template_vmid }}

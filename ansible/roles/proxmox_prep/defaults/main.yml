@@ -1,6 +1,16 @@
 ---
 proxmox_prep_cpu_vendor: amd
 
+# GPU passthrough (VFIO) — disabled for LXC GPU sharing
+proxmox_prep_gpu_passthrough_enabled: false
+
+# Kernel 7 opt-in (pve-test repo)
+proxmox_prep_kernel_7_enabled: true
+
+# LXC container template settings
+proxmox_prep_lxc_template_name: "ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+proxmox_prep_lxc_template_storage: "local"
+
 # Fedora Cloud template settings
 # yamllint disable-line rule:line-length
 proxmox_prep_fedora_cloud_image_url: "https://download.fedoraproject.org/pub/fedora/linux/releases/43/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-43-1.6.x86_64.qcow2"
