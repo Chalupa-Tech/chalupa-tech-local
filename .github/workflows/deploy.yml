@@ -123,6 +123,7 @@ jobs:
                   plex:
                     ansible_host: ${PLEX_IP}
                     ansible_user: root
+                    ansible_ssh_common_args: '-o StrictHostKeyChecking=accept-new'
           EOF
         working-directory: pulumi/
         env:
@@ -180,7 +181,9 @@ jobs:
           echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
           echo "192.168.1.224 plex" | sudo tee -a /etc/hosts
           ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
-          ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
+          # Plex LXC keyscan is skipped — the container may not exist yet
+          # (it's created by the first Ansible play). The plex_servers
+          # inventory uses StrictHostKeyChecking=accept-new instead.
 
       - name: Run Ansible Playbook (LXC Configure)
         run: ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml
