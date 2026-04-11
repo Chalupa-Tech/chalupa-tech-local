@@ -1,0 +1,18 @@
+---
+plex_lxc_vmid: 200
+plex_lxc_hostname: plex
+plex_lxc_node: proxmox
+plex_lxc_ostemplate: "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+plex_lxc_cores: 8
+plex_lxc_memory: 8192
+plex_lxc_disk: "local-lvm:16"
+plex_lxc_ip: "192.168.1.224"
+plex_lxc_gateway: "192.168.1.1"
+plex_lxc_nameserver: "192.168.1.1 1.1.1.1"
+plex_lxc_startup_order: 3
+# SSH public keys for root access (personal + CI runner)
+plex_lxc_ssh_keys: |
+  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca
+  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII8mSi1hjt/MpS6JtS06rwI1pWHMF9hBet6rKHADCiUp
+# GPU render device for VA-API transcoding
+plex_lxc_gpu_device: "/dev/dri/renderD128"

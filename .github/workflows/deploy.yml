@@ -8,9 +8,8 @@ on:
 jobs:
   # ════════════════════════════════════════════════════
   # Stage 1: Run Ansible against Proxmox host
-  #   - Updates host packages
-  #   - Enables IOMMU/VFIO if needed
-  #   - Creates Fedora 43 cloud template (VMID 9000)
+  #   - Updates host packages, enables IOMMU/VFIO
+  #   - Installs kernel 7, downloads LXC template
   # ════════════════════════════════════════════════════
   deploy-proxmox-prep:
     name: "Stage 1: Proxmox Host Prep"
@@ -56,8 +55,7 @@ jobs:
         working-directory: ansible/
 
   # ════════════════════════════════════════════════════
-  # Stage 2: Run Pulumi to provision VMs + LXC containers
-  #   - Creates Plex LXC container (VMID 200) with GPU passthrough
+  # Stage 2: Run Pulumi to provision VMs
   #   - Manages TrueNAS VM config
   #   - Exports Plex IP for Stage 3
   # ════════════════════════════════════════════════════
@@ -96,9 +94,7 @@ jobs:
           ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
 
       - name: Pulumi Up
-        id: pulumi_up
         uses: pulumi/actions@v3
-        continue-on-error: true
         with:
           command: up
           stack-name: tayvenb13/chalupa-infra/proxmox
@@ -109,37 +105,19 @@ jobs:
           PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_VE_API_TOKEN }}
           PROXMOX_VE_SSH_USERNAME: ${{ secrets.PROXMOX_VE_SSH_USERNAME }}
 
-      # The Proxmox provider treats vzcreate WARNINGS as errors (e.g.,
-      # "Systemd 255 detected. You may need to enable nesting.") even
-      # though the container is created successfully. If Pulumi Up failed
-      # but the container exists, import it into state and continue.
-      - name: Auto-import LXC if created with warnings
-        if: steps.pulumi_up.outcome == 'failure'
-        run: |
-          echo "Pulumi Up failed — checking if container 200 was created anyway..."
-          if ssh root@192.168.1.223 "pct status 200" 2>/dev/null; then
-            echo "Container 200 exists — importing into Pulumi state"
-            cd pulumi
-            pulumi import "proxmoxve:CT/container:Container" "plex-lxc" "proxmox/200" \
-              --stack tayvenb13/chalupa-infra/proxmox --yes --skip-preview \
-              --generate-code=false
-          else
-            echo "Container 200 does not exist — this is a real failure"
-            exit 1
-          fi
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          PROXMOX_VE_ENDPOINT: ${{ secrets.PROXMOX_VE_ENDPOINT }}
-          PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_VE_API_TOKEN }}
-          PROXMOX_VE_SSH_USERNAME: ${{ secrets.PROXMOX_VE_SSH_USERNAME }}
-
-      # Generate VM inventory from Pulumi outputs for Stage 3
-      - name: Generate VM inventory
+      # Generate inventory for Stage 3 (includes both Proxmox host
+      # for LXC creation and the Plex LXC for software configuration)
+      - name: Generate Stage 3 inventory
         run: |
           PLEX_IP=$(pulumi stack output plex-ip --stack tayvenb13/chalupa-infra/proxmox)
           cat > inventory-vms.yml <<EOF
           all:
             children:
+              proxmox:
+                hosts:
+                  pve1:
+                    ansible_host: 192.168.1.223
+                    ansible_user: root
               plex_servers:
                 hosts:
                   plex:
@@ -157,12 +135,12 @@ jobs:
           path: pulumi/inventory-vms.yml
 
   # ════════════════════════════════════════════════════
-  # Stage 3: Run Ansible against the Plex LXC container
-  #   - Installs Plex, VA-API drivers, NFS mounts, firewall
-  #   - Uses the same SSH key as Stages 1 & 2
+  # Stage 3: Create Plex LXC + configure software
+  #   - Creates LXC container on Proxmox host (privileged, GPU, nesting)
+  #   - Installs Plex, VA-API drivers, NFS mounts, firewall inside LXC
   # ════════════════════════════════════════════════════
   deploy-vm-configure:
-    name: "Stage 3: VM Software Config"
+    name: "Stage 3: LXC Create + Configure"
     runs-on: ubuntu-latest
     needs: deploy-pulumi
     steps:
@@ -192,7 +170,6 @@ jobs:
           tags: tag:github-runner
 
       # Same SSH key — authenticates as 'root' on the Plex LXC
-      # because Pulumi injects the matching public key via initialization
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -205,47 +182,6 @@ jobs:
           ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
           ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
 
-      # Configure root@pam-only LXC settings. API tokens cannot set
-      # these — done via SSH as root on the host. Only restarts if
-      # config actually changed.
-      #   - unprivileged=0 (privileged, for NFS mount support)
-      #   - nesting=1 (for systemd inside the container)
-      #   - dev0: GPU render device for Plex VA-API transcoding
-      - name: Configure LXC privileged mode, features, and GPU (if needed)
-        run: |
-          ssh root@192.168.1.223 bash -s <<'SCRIPT'
-            CONF="/etc/pve/lxc/200.conf"
-            CHANGED=0
-
-            # Convert to privileged container (for NFS mount support).
-            # Proxmox creates unprivileged by default via API token.
-            if grep -q "^unprivileged: 1" "$CONF" 2>/dev/null; then
-              pct stop 200 || true
-              sed -i 's/^unprivileged: 1/unprivileged: 0/' "$CONF"
-              CHANGED=1
-            fi
-
-            if ! grep -q "nesting=1" "$CONF" 2>/dev/null; then
-              pct set 200 -features nesting=1
-              CHANGED=1
-            fi
-
-            if ! grep -q "^dev0:" "$CONF" 2>/dev/null; then
-              pct set 200 -dev0 /dev/dri/renderD128,mode=0666
-              CHANGED=1
-            fi
-
-            if [ "$CHANGED" -eq 1 ]; then
-              echo "LXC config changed — stop/start to apply"
-              pct stop 200 2>/dev/null || true
-              pct start 200
-            else
-              echo "LXC config already up to date — no restart needed"
-            fi
-          SCRIPT
-
-      # The wait_for_connection task in the plex_server role handles
-      # waiting for the LXC to be reachable.
       - name: Run Ansible Playbook (LXC Configure)
         run: ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml
         working-directory: ansible/
