@@ -65,15 +65,10 @@ func createPlexLXC(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
-		// GPU render device (/dev/dri/renderD128) is passed through post-creation
-		// via `pct set` in the deploy workflow (Stage 3). Proxmox restricts
-		// device passthrough configuration to root@pam, which API tokens
-		// cannot provide — so it's done via SSH as root on the host instead.
-		//
-		// Nesting for systemd inside the container
-		Features: &ct.ContainerFeaturesArgs{
-			Nesting: pulumi.Bool(true),
-		},
+		// GPU device passthrough and feature flags (nesting) are configured
+		// post-creation via `pct set` in the deploy workflow (Stage 3).
+		// Proxmox restricts these to root@pam, which API tokens cannot
+		// provide — so they're done via SSH as root on the host instead.
 
 		Unprivileged: pulumi.Bool(false),
 		Started:      pulumi.Bool(true),
