@@ -21,7 +21,7 @@
     name:
       - curl
       - sudo
-      - gpg
+      - gnupg2
     state: present
     update_cache: true
 
@@ -107,18 +107,37 @@
 
 # ──────────────────────────────────────────────────────────
 # 7. Add Plex Media Server DEB repository
-#    Matches tteck/Proxmox community script approach
+#    Per official Plex docs: https://support.plex.tv/articles/235974187
 # ──────────────────────────────────────────────────────────
-- name: Download Plex repository GPG key
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Remove old Plex repo config if present
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/share/keyrings/PlexSign.asc
+    - /etc/apt/sources.list.d/plexmediaserver.list
+
+- name: Download Plex GPG key
   ansible.builtin.get_url:
     url: "{{ plex_server_repo_gpgkey }}"
-    dest: /usr/share/keyrings/PlexSign.asc
+    dest: /tmp/PlexSign.v2.key
     mode: "0644"
+
+- name: Dearmor Plex GPG key
+  ansible.builtin.command: gpg --yes --dearmor -o {{ plex_server_repo_keyring }} /tmp/PlexSign.v2.key
+  args:
+    creates: "{{ plex_server_repo_keyring }}"
 
 - name: Add Plex DEB repository
   ansible.builtin.apt_repository:
     repo: "{{ plex_server_repo_url }}"
-    filename: plexmediaserver
+    filename: plex
     state: present
 
 # ──────────────────────────────────────────────────────────

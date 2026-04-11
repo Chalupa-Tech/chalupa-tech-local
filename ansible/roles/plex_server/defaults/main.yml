@@ -7,6 +7,7 @@ plex_server_nfs_shares:
     dest: "/mnt/plex/tvshows"
 plex_server_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"
 plex_server_user: "tbigelow"
-# Plex DEB repository — Ubuntu equivalent of the RPM repo at repo.plex.tv/rpm/
-plex_server_repo_url: "deb [signed-by=/usr/share/keyrings/PlexSign.asc] https://downloads.plex.tv/repo/deb/ public main"
-plex_server_repo_gpgkey: "https://downloads.plex.tv/plex-keys/PlexSign.key"
+# Official Plex DEB repository (per https://support.plex.tv/articles/235974187)
+plex_server_repo_url: "deb [signed-by=/etc/apt/keyrings/plexmediaserver.v2.gpg] https://repo.plex.tv/deb/ public main"
+plex_server_repo_gpgkey: "https://downloads.plex.tv/plex-keys/PlexSign.v2.key"
+plex_server_repo_keyring: "/etc/apt/keyrings/plexmediaserver.v2.gpg"
