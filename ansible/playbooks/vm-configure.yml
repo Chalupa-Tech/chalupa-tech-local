@@ -9,8 +9,12 @@
     - plex_lxc
 
 # Play 2: Configure software inside the Plex LXC container.
+# gather_facts is disabled because the plex_server role starts with
+# wait_for_connection (the LXC may still be booting after Play 1)
+# followed by an explicit setup task to gather facts.
 - name: Configure Plex Media Server LXC
   hosts: plex_servers
   become: true
+  gather_facts: false
   roles:
     - plex_server
