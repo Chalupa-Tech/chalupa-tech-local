@@ -111,22 +111,48 @@ jobs:
 
       # The Proxmox provider treats vzcreate WARNINGS as errors (e.g.,
       # "Systemd 255 detected. You may need to enable nesting.") even
-      # though the container is created successfully. If Pulumi Up failed
-      # but the container exists, import it into state and continue.
-      - name: Auto-import LXC if created with warnings
+      # though the container is created successfully. It can also fail
+      # on state refresh if features are malformed from a prior import.
+      #
+      # This step handles both cases:
+      # 1. Container exists on host but not in state → configure + import
+      # 2. Container in state but malformed → delete from state, configure, re-import
+      # 3. Container doesn't exist → real failure, abort
+      - name: Recover Plex LXC state if Pulumi Up failed
         if: steps.pulumi_up.outcome == 'failure'
         run: |
-          echo "Pulumi Up failed — checking if container 200 was created anyway..."
-          if ssh root@192.168.1.223 "pct status 200" 2>/dev/null; then
-            echo "Container 200 exists — importing into Pulumi state"
-            cd pulumi
-            pulumi import "proxmoxve:CT/container:Container" "plex-lxc" "proxmox/200" \
-              --stack tayvenb13/chalupa-infra/proxmox --yes --skip-preview \
-              --generate-code=false
-          else
+          echo "Pulumi Up failed — checking container 200 on host..."
+          if ! ssh root@192.168.1.223 "pct status 200" 2>/dev/null; then
             echo "Container 200 does not exist — this is a real failure"
             exit 1
           fi
+
+          echo "Container 200 exists on host"
+          cd pulumi
+
+          # Configure root@pam-only settings before import so the
+          # imported state has correct values for features/devices
+          echo "Applying root@pam-only settings via SSH..."
+          ssh root@192.168.1.223 bash -s <<'CONF'
+            pct stop 200 2>/dev/null || true
+            sed -i 's/^unprivileged: 1/unprivileged: 0/' /etc/pve/lxc/200.conf
+            grep -q "nesting=1" /etc/pve/lxc/200.conf || pct set 200 -features nesting=1
+            grep -q "^dev0:" /etc/pve/lxc/200.conf || pct set 200 -dev0 /dev/dri/renderD128,mode=0666
+            pct start 200
+          CONF
+
+          # Remove stale/malformed state if it exists, then re-import
+          URN=$(pulumi stack export --stack tayvenb13/chalupa-infra/proxmox \
+            | jq -r '.deployment.resources[] | select(.urn | contains("plex-lxc")) | .urn')
+          if [ -n "$URN" ]; then
+            echo "Removing malformed state entry: $URN"
+            pulumi state delete "$URN" --stack tayvenb13/chalupa-infra/proxmox --yes
+          fi
+
+          echo "Importing container into Pulumi state..."
+          pulumi import "proxmoxve:CT/container:Container" "plex-lxc" "proxmox/200" \
+            --stack tayvenb13/chalupa-infra/proxmox --yes --skip-preview \
+            --generate-code=false
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           PROXMOX_VE_ENDPOINT: ${{ secrets.PROXMOX_VE_ENDPOINT }}
