@@ -121,7 +121,8 @@ jobs:
             echo "Container 200 exists — importing into Pulumi state"
             cd pulumi
             pulumi import "proxmoxve:CT/container:Container" "plex-lxc" "proxmox/200" \
-              --stack tayvenb13/chalupa-infra/proxmox --yes --skip-preview
+              --stack tayvenb13/chalupa-infra/proxmox --yes --skip-preview \
+              --generate-code=false
           else
             echo "Container 200 does not exist — this is a real failure"
             exit 1
