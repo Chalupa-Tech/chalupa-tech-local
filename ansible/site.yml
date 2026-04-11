@@ -4,3 +4,4 @@
   become: true
   roles:
     - proxmox_prep
+    - plex_lxc

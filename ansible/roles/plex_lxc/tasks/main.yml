@@ -1,0 +1,64 @@
+---
+# ──────────────────────────────────────────────────────────
+# Create and configure the Plex LXC container on the Proxmox host.
+# Runs as root on pve1, so all pct operations authenticate as
+# root@pam — no API token permission restrictions.
+# ──────────────────────────────────────────────────────────
+
+- name: Check if Plex LXC already exists
+  ansible.builtin.command: pct status {{ plex_lxc_vmid }}
+  register: plex_lxc_status
+  failed_when: false
+  changed_when: false
+
+- name: Create Plex LXC container
+  when: plex_lxc_status.rc != 0
+  block:
+    - name: Create container from Ubuntu template
+      ansible.builtin.command: >
+        pct create {{ plex_lxc_vmid }}
+        {{ plex_lxc_ostemplate }}
+        --hostname {{ plex_lxc_hostname }}
+        --cores {{ plex_lxc_cores }}
+        --memory {{ plex_lxc_memory }}
+        --rootfs {{ plex_lxc_disk }}
+        --net0 name=eth0,bridge=vmbr0,ip={{ plex_lxc_ip }}/24,gw={{ plex_lxc_gateway }}
+        --nameserver "{{ plex_lxc_nameserver }}"
+        --features nesting=1
+        --onboot 1
+        --startup order={{ plex_lxc_startup_order }}
+        --unprivileged 0
+      changed_when: true
+
+    - name: Inject SSH public keys for root access
+      ansible.builtin.copy:
+        content: "{{ plex_lxc_ssh_keys }}"
+        dest: "/var/lib/lxc/{{ plex_lxc_vmid }}/rootfs/root/.ssh/authorized_keys"
+        mode: "0600"
+        owner: root
+        group: root
+
+    - name: Ensure .ssh directory permissions
+      ansible.builtin.file:
+        path: "/var/lib/lxc/{{ plex_lxc_vmid }}/rootfs/root/.ssh"
+        state: directory
+        mode: "0700"
+        owner: root
+        group: root
+
+- name: Configure GPU render device passthrough
+  ansible.builtin.command: >
+    pct set {{ plex_lxc_vmid }}
+    -dev0 {{ plex_lxc_gpu_device }},mode=0666
+  register: plex_lxc_gpu_set
+  changed_when: plex_lxc_gpu_set.rc == 0
+  when: plex_lxc_gpu_device is defined
+  failed_when: false
+
+- name: Ensure Plex LXC is started
+  ansible.builtin.command: pct start {{ plex_lxc_vmid }}
+  register: plex_lxc_start
+  changed_when: plex_lxc_start.rc == 0
+  failed_when:
+    - plex_lxc_start.rc != 0
+    - "'already running' not in plex_lxc_start.stderr"
