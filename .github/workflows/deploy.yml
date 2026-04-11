@@ -200,8 +200,8 @@ jobs:
             fi
 
             if [ "$CHANGED" -eq 1 ]; then
-              echo "LXC config changed — restarting container"
-              pct reboot 200
+              echo "LXC config changed — stop/start to apply new settings"
+              pct stop 200 && pct start 200
             else
               echo "LXC config already up to date — no restart needed"
             fi
