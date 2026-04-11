@@ -179,13 +179,18 @@ jobs:
           ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
           ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
 
-      # Configure GPU render device passthrough on the Proxmox host.
-      # This must be done via SSH as root (pct set requires root@pam,
-      # which API tokens cannot provide). Only renderD128 is needed
-      # for Plex VA-API transcoding.
-      - name: Configure GPU passthrough for Plex LXC
+      # Configure LXC features that require root@pam (API tokens cannot
+      # set these). Stops the container, applies changes, restarts it.
+      #   - mount=nfs: allows NFS mounts inside unprivileged container
+      #   - dev0: GPU render device for Plex VA-API transcoding
+      - name: Configure root@pam-only LXC settings
         run: |
-          ssh root@192.168.1.223 "pct set 200 -dev0 /dev/dri/renderD128,mode=0666"
+          ssh root@192.168.1.223 bash -s <<'SCRIPT'
+            pct stop 200 || true
+            pct set 200 -features nesting=1,mount=nfs
+            pct set 200 -dev0 /dev/dri/renderD128,mode=0666
+            pct start 200
+          SCRIPT
 
       # The wait_for_connection task in the plex_server role handles
       # waiting for the LXC to be reachable.
