@@ -75,7 +75,7 @@ func createPlexLXC(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			Nesting: pulumi.Bool(true),
 		},
 
-		Unprivileged: pulumi.Bool(true),
+		Unprivileged: pulumi.Bool(false),
 		Started:      pulumi.Bool(true),
 		StartOnBoot:  pulumi.Bool(true),
 		Startup: &ct.ContainerStartupArgs{
