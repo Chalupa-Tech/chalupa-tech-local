@@ -1,0 +1,4 @@
+---
+- name: Restart Plex LXC
+  ansible.builtin.shell: pct stop {{ plex_lxc_vmid }} 2>/dev/null; pct start {{ plex_lxc_vmid }}
+  changed_when: true
