@@ -172,13 +172,23 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
-      - name: Add Plex VM to known_hosts
+      - name: Add hosts to known_hosts
         run: |
+          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
           echo "192.168.1.224 plex" | sudo tee -a /etc/hosts
+          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
           ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
+
+      # Configure GPU render device passthrough on the Proxmox host.
+      # This must be done via SSH as root (pct set requires root@pam,
+      # which API tokens cannot provide). Only renderD128 is needed
+      # for Plex VA-API transcoding.
+      - name: Configure GPU passthrough for Plex LXC
+        run: |
+          ssh root@192.168.1.223 "pct set 200 -dev0 /dev/dri/renderD128,mode=0666"
 
       # The wait_for_connection task in the plex_server role handles
       # waiting for the LXC to be reachable.
-      - name: Run Ansible Playbook (VM Configure)
+      - name: Run Ansible Playbook (LXC Configure)
         run: ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml
         working-directory: ansible/

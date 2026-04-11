@@ -65,20 +65,12 @@ func createPlexLXC(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
-		// GPU device passthrough — share the Strix Halo iGPU with the host
-		// via /dev/dri bind mounts (requires amdgpu loaded on host, NOT vfio-pci)
-		DevicePassthroughs: ct.ContainerDevicePassthroughArray{
-			&ct.ContainerDevicePassthroughArgs{
-				Path: pulumi.String("/dev/dri/renderD128"),
-			},
-			&ct.ContainerDevicePassthroughArgs{
-				Path: pulumi.String("/dev/dri/card0"),
-			},
-		},
-
+		// GPU render device (/dev/dri/renderD128) is passed through post-creation
+		// via `pct set` in the deploy workflow (Stage 3). Proxmox restricts
+		// device passthrough configuration to root@pam, which API tokens
+		// cannot provide — so it's done via SSH as root on the host instead.
+		//
 		// Nesting for systemd inside the container
-		// Note: mount=nfs feature flag requires root@pam (not API token),
-		// so NFS is mounted inside the container without the explicit flag
 		Features: &ct.ContainerFeaturesArgs{
 			Nesting: pulumi.Bool(true),
 		},
