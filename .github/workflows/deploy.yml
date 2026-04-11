@@ -180,16 +180,31 @@ jobs:
           ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
 
       # Configure LXC features that require root@pam (API tokens cannot
-      # set these). Stops the container, applies changes, restarts it.
+      # set these). Only applies changes + restarts if config is missing.
       #   - mount=nfs: allows NFS mounts inside unprivileged container
       #   - dev0: GPU render device for Plex VA-API transcoding
-      - name: Configure root@pam-only LXC settings
+      - name: Configure root@pam-only LXC settings (if needed)
         run: |
           ssh root@192.168.1.223 bash -s <<'SCRIPT'
-            pct stop 200 || true
-            pct set 200 -features nesting=1,mount=nfs
-            pct set 200 -dev0 /dev/dri/renderD128,mode=0666
-            pct start 200
+            CONF="/etc/pve/lxc/200.conf"
+            CHANGED=0
+
+            if ! grep -q "mount=nfs" "$CONF" 2>/dev/null; then
+              pct set 200 -features nesting=1,mount=nfs
+              CHANGED=1
+            fi
+
+            if ! grep -q "^dev0:" "$CONF" 2>/dev/null; then
+              pct set 200 -dev0 /dev/dri/renderD128,mode=0666
+              CHANGED=1
+            fi
+
+            if [ "$CHANGED" -eq 1 ]; then
+              echo "LXC config changed — restarting container"
+              pct reboot 200
+            else
+              echo "LXC config already up to date — no restart needed"
+            fi
           SCRIPT
 
       # The wait_for_connection task in the plex_server role handles
