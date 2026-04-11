@@ -11,6 +11,9 @@
   failed_when: false
   changed_when: false
 
+# ──────────────────────────────────────────────────────────
+# Create the container if it doesn't exist
+# ──────────────────────────────────────────────────────────
 - name: Create Plex LXC container
   when: plex_lxc_status.rc != 0
   block:
@@ -46,14 +49,52 @@
         owner: root
         group: root
 
-- name: Configure GPU render device passthrough
+# ──────────────────────────────────────────────────────────
+# Ensure required settings on existing containers.
+# These run every time (idempotent) to catch containers
+# created by older Pulumi runs without these settings.
+# ──────────────────────────────────────────────────────────
+- name: Read LXC config
+  ansible.builtin.slurp:
+    src: "/etc/pve/lxc/{{ plex_lxc_vmid }}.conf"
+  register: plex_lxc_conf
+
+- name: Ensure container is privileged
+  when: "'unprivileged: 1' in (plex_lxc_conf.content | b64decode)"
+  block:
+    - name: Stop container to change privileged mode
+      ansible.builtin.command: pct stop {{ plex_lxc_vmid }}
+      changed_when: true
+      failed_when: false
+
+    - name: Set unprivileged to 0
+      ansible.builtin.lineinfile:
+        path: "/etc/pve/lxc/{{ plex_lxc_vmid }}.conf"
+        regexp: "^unprivileged: 1"
+        line: "unprivileged: 0"
+      notify: Restart Plex LXC
+
+- name: Ensure nesting is enabled
+  ansible.builtin.command: pct set {{ plex_lxc_vmid }} --features nesting=1
+  when: "'nesting=1' not in (plex_lxc_conf.content | b64decode)"
+  changed_when: true
+  notify: Restart Plex LXC
+
+- name: Ensure GPU render device passthrough
   ansible.builtin.command: >
     pct set {{ plex_lxc_vmid }}
     -dev0 {{ plex_lxc_gpu_device }},mode=0666
-  register: plex_lxc_gpu_set
-  changed_when: plex_lxc_gpu_set.rc == 0
-  when: plex_lxc_gpu_device is defined
-  failed_when: false
+  when:
+    - plex_lxc_gpu_device is defined
+    - "'dev0:' not in (plex_lxc_conf.content | b64decode)"
+  changed_when: true
+  notify: Restart Plex LXC
+
+# ──────────────────────────────────────────────────────────
+# Flush handlers so any restart happens before Play 2
+# ──────────────────────────────────────────────────────────
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
 
 - name: Ensure Plex LXC is started
   ansible.builtin.command: pct start {{ plex_lxc_vmid }}
