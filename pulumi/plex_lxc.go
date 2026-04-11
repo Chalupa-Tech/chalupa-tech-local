@@ -65,18 +65,19 @@ func createPlexLXC(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 			},
 		},
 
-		// GPU device passthrough and feature flags (nesting) are configured
-		// post-creation via `pct set` in the deploy workflow (Stage 3).
-		// Proxmox restricts these to root@pam, which API tokens cannot
-		// provide — so they're done via SSH as root on the host instead.
+		// The following are configured post-creation via `pct set` in the
+		// deploy workflow (Stage 3) because Proxmox restricts them to
+		// root@pam, which API tokens cannot provide:
+		//   - unprivileged=0 (privileged, for NFS mount support)
+		//   - features: nesting=1 (for systemd)
+		//   - dev0: /dev/dri/renderD128 (GPU for VA-API transcoding)
 
-		Unprivileged: pulumi.Bool(false),
-		Started:      pulumi.Bool(true),
+		Started: pulumi.Bool(true),
 		StartOnBoot:  pulumi.Bool(true),
 		Startup: &ct.ContainerStartupArgs{
 			Order: pulumi.Int(3), // After TrueNAS (order 1) — NFS dependency
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}))
+	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "unprivileged", "features"}))
 	if err != nil {
 		return err
 	}
