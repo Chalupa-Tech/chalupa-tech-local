@@ -10,7 +10,6 @@ jobs:
   # Stage 1: Run Ansible against Proxmox host
   #   - Updates host packages, enables IOMMU/VFIO
   #   - Installs kernel 7, downloads LXC template
-  #   - Creates Plex LXC container (VMID 200) with GPU passthrough
   # ════════════════════════════════════════════════════
   deploy-proxmox-prep:
     name: "Stage 1: Proxmox Host Prep"
@@ -106,13 +105,19 @@ jobs:
           PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_VE_API_TOKEN }}
           PROXMOX_VE_SSH_USERNAME: ${{ secrets.PROXMOX_VE_SSH_USERNAME }}
 
-      # Generate VM inventory from Pulumi outputs for Stage 3
-      - name: Generate VM inventory
+      # Generate inventory for Stage 3 (includes both Proxmox host
+      # for LXC creation and the Plex LXC for software configuration)
+      - name: Generate Stage 3 inventory
         run: |
           PLEX_IP=$(pulumi stack output plex-ip --stack tayvenb13/chalupa-infra/proxmox)
           cat > inventory-vms.yml <<EOF
           all:
             children:
+              proxmox:
+                hosts:
+                  pve1:
+                    ansible_host: 192.168.1.223
+                    ansible_user: root
               plex_servers:
                 hosts:
                   plex:
@@ -130,12 +135,12 @@ jobs:
           path: pulumi/inventory-vms.yml
 
   # ════════════════════════════════════════════════════
-  # Stage 3: Run Ansible against the Plex LXC container
-  #   - Installs Plex, VA-API drivers, NFS mounts, firewall
-  #   - Uses the same SSH key as Stages 1 & 2
+  # Stage 3: Create Plex LXC + configure software
+  #   - Creates LXC container on Proxmox host (privileged, GPU, nesting)
+  #   - Installs Plex, VA-API drivers, NFS mounts, firewall inside LXC
   # ════════════════════════════════════════════════════
   deploy-vm-configure:
-    name: "Stage 3: LXC Software Config"
+    name: "Stage 3: LXC Create + Configure"
     runs-on: ubuntu-latest
     needs: deploy-pulumi
     steps:
@@ -170,9 +175,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
-      - name: Add Plex LXC to known_hosts
+      - name: Add hosts to known_hosts
         run: |
+          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
           echo "192.168.1.224 plex" | sudo tee -a /etc/hosts
+          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
           ssh-keyscan -H 192.168.1.224 >> ~/.ssh/known_hosts
 
       - name: Run Ansible Playbook (LXC Configure)

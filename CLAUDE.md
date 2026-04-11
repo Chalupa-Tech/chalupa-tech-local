@@ -9,9 +9,9 @@ Infrastructure-as-code for a local Proxmox hypervisor (AMD Strix Halo Framework 
 ## Architecture
 
 **3-stage CI/CD pipeline** (`.github/workflows/deploy.yml`, triggered on merge to `main`):
-1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, LXC template) and creates the Plex LXC container (VMID 200) with GPU passthrough
+1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, LXC template)
 2. **Stage 2** — Pulumi provisions TrueNAS VM, exports Plex IP as artifact for Stage 3
-3. **Stage 3** — Ansible configures Plex LXC (VA-API drivers, Plex install, NFS mounts, firewall)
+3. **Stage 3** — Ansible creates Plex LXC on host (privileged, GPU, nesting), then configures software inside it (Plex, VA-API, NFS, firewall)
 
 **Why Ansible manages the LXC (not Pulumi):** Proxmox restricts LXC device passthrough, feature flags, and privileged mode to `root@pam` identity only — API tokens cannot set these. Ansible runs as root on the host via SSH, so it has no such restrictions.
 
@@ -26,8 +26,8 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 - `truenas.go` — TrueNAS Scale VM: 4 cores, 32GB RAM, HBA passthrough (2 mappings), boot order 1
 
 **Ansible** (`ansible/`): Two inventories, two playbooks:
-- `inventory.yml` + `site.yml` → `proxmox_prep` role (host config) + `plex_lxc` role (container creation) against `pve1`
-- `inventory-vms.yml` + `playbooks/vm-configure.yml` → `plex_server` role against Plex LXC container
+- `inventory.yml` + `site.yml` → `proxmox_prep` role (host config) against `pve1`
+- `inventory-vms.yml` + `playbooks/vm-configure.yml` → `plex_lxc` role (container creation on `pve1`) then `plex_server` role (software config inside LXC)
 - Shared vars in `group_vars/all.yml` (e.g., `truenas_vm_ip`)
 
 **Plex LXC** (VMID 200): Ubuntu 24.04, privileged, 8 cores, 8GB RAM, 16GB disk, GPU `/dev/dri/renderD128` passthrough, static IP `192.168.1.224`, boot order 3
