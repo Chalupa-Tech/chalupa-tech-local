@@ -1,4 +1,14 @@
 ---
+# Play 1: Create the Plex LXC container on the Proxmox host.
+# Runs as root on pve1 via SSH, which authenticates as root@pam —
+# no API token restrictions on device passthrough or feature flags.
+- name: Create Plex LXC container
+  hosts: proxmox
+  become: true
+  roles:
+    - plex_lxc
+
+# Play 2: Configure software inside the Plex LXC container.
 - name: Configure Plex Media Server LXC
   hosts: plex_servers
   become: true
