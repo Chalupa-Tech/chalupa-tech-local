@@ -82,10 +82,14 @@
 # ──────────────────────────────────────────────────────────
 # 7. Add Plex Media Server DEB repository
 # ──────────────────────────────────────────────────────────
-- name: Download and dearmor Plex repository GPG key
-  ansible.builtin.shell: >
-    curl -fsSL {{ plex_server_repo_gpgkey }}
-    | gpg --dearmor -o /usr/share/keyrings/plex-archive-keyring.gpg
+- name: Download Plex repository GPG key
+  ansible.builtin.get_url:
+    url: "{{ plex_server_repo_gpgkey }}"
+    dest: /tmp/plex-archive-keyring.asc
+    mode: "0644"
+
+- name: Dearmor Plex GPG key for apt
+  ansible.builtin.command: gpg --dearmor -o /usr/share/keyrings/plex-archive-keyring.gpg /tmp/plex-archive-keyring.asc
   args:
     creates: /usr/share/keyrings/plex-archive-keyring.gpg
 
