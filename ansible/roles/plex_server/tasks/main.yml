@@ -14,7 +14,19 @@
   ansible.builtin.setup:
 
 # ──────────────────────────────────────────────────────────
-# 3. Create personal user with sudo access
+# 3. Install dependencies
+# ──────────────────────────────────────────────────────────
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - sudo
+      - gpg
+    state: present
+    update_cache: true
+
+# ──────────────────────────────────────────────────────────
+# 4. Create personal user with sudo access
 # ──────────────────────────────────────────────────────────
 - name: Create personal user
   ansible.builtin.user:
@@ -39,8 +51,8 @@
     validate: "visudo -cf %s"
 
 # ──────────────────────────────────────────────────────────
-# 4. Install VA-API drivers for GPU hardware transcoding
-#    Requires /dev/dri/renderD128 passed through from host
+# 5. Set up hardware acceleration (AMD VA-API)
+#    Adapted from tteck/Proxmox Plex script for AMD iGPU
 # ──────────────────────────────────────────────────────────
 - name: Install VA-API drivers for AMD GPU
   ansible.builtin.apt:
@@ -49,21 +61,35 @@
       - libva2
       - vainfo
     state: present
-    update_cache: true
+
+- name: Set /dev/dri device permissions
+  ansible.builtin.file:
+    path: /dev/dri
+    group: video
+    mode: "0755"
+
+- name: Set /dev/dri device node permissions
+  ansible.builtin.shell: chmod 660 /dev/dri/*
+  changed_when: true
+
+- name: Add root user to video and render groups
+  ansible.builtin.user:
+    name: root
+    groups:
+      - video
+      - render
+    append: true
 
 # ──────────────────────────────────────────────────────────
-# 5. Install NFS client utilities
+# 6. Install NFS client utilities and mount shares
+#    Uses x-systemd.automount so the LXC won't hang at boot
+#    if TrueNAS is temporarily unreachable.
 # ──────────────────────────────────────────────────────────
 - name: Install nfs-common
   ansible.builtin.apt:
     name: nfs-common
     state: present
 
-# ──────────────────────────────────────────────────────────
-# 6. Create NFS mount points and mount shares
-#    Uses x-systemd.automount so the LXC won't hang at boot
-#    if TrueNAS is temporarily unreachable.
-# ──────────────────────────────────────────────────────────
 - name: Create Plex media mount points  # noqa: risky-file-permissions
   ansible.builtin.file:
     path: "{{ item.dest }}"
@@ -81,6 +107,7 @@
 
 # ──────────────────────────────────────────────────────────
 # 7. Add Plex Media Server DEB repository
+#    Matches tteck/Proxmox community script approach
 # ──────────────────────────────────────────────────────────
 - name: Download Plex repository GPG key
   ansible.builtin.get_url:
@@ -96,18 +123,35 @@
 
 # ──────────────────────────────────────────────────────────
 # 8. Install Plex Media Server
+#    --force-confold preserves existing config on upgrades
 # ──────────────────────────────────────────────────────────
 - name: Install plexmediaserver
   ansible.builtin.apt:
     name: plexmediaserver
     state: present
     update_cache: true
+    dpkg_options: "force-confold"
   notify: Restart plexmediaserver
 
 # ──────────────────────────────────────────────────────────
-# 9. Grant plex user GPU and media access
-#    - video + render groups: access to /dev/dri devices
-#    - personal user group: read access to NFS-mounted media
+# 9. Fix render group GID for GPU access
+#    Ubuntu assigns ssl-cert GID 104 and render GID 108, but
+#    the host's /dev/dri/renderD128 uses GID 104 (render on host).
+#    Swap the groups so plex gets the right GID.
+#    Adapted from tteck/Proxmox Plex script.
+# ──────────────────────────────────────────────────────────
+- name: Swap ssl-cert and render group GIDs for GPU access
+  ansible.builtin.shell: |
+    set -e
+    if grep -q '^ssl-cert:x:104:' /etc/group 2>/dev/null; then
+      sed -i -e 's/^ssl-cert:x:104:plex$/render:x:104:root,plex/' \
+             -e 's/^render:x:108:root$/ssl-cert:x:108:plex/' /etc/group
+    fi
+  changed_when: true
+  notify: Restart plexmediaserver
+
+# ──────────────────────────────────────────────────────────
+# 10. Grant plex user GPU and media access
 # ──────────────────────────────────────────────────────────
 - name: Add plex user to GPU and media groups
   ansible.builtin.user:
@@ -120,7 +164,7 @@
   notify: Restart plexmediaserver
 
 # ──────────────────────────────────────────────────────────
-# 10. Firewall — open port 32400/tcp (Plex Web UI + streaming)
+# 11. Firewall — open port 32400/tcp (Plex Web UI + streaming)
 # ──────────────────────────────────────────────────────────
 - name: Install ufw
   ansible.builtin.apt:
@@ -138,10 +182,18 @@
     state: enabled
 
 # ──────────────────────────────────────────────────────────
-# 11. Enable and start Plex
+# 12. Enable and start Plex
 # ──────────────────────────────────────────────────────────
 - name: Enable and start plexmediaserver
   ansible.builtin.systemd:
     name: plexmediaserver
     enabled: true
     state: started
+
+# ──────────────────────────────────────────────────────────
+# 13. Cleanup
+# ──────────────────────────────────────────────────────────
+- name: Clean up apt cache
+  ansible.builtin.apt:
+    autoclean: true
+    autoremove: true
