@@ -190,6 +190,12 @@
     name: ufw
     state: present
 
+- name: Allow SSH through ufw
+  community.general.ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+
 - name: Allow Plex port through ufw
   community.general.ufw:
     rule: allow
