@@ -63,9 +63,17 @@ jobs:
 
       - name: Add Proxmox to known_hosts
         run: |
-          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
-          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
-          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
+          # Proxmox sshd rate-limits back-to-back keyscan connections.
+          # Only the IP is needed (Pulumi uses PROXMOX_VE_ENDPOINT).
+          for attempt in 1 2 3; do
+            if ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts; then
+              exit 0
+            fi
+            echo "ssh-keyscan attempt $attempt failed, retrying in 5s..." >&2
+            sleep 5
+          done
+          echo "ERROR: ssh-keyscan failed after 3 attempts" >&2
+          exit 1
 
       - name: Pulumi Preview
         uses: pulumi/actions@v3
@@ -114,9 +122,17 @@ jobs:
 
       - name: Add Proxmox to known_hosts
         run: |
-          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
-          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
-          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
+          # Proxmox sshd rate-limits back-to-back keyscan connections.
+          # Only the IP is needed (Pulumi uses PROXMOX_VE_ENDPOINT).
+          for attempt in 1 2 3; do
+            if ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts; then
+              exit 0
+            fi
+            echo "ssh-keyscan attempt $attempt failed, retrying in 5s..." >&2
+            sleep 5
+          done
+          echo "ERROR: ssh-keyscan failed after 3 attempts" >&2
+          exit 1
 
       - name: Pulumi Preview (Talos)
         uses: pulumi/actions@v3

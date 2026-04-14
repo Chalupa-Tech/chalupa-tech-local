@@ -1,6 +1,3 @@
 name: chalupa-talos
-runtime:
-  name: go
-  options:
-    binary: chalupa-talos
+runtime: go
 description: Talos Kubernetes cluster on Proxmox (3 nodes, ArgoCD-ready)
