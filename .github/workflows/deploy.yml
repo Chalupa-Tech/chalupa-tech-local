@@ -55,12 +55,12 @@ jobs:
         working-directory: ansible/
 
   # ════════════════════════════════════════════════════
-  # Stage 2: Run Pulumi to provision VMs
+  # Stage 2a: Run Pulumi to provision VMs
   #   - Manages TrueNAS VM config
   #   - Exports Plex IP for Stage 3
   # ════════════════════════════════════════════════════
   deploy-pulumi:
-    name: "Stage 2: Pulumi VM Provision"
+    name: "Stage 2a: Pulumi VM Provision"
     runs-on: ubuntu-latest
     needs: deploy-proxmox-prep
     steps:
@@ -136,6 +136,59 @@ jobs:
           path: pulumi/inventory-vms.yml
 
   # ════════════════════════════════════════════════════
+  # Stage 2b: Run Pulumi to provision Talos K8s cluster
+  #   - Creates 3 Talos VMs (1 CP + 2 workers)
+  #   - Generates machine configs, bootstraps cluster
+  #   - Exports kubeconfig + talosconfig
+  # ════════════════════════════════════════════════════
+  deploy-talos:
+    name: "Stage 2b: Talos K8s Cluster"
+    runs-on: ubuntu-latest
+    needs: deploy-proxmox-prep
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.6'
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Ensure Proxmox host resolution
+        run: |
+          echo "192.168.1.223 proxmox" | sudo tee -a /etc/hosts
+          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
+
+      - name: Add Proxmox to known_hosts
+        run: |
+          ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts
+          ssh-keyscan -H proxmox >> ~/.ssh/known_hosts
+          ssh-keyscan -H pve1 >> ~/.ssh/known_hosts
+
+      - name: Pulumi Up (Talos Cluster)
+        uses: pulumi/actions@v3
+        with:
+          command: up
+          stack-name: tayvenb13/chalupa-talos/proxmox
+          work-dir: pulumi-talos/
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PROXMOX_VE_ENDPOINT: ${{ secrets.PROXMOX_VE_ENDPOINT }}
+          PROXMOX_VE_API_TOKEN: ${{ secrets.PROXMOX_VE_API_TOKEN }}
+          PROXMOX_VE_SSH_USERNAME: ${{ secrets.PROXMOX_VE_SSH_USERNAME }}
+        timeout-minutes: 30
+
+  # ════════════════════════════════════════════════════
   # Stage 3: Create Plex LXC + configure software
   #   - Creates LXC container on Proxmox host (privileged, GPU, nesting)
   #   - Installs Plex, VA-API drivers, NFS mounts, firewall inside LXC
@@ -188,3 +241,70 @@ jobs:
       - name: Run Ansible Playbook (LXC Configure)
         run: ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml
         working-directory: ansible/
+
+  # ════════════════════════════════════════════════════
+  # Stage 4: Bootstrap ArgoCD on Talos cluster
+  #   - Retrieves kubeconfig from Pulumi state
+  #   - Installs ArgoCD via Helm
+  # ════════════════════════════════════════════════════
+  deploy-argocd:
+    name: "Stage 4: ArgoCD Bootstrap"
+    runs-on: ubuntu-latest
+    needs: deploy-talos
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.6'
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install Pulumi CLI
+        run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> $GITHUB_PATH
+
+      - name: Get kubeconfig from Pulumi
+        run: |
+          pulumi stack output kubeconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/kubeconfig
+          chmod 600 /tmp/kubeconfig
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Wait for Kubernetes API
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          for i in $(seq 1 30); do
+            if kubectl get nodes &>/dev/null; then
+              echo "Kubernetes API is ready"
+              kubectl get nodes
+              exit 0
+            fi
+            echo "Waiting for Kubernetes API... (attempt $i/30)"
+            sleep 10
+          done
+          echo "Kubernetes API did not become ready"
+          exit 1
+        timeout-minutes: 6
+
+      - name: Install ArgoCD
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          helm repo add argo https://argoproj.github.io/argo-helm
+          helm repo update
+          helm upgrade --install argocd argo/argo-cd \
+            --namespace argocd --create-namespace \
+            --version 9.5.0 \
+            --wait --timeout 5m
