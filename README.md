@@ -25,8 +25,8 @@ This repository manages the infrastructure and configuration for a local Proxmox
    - **Workloads:** Personal Website, \*arr stack, NzbGet
    - **Note:** Talos is an immutable OS built for K8s, bootstrapped via API.
 
-3. **Fedora Server (Plex Media Server)**
-   - **Resources:** 8 Cores, 32GB RAM
+3. **Ubuntu LXC (Plex Media Server)**
+   - **Resources:** 6 Cores, 8GB RAM
    - **Hardware Details:** GPU Passthrough for hardware transcoding.
    - **Storage:** Mounts the "Plex" share from the TrueNAS VM.
 
@@ -36,7 +36,9 @@ This repository manages the infrastructure and configuration for a local Proxmox
 
 ## Repository Structure
 
-- `ansible/`: Contains playbooks, inventory, and roles for configuring the Proxmox host (e.g., enabling IOMMU, configuring GPU/HBA passthrough).
+- `ansible/proxmox_prep`: Contains playbooks, inventory, and roles for configuring the Proxmox host (e.g., enabling IOMMU, configuring GPU/HBA passthrough, updating the kernel to linux 7).
+- `ansible/plex_lxc`: Contains playbooks, inventory and roles for configuring the Plex LXC on the Proxmox host.
+- `ansible/plex_server`: Contains playbooks, inventory and roles for configuring the Plex Media Server & Mounting the NFS Shares. 
 - `pulumi/`: Contains the TypeScript Pulumi project for defining the VMs (Proxmox provider) and bootstrapping the Talos cluster.
 - `.github/workflows/`: GitHub Actions pipelines for CI/CD.
 
