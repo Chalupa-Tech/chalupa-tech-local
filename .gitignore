@@ -11,3 +11,6 @@ pulumi-talos/chalupa-talos
 
 # Local Pulumi state/cache
 .pulumi/
+
+# Git worktrees
+.worktrees/
