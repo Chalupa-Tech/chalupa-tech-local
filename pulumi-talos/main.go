@@ -111,6 +111,10 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			},
 			Agent: &vm.VirtualMachineAgentArgs{
 				Enabled: pulumi.Bool(true),
+				Timeout: pulumi.String("10m"),
+				WaitForIp: &vm.VirtualMachineAgentWaitForIpArgs{
+					Ipv4: pulumi.Bool(true),
+				},
 			},
 			Started: pulumi.Bool(true),
 			OnBoot:  pulumi.Bool(true),
