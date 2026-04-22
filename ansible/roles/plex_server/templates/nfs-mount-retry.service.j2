@@ -1,0 +1,13 @@
+[Unit]
+Description=Retry NFS mounts after boot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 15
+ExecStart=/bin/mount -a -t nfs4
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
