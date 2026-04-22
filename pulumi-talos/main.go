@@ -132,10 +132,12 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			return err
 		}
 
-		// Generate Talos machine configuration with static IP patch
+		// Generate Talos machine configuration with static IP patch.
+		// Talos v1.12+ auto-generates a HostnameConfig document with auto: stable.
+		// Setting machine.network.hostname in the v1alpha1 doc conflicts with it,
+		// so we override the HostnameConfig document directly (auto: off).
 		patch := fmt.Sprintf(`machine:
   network:
-    hostname: %s
     interfaces:
       - deviceSelector:
           busPath: "0*"
@@ -150,7 +152,12 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
       - 8.8.8.8
   install:
     disk: /dev/sda
-`, node.name, node.ip, gateway)
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: %s
+auto: off
+`, node.ip, gateway, node.name)
 
 		machineConfig := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
 			ClusterEndpoint: pulumi.String(fmt.Sprintf("https://%s:6443", controlPlaneIP)),
