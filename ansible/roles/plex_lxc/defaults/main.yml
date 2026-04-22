@@ -5,7 +5,7 @@ plex_lxc_node: proxmox
 plex_lxc_ostemplate: "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
 plex_lxc_cores: 6
 plex_lxc_memory: 8192
-plex_lxc_disk: "local-lvm:16"
+plex_lxc_disk: "local-lvm:256"
 plex_lxc_ip: "192.168.1.224"
 plex_lxc_gateway: "192.168.1.1"
 plex_lxc_nameserver: "192.168.1.1 1.1.1.1"
