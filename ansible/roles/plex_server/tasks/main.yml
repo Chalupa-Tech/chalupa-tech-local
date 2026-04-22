@@ -101,7 +101,7 @@
     src: "{{ plex_server_nfs_server }}:{{ item.src }}"
     path: "{{ item.dest }}"
     fstype: nfs
-    opts: "defaults,_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s"
+    opts: "_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s,soft,timeo=150,retrans=5,nfsvers=4"
     state: mounted
   loop: "{{ plex_server_nfs_shares }}"
 
