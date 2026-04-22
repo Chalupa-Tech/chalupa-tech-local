@@ -44,36 +44,12 @@ jobs:
         with:
           go-version: '1.25.6'
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
+      - name: Connect to Proxmox
+        uses: ./.github/actions/connect-proxmox
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:github-runner
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
-
-      - name: Ensure Proxmox host resolution
-        run: |
-          echo "192.168.1.223 proxmox" | sudo tee -a /etc/hosts
-          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
-
-      - name: Add Proxmox to known_hosts
-        run: |
-          # Proxmox sshd rate-limits back-to-back keyscan connections.
-          # Only the IP is needed (Pulumi uses PROXMOX_VE_ENDPOINT).
-          for attempt in 1 2 3; do
-            if ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts; then
-              exit 0
-            fi
-            echo "ssh-keyscan attempt $attempt failed, retrying in 5s..." >&2
-            sleep 5
-          done
-          echo "ERROR: ssh-keyscan failed after 3 attempts" >&2
-          exit 1
 
       - name: Pulumi Preview
         uses: pulumi/actions@v3
@@ -103,36 +79,12 @@ jobs:
         with:
           go-version: '1.25.6'
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
+      - name: Connect to Proxmox
+        uses: ./.github/actions/connect-proxmox
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:github-runner
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
-
-      - name: Ensure Proxmox host resolution
-        run: |
-          echo "192.168.1.223 proxmox" | sudo tee -a /etc/hosts
-          echo "192.168.1.223 pve1" | sudo tee -a /etc/hosts
-
-      - name: Add Proxmox to known_hosts
-        run: |
-          # Proxmox sshd rate-limits back-to-back keyscan connections.
-          # Only the IP is needed (Pulumi uses PROXMOX_VE_ENDPOINT).
-          for attempt in 1 2 3; do
-            if ssh-keyscan -H 192.168.1.223 >> ~/.ssh/known_hosts; then
-              exit 0
-            fi
-            echo "ssh-keyscan attempt $attempt failed, retrying in 5s..." >&2
-            sleep 5
-          done
-          echo "ERROR: ssh-keyscan failed after 3 attempts" >&2
-          exit 1
 
       - name: Pulumi Preview (Talos)
         uses: pulumi/actions@v3
