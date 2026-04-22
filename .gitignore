@@ -2,6 +2,12 @@
 pulumi/.go/
 pulumi/.go_cache/
 pulumi/.go_mod_cache/
+pulumi-talos/.go/
+pulumi-talos/.go_cache/
+pulumi-talos/.go_mod_cache/
+
+# Compiled Pulumi binaries
+pulumi-talos/chalupa-talos
 
 # Local Pulumi state/cache
 .pulumi/

@@ -1,6 +1,6 @@
 # chalupa-tech-local
 
-This repository manages the infrastructure and configuration for a local Proxmox server running on an AMD Strix Halo desktop from Framework. The setup relies on a combination of **Ansible** for host OS configuration and **Pulumi** (TypeScript) for infrastructure provisioning.
+This repository manages the infrastructure and configuration for a local Proxmox server running on an AMD Strix Halo desktop from Framework. The setup relies on a combination of **Ansible** for host OS configuration and **Pulumi** (Go) for infrastructure provisioning.
 
 ## Hardware & Network Architecture
 
@@ -15,20 +15,24 @@ This repository manages the infrastructure and configuration for a local Proxmox
 
 ### Virtual Machines (VMs)
 
-1. **TrueNAS Scale (Storage NAS)**
-   - **Resources:** 4 Cores, 12GB RAM
+1. **TrueNAS Scale (Storage NAS)** — VMID 100
+   - **Resources:** 4 Cores, 32GB RAM
    - **Hardware Details:** PCIe Passthrough for HBA (ensures TrueNAS has direct, exclusive access to HDDs; bypasses Proxmox ZFS).
    - **File Shares:** Personal, Plex, Shared
+   - **Managed by:** Pulumi (`pulumi/`)
 
-2. **Talos Linux Kubernetes Cluster (3x VMs)**
-   - **Resources:** 4 Cores, 16GB RAM _each_
-   - **Workloads:** Personal Website, \*arr stack, NzbGet
-   - **Note:** Talos is an immutable OS built for K8s, bootstrapped via API.
+2. **Talos Linux Kubernetes Cluster (3x VMs)** — VMIDs 300-302
+   - **Resources:** 4 Cores, 20GB RAM _each_
+   - **IPs:** 192.168.1.225 (CP), .226 (Worker 1), .227 (Worker 2)
+   - **Workloads:** ArgoCD, Personal Website, \*arr stack, NzbGet
+   - **Note:** Talos is an immutable OS built for K8s, bootstrapped via API. Fully destroyable and recreatable.
+   - **Managed by:** Pulumi (`pulumi-talos/`)
 
-3. **Ubuntu LXC (Plex Media Server)**
-   - **Resources:** 6 Cores, 8GB RAM
+3. **Ubuntu LXC (Plex Media Server)** — VMID 200
+   - **Resources:** 8 Cores, 8GB RAM
    - **Hardware Details:** GPU Passthrough for hardware transcoding.
    - **Storage:** Mounts the "Plex" share from the TrueNAS VM.
+   - **Managed by:** Ansible (`ansible/`)
 
 4. **Tailscale LXC (Manual Setup)**
    - **Purpose:** Provides secure remote access to the local network.
@@ -36,10 +40,11 @@ This repository manages the infrastructure and configuration for a local Proxmox
 
 ## Repository Structure
 
-- `ansible/proxmox_prep`: Contains playbooks, inventory, and roles for configuring the Proxmox host (e.g., enabling IOMMU, configuring GPU/HBA passthrough, updating the kernel to linux 7).
-- `ansible/plex_lxc`: Contains playbooks, inventory and roles for configuring the Plex LXC on the Proxmox host.
-- `ansible/plex_server`: Contains playbooks, inventory and roles for configuring the Plex Media Server & Mounting the NFS Shares. 
-- `pulumi/`: Contains the TypeScript Pulumi project for defining the VMs (Proxmox provider) and bootstrapping the Talos cluster.
+- `ansible/roles/proxmox_prep`: Role for configuring the Proxmox host (IOMMU, GPU/HBA passthrough, kernel 7, LXC template, Talos ISO).
+- `ansible/roles/plex_lxc`: Role for creating the Plex LXC container on the Proxmox host.
+- `ansible/roles/plex_server`: Role for configuring Plex Media Server & NFS mounts inside the LXC.
+- `pulumi/`: Pulumi (Go) project for TrueNAS VM provisioning.
+- `pulumi-talos/`: Pulumi (Go) project for Talos K8s cluster (VMs, bootstrap, kubeconfig).
 - `.github/workflows/`: GitHub Actions pipelines for CI/CD.
 
 ## Automation & CI/CD

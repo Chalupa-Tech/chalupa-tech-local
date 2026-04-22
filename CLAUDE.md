@@ -8,29 +8,37 @@ Infrastructure-as-code for a local Proxmox hypervisor (AMD Strix Halo Framework 
 
 ## Architecture
 
-**3-stage CI/CD pipeline** (`.github/workflows/deploy.yml`, triggered on merge to `main`):
-1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, LXC template)
-2. **Stage 2** — Pulumi provisions TrueNAS VM, exports Plex IP as artifact for Stage 3
-3. **Stage 3** — Ansible creates Plex LXC on host (privileged, GPU, nesting), then configures software inside it (Plex, VA-API, NFS, firewall)
+**CI/CD pipeline** (`.github/workflows/deploy.yml`, triggered on merge to `main`):
+1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, LXC template, Talos ISO)
+2. **Stage 2a** — Pulumi provisions TrueNAS VM, exports Plex IP as artifact for Stage 3
+3. **Stage 2b** — Pulumi provisions Talos K8s cluster (3 VMs, bootstrap, kubeconfig) *(parallel with 2a)*
+4. **Stage 3** — Ansible creates Plex LXC on host (privileged, GPU, nesting), then configures software inside it (Plex, VA-API, NFS, firewall)
+5. **Stage 4** — Helm bootstraps ArgoCD on the Talos cluster
 
 **Why Ansible manages the LXC (not Pulumi):** Proxmox restricts LXC device passthrough, feature flags, and privileged mode to `root@pam` identity only — API tokens cannot set these. Ansible runs as root on the host via SSH, so it has no such restrictions.
 
 **PR workflows** run linting + dry-run previews:
 - `ansible.yml`: `ansible-lint` then `--check --diff` against live host
-- `pulumi.yml`: `golangci-lint` then `pulumi preview`
+- `pulumi.yml`: `golangci-lint` then `pulumi preview` for both `pulumi/` and `pulumi-talos/` stacks
 
 CI runners connect to the local network via **Tailscale** (OAuth, tag:github-runner).
 
-**Pulumi program** (`pulumi/`): Go 1.25.6, stack `tayvenb13/chalupa-infra/proxmox`, provider `pulumi-proxmoxve` v7.13.0
+**Pulumi — Infra** (`pulumi/`): Go 1.25.6, stack `tayvenb13/chalupa-infra/proxmox`, provider `pulumi-proxmoxve` v7.13.0
 - `main.go` — Provider setup (env vars: `PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_SSH_USERNAME`)
 - `truenas.go` — TrueNAS Scale VM: 4 cores, 32GB RAM, HBA passthrough (2 mappings), boot order 1
 
+**Pulumi — Talos** (`pulumi-talos/`): Go 1.25.6, stack `tayvenb13/chalupa-talos/proxmox`, providers `pulumi-proxmoxve` v7.13.0 + `pulumi-talos` v0.7.1
+- `main.go` — 3 Talos VMs (VMIDs 300-302), cluster secrets, machine config generation/apply, bootstrap, kubeconfig + talosconfig export
+- Separate stack from infra so `pulumi destroy` cleanly removes only Talos resources without affecting TrueNAS
+
 **Ansible** (`ansible/`): Two inventories, two playbooks:
-- `inventory.yml` + `site.yml` → `proxmox_prep` role (host config) against `pve1`
+- `inventory.yml` + `site.yml` → `proxmox_prep` role (host config, Talos ISO download) against `pve1`
 - `inventory-vms.yml` + `playbooks/vm-configure.yml` → `plex_lxc` role (container creation on `pve1`) then `plex_server` role (software config inside LXC)
 - Shared vars in `group_vars/all.yml` (e.g., `truenas_vm_ip`)
 
 **Plex LXC** (VMID 200): Ubuntu 24.04, privileged, 8 cores, 8GB RAM, 16GB disk, GPU `/dev/dri/renderD128` passthrough, static IP `192.168.1.224`, boot order 3
+
+**Talos K8s Cluster** (VMIDs 300-302): Talos Linux v1.12.6, 3 nodes (1 CP + 2 workers), 4 cores / 20GB RAM each, 50GB disk, static IPs .225-.227, boot order 4-5. Fully destroyable and recreatable via pipeline.
 
 ## Network
 
@@ -39,15 +47,32 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 | Unifi Gateway | 192.168.1.1 |
 | Proxmox host (pve1) | 192.168.1.223 |
 | Plex LXC | 192.168.1.224 |
+| Talos CP (talos-cp) | 192.168.1.225 |
+| Talos Worker 1 | 192.168.1.226 |
+| Talos Worker 2 | 192.168.1.227 |
 | TrueNAS VM | 192.168.1.40 |
 
 ## Commands
 
-### Pulumi (from `pulumi/`)
+### Pulumi — Infra (from `pulumi/`)
 ```bash
 cd pulumi && go build ./...          # Compile check
 cd pulumi && golangci-lint run       # Lint
 pulumi preview                       # Dry-run (requires env vars + Tailscale)
+```
+
+### Pulumi — Talos (from `pulumi-talos/`)
+```bash
+cd pulumi-talos && go build ./...    # Compile check
+cd pulumi-talos && golangci-lint run # Lint
+pulumi preview                       # Dry-run (requires env vars + Tailscale)
+```
+
+### Kubeconfig (from `pulumi-talos/`)
+```bash
+pulumi stack output kubeconfig --show-secrets > ~/.kube/chalupa-cluster.yaml
+export KUBECONFIG=~/.kube/chalupa-cluster.yaml
+kubectl get nodes
 ```
 
 ### SSH to Proxmox host
