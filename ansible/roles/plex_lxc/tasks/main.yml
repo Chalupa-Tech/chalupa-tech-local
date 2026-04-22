@@ -90,6 +90,17 @@
   changed_when: true
   notify: Restart Plex LXC
 
+- name: Get current LXC config
+  ansible.builtin.command: pct config {{ plex_lxc_vmid }}
+  register: plex_lxc_config_output
+  changed_when: false
+
+- name: Resize rootfs if smaller than configured size
+  ansible.builtin.command: >
+    pct resize {{ plex_lxc_vmid }} rootfs {{ plex_lxc_disk | regex_replace('.*:', '') }}G
+  when: (plex_lxc_config_output.stdout | regex_search('size=(\d+)', '\1') | first | int) < (plex_lxc_disk | regex_replace('.*:', '') | int)
+  changed_when: true
+
 # ──────────────────────────────────────────────────────────
 # Flush handlers so any restart happens before Play 2
 # ──────────────────────────────────────────────────────────
