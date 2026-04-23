@@ -101,9 +101,21 @@
     src: "{{ plex_server_nfs_server }}:{{ item.src }}"
     path: "{{ item.dest }}"
     fstype: nfs
-    opts: "defaults,_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s"
+    opts: "_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s,soft,timeo=150,retrans=5,nfsvers=4"
     state: mounted
   loop: "{{ plex_server_nfs_shares }}"
+
+- name: Deploy NFS mount retry service
+  ansible.builtin.template:
+    src: nfs-mount-retry.service.j2
+    dest: /etc/systemd/system/nfs-mount-retry.service
+    mode: "0644"
+
+- name: Enable NFS mount retry service
+  ansible.builtin.systemd:
+    name: nfs-mount-retry.service
+    enabled: true
+    daemon_reload: true
 
 # ──────────────────────────────────────────────────────────
 # 7. Add Plex Media Server DEB repository

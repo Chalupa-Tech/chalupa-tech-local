@@ -97,3 +97,19 @@
     {{ proxmox_prep_lxc_template_name }}
   when: proxmox_prep_lxc_template_name not in proxmox_prep_lxc_template_check.stdout
   changed_when: true
+
+# --- Talos ISO (for Kubernetes cluster VMs) ---
+- name: Check if Talos ISO already exists
+  ansible.builtin.stat:
+    path: "/var/lib/vz/template/iso/{{ proxmox_prep_talos_iso_name }}"
+  register: proxmox_prep_talos_iso_check
+  when: proxmox_prep_talos_enabled
+
+- name: Download Talos ISO with qemu-guest-agent
+  ansible.builtin.get_url:
+    url: "{{ proxmox_prep_talos_iso_url }}"
+    dest: "/var/lib/vz/template/iso/{{ proxmox_prep_talos_iso_name }}"
+    mode: "0644"
+  when:
+    - proxmox_prep_talos_enabled
+    - not (proxmox_prep_talos_iso_check.stat.exists | default(false))
