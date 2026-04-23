@@ -98,7 +98,7 @@
 - name: Resize rootfs if smaller than configured size
   ansible.builtin.command: >
     pct resize {{ plex_lxc_vmid }} rootfs {{ plex_lxc_disk | regex_replace('.*:', '') }}G
-  when: (plex_lxc_config_output.stdout | regex_search('size=(\d+)', '\1') | first | int) < (plex_lxc_disk | regex_replace('.*:', '') | int)
+  when: (plex_lxc_config_output.stdout | regex_search('size=(\d+)G') | regex_replace('[^0-9]', '') | int) < (plex_lxc_disk | regex_replace('.*:', '') | int)
   changed_when: true
 
 # ──────────────────────────────────────────────────────────
