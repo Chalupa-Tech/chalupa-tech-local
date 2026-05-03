@@ -127,7 +127,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			Vga: &vm.VirtualMachineVgaArgs{
 				Type: pulumi.String("vmware"),
 			},
-		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom", "disks"}))
 		if err != nil {
 			return err
 		}
