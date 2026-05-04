@@ -1,0 +1,10 @@
+apiVersion: v2
+name: metallb-wrapper
+description: Wrapper chart for MetalLB with default IPAddressPool
+type: application
+version: 0.1.0
+appVersion: "v0.15.3"
+dependencies:
+  - name: metallb
+    version: 0.15.3
+    repository: https://metallb.github.io/metallb
