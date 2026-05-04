@@ -1,9 +1,15 @@
 # ArgoCD self-managed values.
 #
 # RECOVERY: If a bad value here breaks ArgoCD itself, ArgoCD cannot reconcile
-# the next change. Roll back the running deployment with:
+# the next change. Roll back the affected workloads. Note that the
+# application-controller is a StatefulSet, not a Deployment — get the kind
+# wrong and the rollout-undo command silently does nothing useful.
+#
 #   kubectl rollout undo deployment/argocd-server -n argocd
 #   kubectl rollout undo deployment/argocd-repo-server -n argocd
+#   kubectl rollout undo deployment/argocd-applicationset-controller -n argocd
+#   kubectl rollout undo statefulset/argocd-application-controller -n argocd
+#
 # Or rerun deploy.yml — Stage 4's helm upgrade reapplies the bootstrap
 # values from .github/argocd-bootstrap-values.yaml and resets the cluster
 # to the bootstrap baseline; ArgoCD will then attempt to reconcile this
