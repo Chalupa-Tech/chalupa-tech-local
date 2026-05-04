@@ -275,6 +275,50 @@ jobs:
           kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=60s || true
           kubectl get -n argocd application root || true
 
+      - name: MetalLB diagnostics
+        if: always()
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          echo "========================================================"
+          echo "== METALLB DIAGNOSTICS (runs even on prior step failure)"
+          echo "========================================================"
+
+          echo ""
+          echo "== kubectl get ns metallb --show-labels =="
+          kubectl get ns metallb --show-labels 2>/dev/null || echo "  (metallb namespace not found)"
+
+          echo ""
+          echo "== kubectl get crd | grep metallb.io =="
+          kubectl get crd 2>/dev/null | grep metallb.io || echo "  (no metallb CRDs found)"
+
+          echo ""
+          echo "== kubectl -n metallb get all =="
+          kubectl -n metallb get all 2>/dev/null || echo "  (metallb namespace not found or empty)"
+
+          echo ""
+          echo "== kubectl -n metallb get daemonset -o yaml =="
+          kubectl -n metallb get daemonset -o yaml 2>/dev/null || echo "  (no daemonsets in metallb)"
+
+          echo ""
+          echo "== kubectl -n metallb describe daemonset =="
+          kubectl -n metallb describe daemonset 2>/dev/null || echo "  (no daemonsets in metallb)"
+
+          echo ""
+          echo "== kubectl -n metallb get events --sort-by=.lastTimestamp =="
+          kubectl -n metallb get events --sort-by=.lastTimestamp 2>/dev/null || echo "  (no events or namespace missing)"
+
+          echo ""
+          echo "== kubectl -n argocd get application metallb -o yaml | tail -100 =="
+          kubectl -n argocd get application metallb -o yaml 2>/dev/null | tail -100 || echo "  (metallb Application not found)"
+
+          echo ""
+          echo "== kubectl get pods --all-namespaces -o wide | grep -v Running =="
+          kubectl get pods --all-namespaces -o wide 2>/dev/null | grep -v Running || echo "  (all pods Running or no pods found)"
+
+          echo "========================================================"
+          echo "== END METALLB DIAGNOSTICS"
+          echo "========================================================"
+
       - name: Verify GitOps reconciliation
         run: |
           export KUBECONFIG=/tmp/kubeconfig
