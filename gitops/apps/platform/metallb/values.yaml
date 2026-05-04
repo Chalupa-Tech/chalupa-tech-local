@@ -1,0 +1,5 @@
+metallb:
+  speaker:
+    enabled: true
+  controller:
+    enabled: true
