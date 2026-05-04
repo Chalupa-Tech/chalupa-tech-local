@@ -1,0 +1,40 @@
+# ArgoCD self-managed values.
+#
+# RECOVERY: If a bad value here breaks ArgoCD itself, ArgoCD cannot reconcile
+# the next change. Roll back the running deployment with:
+#   kubectl rollout undo deployment/argocd-server -n argocd
+#   kubectl rollout undo deployment/argocd-repo-server -n argocd
+# Or rerun deploy.yml — Stage 4's helm upgrade reapplies the bootstrap
+# values from .github/argocd-bootstrap-values.yaml and resets the cluster
+# to the bootstrap baseline; ArgoCD will then attempt to reconcile this
+# file again, so fix it first.
+
+argo-cd:
+  global:
+    logging:
+      level: info
+  configs:
+    params:
+      # TLS terminates at Traefik in sub-project #2; until then UI is
+      # accessed via kubectl port-forward and runs in insecure mode.
+      server.insecure: true
+  server:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+  repoServer:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+  controller:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+  applicationSet:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi

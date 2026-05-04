@@ -1,0 +1,10 @@
+apiVersion: v2
+name: argocd-wrapper
+description: Wrapper chart for ArgoCD self-management
+type: application
+version: 0.1.0
+appVersion: "v3.3.9"
+dependencies:
+  - name: argo-cd
+    version: 9.5.11
+    repository: https://argoproj.github.io/argo-helm
