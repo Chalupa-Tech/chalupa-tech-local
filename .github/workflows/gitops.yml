@@ -1,0 +1,64 @@
+name: GitOps Lint & Render
+
+on:
+  pull_request:
+    paths:
+      - 'gitops/**'
+      - '.github/workflows/gitops.yml'
+  workflow_dispatch:
+
+jobs:
+  lint-and-render:
+    name: Lint and dry-render gitops/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo /tmp/kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+          sudo mv /tmp/kubeconform /usr/local/bin/
+
+      - name: yamllint gitops/
+        run: |
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' gitops/
+
+      - name: Helm dependency update + template + kubeconform
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          fail=0
+          for chart_dir in gitops/apps/*/*/; do
+            if [ -f "${chart_dir}Chart.yaml" ]; then
+              echo "==> Rendering ${chart_dir}"
+              helm dependency update "${chart_dir}"
+              helm template "$(basename "${chart_dir}")" "${chart_dir}" \
+                | kubeconform -strict -ignore-missing-schemas -summary \
+                  -schema-location default \
+                  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+                  || fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+
+      - name: yamllint applicationsets/
+        run: |
+          if compgen -G "gitops/bootstrap/applicationsets/*.yaml" > /dev/null; then
+            yamllint -d '{extends: relaxed, rules: {line-length: disable}}' \
+              gitops/bootstrap/applicationsets/
+          else
+            echo "No ApplicationSets yet — skipping"
+          fi
