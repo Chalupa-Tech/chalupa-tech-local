@@ -273,3 +273,82 @@ jobs:
           # of MetalLB CRDs may need a retry pass.
           kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=60s || true
           kubectl get -n argocd application root || true
+
+      - name: Verify GitOps reconciliation
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          set -uo pipefail
+
+          echo "== ApplicationSets =="
+          kubectl -n argocd get applicationset
+
+          echo ""
+          echo "== Waiting for Applications to be generated (60s grace) =="
+          for i in $(seq 1 12); do
+            count=$(kubectl -n argocd get application --no-headers 2>/dev/null | wc -l)
+            if [ "$count" -ge 4 ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          echo ""
+          echo "== Applications =="
+          kubectl -n argocd get application
+
+          echo ""
+          echo "== Waiting up to 5min for argocd/metallb/local-path-provisioner to reach Synced/Healthy =="
+          fail=0
+          for app in argocd metallb local-path-provisioner; do
+            echo "-- waiting for $app --"
+            ok=0
+            for i in $(seq 1 60); do
+              sync=$(kubectl -n argocd get application "$app" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
+              health=$(kubectl -n argocd get application "$app" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "")
+              if [ "$sync" = "Synced" ] && [ "$health" = "Healthy" ]; then
+                echo "  $app: Synced/Healthy"
+                ok=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "  $app NOT Synced/Healthy after timeout: sync=$sync health=$health"
+              kubectl -n argocd describe application "$app" | tail -40
+              fail=1
+            fi
+          done
+
+          echo ""
+          echo "== StorageClasses =="
+          kubectl get storageclass
+          if ! kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' 2>/dev/null | grep -q true; then
+            echo "ERROR: local-path StorageClass not present or not marked default"
+            fail=1
+          fi
+
+          echo ""
+          echo "== MetalLB IPAddressPool =="
+          if kubectl -n metallb get ipaddresspool default-pool > /dev/null 2>&1; then
+            kubectl -n metallb get ipaddresspool default-pool -o yaml | grep -A2 'addresses:'
+            kubectl -n metallb get l2advertisement default-l2 -o yaml | grep -A3 'spec:'
+          else
+            echo "ERROR: MetalLB IPAddressPool default-pool not found"
+            fail=1
+          fi
+
+          echo ""
+          echo "== Pod state across managed namespaces =="
+          for ns in argocd metallb local-path-provisioner; do
+            echo "-- $ns --"
+            kubectl -n "$ns" get pods 2>/dev/null || echo "  (namespace not yet created)"
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "Verification failed."
+            exit 1
+          fi
+
+          echo ""
+          echo "GitOps reconciliation verified."
