@@ -252,12 +252,24 @@ jobs:
           exit 1
         timeout-minutes: 6
 
-      - name: Install ArgoCD
+      - name: Install ArgoCD (bootstrap)
         run: |
           export KUBECONFIG=/tmp/kubeconfig
           helm repo add argo https://argoproj.github.io/argo-helm
           helm repo update
           helm upgrade --install argocd argo/argo-cd \
             --namespace argocd --create-namespace \
-            --version 9.5.0 \
+            --version 9.5.11 \
+            --values .github/argocd-bootstrap-values.yaml \
             --wait --timeout 5m
+
+      - name: Apply root Application
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl apply -n argocd -f gitops/bootstrap/root-app.yaml
+          # Wait for the root app to be created; ApplicationSets will fan
+          # out asynchronously and reconcile in the background. We don't
+          # block the pipeline on Synced/Healthy here because first sync
+          # of MetalLB CRDs may need a retry pass.
+          kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=60s || true
+          kubectl get -n argocd application root || true
