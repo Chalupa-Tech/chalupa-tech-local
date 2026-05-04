@@ -275,6 +275,43 @@ jobs:
           kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=60s || true
           kubectl get -n argocd application root || true
 
+      - name: Patch metallb namespace with privileged PSA labels
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          # The metallb speaker DaemonSet requires hostNetwork + NET_RAW/NET_ADMIN
+          # which are blocked by PSA unless the namespace has the privileged label.
+          # The chart now manages a Namespace resource with these labels, but if
+          # an unlabelled namespace already exists in the cluster (created by
+          # CreateNamespace=true on a prior deploy), ArgoCD must first apply the
+          # Namespace resource. We patch it directly here to unblock the stuck sync.
+          echo "Patching metallb namespace with privileged PSA labels..."
+          kubectl label namespace metallb \
+            pod-security.kubernetes.io/enforce=privileged \
+            pod-security.kubernetes.io/audit=privileged \
+            pod-security.kubernetes.io/warn=privileged \
+            --overwrite 2>/dev/null || echo "  (metallb namespace not yet created; will be created by ArgoCD)"
+          echo "metallb namespace labels:"
+          kubectl get ns metallb --show-labels 2>/dev/null || echo "  (not yet created)"
+
+          # Give ArgoCD a moment to pick up the new commit and trigger a sync
+          # of the metallb Application (now that the namespace is labelled)
+          sleep 15
+
+          # Wait up to 2 min for the speaker DaemonSet to become available
+          echo "Waiting up to 2min for metallb-speaker DaemonSet to have scheduled pods..."
+          for i in $(seq 1 24); do
+            desired=$(kubectl -n metallb get daemonset metallb-speaker \
+              -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+            ready=$(kubectl -n metallb get daemonset metallb-speaker \
+              -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+            echo "  attempt $i/24: desiredNumberScheduled=$desired numberReady=$ready"
+            if [ "$desired" -gt 0 ] && [ "$desired" = "$ready" ]; then
+              echo "  metallb-speaker DaemonSet is fully ready."
+              break
+            fi
+            sleep 5
+          done
+
       - name: MetalLB diagnostics
         if: always()
         run: |
