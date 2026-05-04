@@ -261,7 +261,8 @@ jobs:
             --namespace argocd --create-namespace \
             --version 9.5.11 \
             --values .github/argocd-bootstrap-values.yaml \
-            --wait --timeout 5m
+            --wait --timeout 5m \
+            --force-conflicts
 
       - name: Apply root Application
         run: |
