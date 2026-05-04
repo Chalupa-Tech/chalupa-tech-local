@@ -214,8 +214,8 @@ End-of-step verification checklist (run after the merge that delivers this work)
 2. `kubectl -n argocd get applicationset` shows three: `platform-apps`, `media-apps`, `infra-tools-apps`.
 3. `kubectl -n argocd get application` shows `argocd`, `metallb`, `local-path-provisioner` — all `Synced` / `Healthy`.
 4. `kubectl get sc` shows `local-path` marked `(default)`.
-5. `kubectl -n metallb-system get ipaddresspool` shows `default-pool` covering `192.168.1.160-170`.
-6. `kubectl -n metallb-system get l2advertisement` shows the advertisement is present.
+5. `kubectl -n metallb get ipaddresspool` shows `default-pool` covering `192.168.1.160-170`.
+6. `kubectl -n metallb get l2advertisement` shows the advertisement is present.
 7. ArgoCD UI loads via port-forward, login works.
 8. **GitOps loop proof:** edit a benign field in `gitops/apps/platform/argocd/values.yaml` (e.g. server log level), open a PR, merge. ArgoCD picks up the change and reconciles without the pipeline rerunning the ArgoCD Helm install. The deployment's pod restarts with the new config.
 

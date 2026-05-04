@@ -1021,7 +1021,7 @@ gh pr create --title "feat(gitops): activate ArgoCD self-management" \
 - [ ] Post-merge: `kubectl -n argocd get applicationset` shows three
 - [ ] Post-merge: `kubectl -n argocd get application` shows `argocd`, `metallb`, `local-path-provisioner` all Synced/Healthy
 - [ ] Post-merge: `kubectl get sc` shows `local-path` marked default
-- [ ] Post-merge: `kubectl -n metallb-system get ipaddresspool` shows `default-pool` (192.168.1.160-170)
+- [ ] Post-merge: `kubectl -n metallb get ipaddresspool` shows `default-pool` (192.168.1.160-170)
 EOF
 )"
 gh pr checks --watch
