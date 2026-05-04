@@ -1,0 +1,17 @@
+# Talos exposes /var as writable+persistent. The chart's default
+# /opt/local-path-provisioner path will fail on Talos because /opt
+# is read-only.
+local-path-provisioner:
+  storageClass:
+    create: true
+    name: local-path
+    defaultClass: true
+    reclaimPolicy: Delete
+  nodePathMap:
+    - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
+      paths:
+        - /var/mnt/local-path-provisioner
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
