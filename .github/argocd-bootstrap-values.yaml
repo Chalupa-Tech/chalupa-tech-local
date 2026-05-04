@@ -1,0 +1,18 @@
+# Bootstrap-only values for ArgoCD installed by deploy.yml Stage 4.
+#
+# IMPORTANT: Keep this file MINIMAL. Anything substantive (RBAC, repo creds,
+# server config) goes in gitops/apps/platform/argocd/values.yaml, which ArgoCD
+# reconciles itself once the root Application is applied.
+#
+# This file exists only so a clean cluster rebuild can boot ArgoCD before
+# anything else. After bootstrap, ArgoCD's own Application overlays the real
+# values.
+
+global:
+  logging:
+    level: info
+configs:
+  params:
+    # TLS terminates at Traefik in sub-project #2; until then the UI is
+    # accessed via kubectl port-forward and ArgoCD runs in insecure mode.
+    server.insecure: true
