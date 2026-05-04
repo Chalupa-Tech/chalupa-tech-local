@@ -18,7 +18,7 @@
 argo-cd:
   global:
     logging:
-      level: debug
+      level: info
   configs:
     params:
       # TLS terminates at Traefik in sub-project #2; until then UI is
