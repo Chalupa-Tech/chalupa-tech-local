@@ -1,0 +1,52 @@
+openbao:
+  server:
+    ha:
+      enabled: true
+      raft:
+        enabled: true
+        setNodeId: true
+        config: |
+          ui = true
+          api_addr = "http://HOSTNAME.openbao-internal:8200"
+          cluster_addr = "http://HOSTNAME.openbao-internal:8201"
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+          }
+          storage "raft" {
+            path = "/openbao/data"
+            retry_join {
+              leader_api_addr = "http://openbao-0.openbao-internal:8200"
+            }
+            retry_join {
+              leader_api_addr = "http://openbao-1.openbao-internal:8200"
+            }
+            retry_join {
+              leader_api_addr = "http://openbao-2.openbao-internal:8200"
+            }
+          }
+          service_registration "kubernetes" {}
+    replicas: 3
+    affinity: |
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - openbao
+              topologyKey: kubernetes.io/hostname
+    dataStorage:
+      enabled: true
+      size: 1Gi
+      storageClass: local-path
+    ui:
+      enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
