@@ -5,12 +5,17 @@
 #   OPENBAO_KEY_1=... OPENBAO_KEY_2=... OPENBAO_KEY_3=... ./scripts/openbao/unseal.sh
 #   ./scripts/openbao/unseal.sh --keys-file ~/secure/openbao-init.json
 #
+# Notes:
+#   - Unseal keys are piped via stdin to `bao operator unseal -` so they do
+#     not appear in any process's argv.
+#   - If a pod is unreachable, the script logs a warning and moves on to
+#     the next pod rather than halting.
+#
 # Requires: kubectl with KUBECONFIG set, jq (only if --keys-file).
 set -euo pipefail
 
 if [[ "${1:-}" == "--keys-file" ]]; then
-  KEYS_FILE=$2
-  : "${KEYS_FILE:?--keys-file requires a path}"
+  KEYS_FILE="${2:?--keys-file requires a path}"
   OPENBAO_KEY_1=$(jq -r '.unseal_keys_b64[0]' "$KEYS_FILE")
   OPENBAO_KEY_2=$(jq -r '.unseal_keys_b64[1]' "$KEYS_FILE")
   OPENBAO_KEY_3=$(jq -r '.unseal_keys_b64[2]' "$KEYS_FILE")
@@ -25,13 +30,23 @@ PODS=(openbao-0 openbao-1 openbao-2)
 
 for pod in "${PODS[@]}"; do
   echo "==> $pod"
-  sealed=$(kubectl -n "$NS" exec "$pod" -- bao status -format=json 2>/dev/null | jq -r '.sealed' || echo "unknown")
+  sealed=$(kubectl -n "$NS" exec "$pod" -- bao status -format=json 2>/dev/null | jq -r '.sealed' 2>/dev/null || echo "unreachable")
+
+  if [[ "$sealed" == "unreachable" ]]; then
+    echo "    WARN: could not reach pod, skipping"
+    continue
+  fi
   if [[ "$sealed" == "false" ]]; then
     echo "    already unsealed, skipping"
     continue
   fi
+  if [[ "$sealed" != "true" ]]; then
+    echo "    WARN: unexpected bao status output ($sealed), skipping"
+    continue
+  fi
+
   for key in "$OPENBAO_KEY_1" "$OPENBAO_KEY_2" "$OPENBAO_KEY_3"; do
-    kubectl -n "$NS" exec "$pod" -- bao operator unseal "$key" >/dev/null
+    printf '%s\n' "$key" | kubectl -n "$NS" exec -i "$pod" -- bao operator unseal - >/dev/null
   done
   echo "    unsealed"
 done

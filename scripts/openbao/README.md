@@ -37,18 +37,22 @@ The script is idempotent. Already-unsealed pods are skipped.
 ### Phase 4: Routine — Add or update a secret
 
 ```bash
-export OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json)
-./scripts/openbao/kv-put.sh <path> <key> <value>
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
+  ./scripts/openbao/kv-put.sh <path> <key> <value>
 
 # Examples:
-./scripts/openbao/kv-put.sh cloudflare/api-token token "abc123..."
-./scripts/openbao/kv-put.sh sonarr/api-key apikey "deadbeef..."
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
+  ./scripts/openbao/kv-put.sh cloudflare/api-token token "abc123..."
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
+  ./scripts/openbao/kv-put.sh sonarr/api-key apikey "deadbeef..."
 ```
 
 For ongoing operations, replace the root token with a per-operator token that has `update` capability on the relevant `secret/data/<path>` paths. Keep the root token in 1Password and only export it for the rare administrative operations that need it.
 
 ## Security notes
 
-- Neither script writes any sensitive material to disk on the operator's machine. All values flow over `kubectl exec` stdin and are not visible in process arg listings.
+- KV values flow over `kubectl exec` stdin and never appear in any process's `argv`. Path and key arguments are passed as direct args to `bao kv put` (not via a shell-interpolated string), so quoting edge cases are not a concern.
+- The `OPENBAO_TOKEN` value appears in `kubectl`'s `argv` on the operator's Mac (briefly, as an `--env` flag value) but does **not** appear in the container's process table — `kubectl exec --env` injects environment variables to the exec'd process directly. Avoid running these scripts on shared/multi-user machines.
+- Unseal keys are piped via stdin to `bao operator unseal -` so they do not appear in `argv` on either side.
 - `unseal.sh` accepts keys via env vars or a `--keys-file` JSON path. The JSON file should live somewhere encrypted at rest (e.g., `~/secure/`) and should not be committed.
 - `kv-put.sh` requires `OPENBAO_TOKEN`; do not export this variable in your shell history. Set it inline (`OPENBAO_TOKEN=$(...) ./scripts/openbao/kv-put.sh ...`) or in a single-shot subshell.
