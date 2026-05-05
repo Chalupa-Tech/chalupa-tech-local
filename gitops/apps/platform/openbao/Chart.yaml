@@ -1,0 +1,10 @@
+apiVersion: v2
+name: openbao-wrapper
+description: Wrapper chart for OpenBao (HA Raft, manual Shamir unseal)
+type: application
+version: 0.1.0
+appVersion: "v2.5.3"
+dependencies:
+  - name: openbao
+    version: 0.27.2
+    repository: https://openbao.github.io/openbao-helm
