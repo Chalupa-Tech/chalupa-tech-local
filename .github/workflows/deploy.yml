@@ -379,9 +379,9 @@ jobs:
           kubectl -n argocd get application
 
           echo ""
-          echo "== Waiting up to 5min for argocd/metallb/local-path-provisioner to reach Synced/Healthy =="
+          echo "== Waiting up to 5min for argocd/metallb/local-path-provisioner/openbao to reach Synced/Healthy =="
           fail=0
-          for app in argocd metallb local-path-provisioner; do
+          for app in argocd metallb local-path-provisioner openbao; do
             echo "-- waiting for $app --"
             ok=0
             for i in $(seq 1 60); do

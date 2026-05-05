@@ -517,7 +517,7 @@ gh pr merge --squash --delete-branch
 
 ## Task 4: local-path-provisioner Wrapper Chart
 
-Adds local-path-provisioner wrapper. Sets the resulting StorageClass as cluster default. **Talos consideration:** Talos's `/var` is writable; default chart path `/opt/local-path-provisioner` is NOT. Override to `/var/mnt/local-path-provisioner`.
+Adds local-path-provisioner wrapper. Sets the resulting StorageClass as cluster default. **Talos consideration:** Talos's `/var` is writable; default chart path `/opt/local-path-provisioner` is NOT. Override to `/var/local-path-provisioner` (directly under `/var`; note that `/var/mnt/` is reserved for mount points and is read-only).
 
 **Files:**
 - Create: `gitops/apps/platform/local-path-provisioner/Chart.yaml`
@@ -569,7 +569,7 @@ local-path-provisioner:
   nodePathMap:
     - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
       paths:
-        - /var/mnt/local-path-provisioner
+        - /var/local-path-provisioner
   resources:
     requests:
       cpu: 50m
@@ -606,8 +606,9 @@ git commit -m "$(cat <<'EOF'
 feat(gitops): add local-path-provisioner wrapper as default StorageClass
 
 Wraps Rancher local-path-provisioner 0.0.36. Overrides the default
-hostPath to /var/mnt/local-path-provisioner because Talos's /opt is
-read-only. Marks the resulting StorageClass as cluster default.
+hostPath to /var/local-path-provisioner because Talos's /opt is
+read-only and /var/mnt/ is reserved for mount points. Marks the
+resulting StorageClass as cluster default.
 EOF
 )"
 git push -u origin feat/gitops-local-path-chart
@@ -617,7 +618,7 @@ gh pr create --title "feat(gitops): add local-path-provisioner wrapper" \
 
 - Adds `gitops/apps/platform/local-path-provisioner/` wrapping Rancher local-path-provisioner 0.0.36
 - Marks resulting StorageClass `local-path` as cluster default
-- Path overridden to `/var/mnt/local-path-provisioner` for Talos compatibility (Talos's `/opt` is read-only)
+- Path overridden to `/var/local-path-provisioner` for Talos compatibility (Talos's `/opt` is read-only; `/var/mnt/` is reserved for mount points)
 
 Part 4/7 of the ArgoCD foundation rollout. Inert in-cluster.
 
@@ -1078,7 +1079,7 @@ If `metallb` stays `OutOfSync` because IPAddressPool applies before its CRD is r
 kubectl -n argocd patch application metallb --type merge -p '{"operation":{"sync":{}}}'
 ```
 
-If `local-path-provisioner` pods are CrashLoopBackoff because of write permission on `/var/mnt/local-path-provisioner`, exec into a Talos node:
+If `local-path-provisioner` pods are CrashLoopBackoff because of write permission on `/var/local-path-provisioner`, exec into a Talos node:
 
 ```bash
 talosctl -n 192.168.1.225 mount | grep -E "/var(\s|$)"
@@ -1226,7 +1227,7 @@ Sub-project #1 complete. Move on to sub-project #2 (Secrets + TLS Ingress) when 
 
 ## Risk Recap (from spec)
 
-- **Talos `/var/mnt/local-path-provisioner`** may not be writable on first try. Fallback paths: `/var/openebs/local`, `/var/lib/local-path-provisioner`. Hotfix in a follow-up PR if needed.
+- **Talos `/var/local-path-provisioner`** may not be writable on first try. Fallback paths: `/var/openebs/local`, `/var/lib/local-path-provisioner`. Hotfix in a follow-up PR if needed. (Note: an earlier iteration used `/var/mnt/local-path-provisioner`, which fails because `/var/mnt/` is reserved for mount points and is read-only on Talos.)
 - **MetalLB CRD-vs-CR ordering** handled via `argocd.argoproj.io/sync-wave: "1"` annotations on IPAddressPool/L2Advertisement.
 - **ArgoCD self-management deadlock** — recovery via `kubectl rollout undo deployment/argocd-server -n argocd` and rerunning the pipeline. Documented in `gitops/apps/platform/argocd/values.yaml` header comment.
 - **Bootstrap-vs-GitOps values divergence** — bootstrap values are deliberately minimal (log level + insecure flag). PR review specifically watches for substantive config leaking into the bootstrap file.
