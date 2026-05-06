@@ -270,25 +270,40 @@ chmod 600 ~/secure/openbao-init.json
 
 # 3. Configure auth methods + KV + policies + roles (one-time, idempotent)
 ROOT_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json)
-kubectl -n openbao exec -i openbao-0 -- sh -c "
-  export BAO_ADDR=http://127.0.0.1:8200
-  bao login $ROOT_TOKEN
-  bao auth enable kubernetes || true
-  bao write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc.cluster.local
-  bao secrets enable -path=secret -version=2 kv || true
 
-  bao policy write cloudflare-read - <<EOF
-path \"secret/data/cloudflare/*\" { capabilities = [\"read\"] }
-EOF
+# 3a. Enable Kubernetes auth + KV v2 mount
+kubectl -n openbao exec openbao-0 \
+  -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" sh -c '
+    bao auth enable kubernetes || echo "kubernetes auth already enabled"
+    bao write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc.cluster.local
+    bao secrets enable -path=secret -version=2 kv || echo "kv already enabled at secret/"
+'
 
-  bao write auth/kubernetes/role/cert-manager     bound_service_account_names=cert-manager-cloudflare-token   bound_service_account_namespaces=cert-manager     policies=cloudflare-read ttl=1h
-  bao write auth/kubernetes/role/external-dns     bound_service_account_names=external-dns-cloudflare-token   bound_service_account_namespaces=external-dns     policies=cloudflare-read ttl=1h
-  bao write auth/kubernetes/role/external-secrets bound_service_account_names=external-secrets               bound_service_account_namespaces=external-secrets policies=cloudflare-read ttl=1h
-"
+# 3b. Write the cloudflare-read policy via stdin (no heredoc — robust to copy-paste)
+echo 'path "secret/data/cloudflare/*" { capabilities = ["read"] }' \
+  | kubectl -n openbao exec -i openbao-0 \
+      -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" \
+        bao policy write cloudflare-read -
+
+# 3c. Write the three Kubernetes auth roles
+for entry in \
+  "cert-manager:cert-manager-cloudflare-token" \
+  "external-dns:external-dns-cloudflare-token" \
+  "external-secrets:external-secrets"; do
+  ns="${entry%:*}"
+  sa="${entry#*:}"
+  echo "==> role $ns (SA $ns/$sa)"
+  kubectl -n openbao exec openbao-0 \
+    -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" \
+      bao write "auth/kubernetes/role/$ns" \
+        "bound_service_account_names=$sa" \
+        "bound_service_account_namespaces=$ns" \
+        policies=cloudflare-read \
+        ttl=1h
+done
 
 # 4. Seed Cloudflare token
-export OPENBAO_TOKEN=$ROOT_TOKEN
-./scripts/openbao/kv-put.sh cloudflare/api-token token "<your-cloudflare-api-token-value>"
+OPENBAO_TOKEN=$ROOT_TOKEN ./scripts/openbao/kv-put.sh cloudflare/api-token token "<your-cloudflare-api-token-value>"
 
 # Hand off to ArgoCD: from this point on, merging cert-manager / Traefik / external-dns / IngressRoutes
 # will reconcile cleanly because the Cloudflare token is available via OpenBao + ESO.
