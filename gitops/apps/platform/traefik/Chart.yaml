@@ -1,0 +1,10 @@
+apiVersion: v2
+name: traefik-wrapper
+description: Wrapper chart for Traefik with wildcard TLS via TLSStore
+type: application
+version: 0.1.0
+appVersion: "v3.6.15"
+dependencies:
+  - name: traefik
+    version: 39.0.9
+    repository: https://traefik.github.io/charts
