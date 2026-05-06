@@ -717,41 +717,48 @@ kubectl -n openbao exec openbao-0 -- bao status | head -5
 # Sealed: false, Initialized: true, HA Mode: active or standby
 ```
 
-**Step 4.4: Login + configure auth + KV + policy + roles**
+**Step 4.4: Configure auth + KV + policy + roles**
+
+The auth/KV setup, the policy write, and the role writes are split into three smaller `kubectl exec` calls. The policy is delivered via `echo | kubectl exec -i bao policy write -` (stdin pipe — no heredoc, robust to copy-paste). Tokens flow through `env KEY=VALUE bao ...` rather than `sh -c "export ..."` so the inner shell's argv stays clean. Note: `kubectl exec` does NOT have a `--env` flag (that's `kubectl run`); use the Linux `env` binary inside the pod.
 
 ```bash
 ROOT_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json)
 
-kubectl -n openbao exec -i openbao-0 -- sh -c "
-  export BAO_ADDR=http://127.0.0.1:8200
-  bao login $ROOT_TOKEN
-  bao auth enable kubernetes || echo 'kubernetes auth already enabled'
-  bao write auth/kubernetes/config \
-    kubernetes_host=https://kubernetes.default.svc.cluster.local
-  bao secrets enable -path=secret -version=2 kv || echo 'kv already enabled at secret/'
+# 4.4a. Enable Kubernetes auth + KV v2 mount (idempotent)
+kubectl -n openbao exec openbao-0 \
+  -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" sh -c '
+    bao auth enable kubernetes || echo "kubernetes auth already enabled"
+    bao write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc.cluster.local
+    bao secrets enable -path=secret -version=2 kv || echo "kv already enabled at secret/"
+'
 
-  bao policy write cloudflare-read - <<EOF
-path \"secret/data/cloudflare/*\" { capabilities = [\"read\"] }
-EOF
+# 4.4b. Write the cloudflare-read policy via stdin
+echo 'path "secret/data/cloudflare/*" { capabilities = ["read"] }' \
+  | kubectl -n openbao exec -i openbao-0 \
+      -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" \
+        bao policy write cloudflare-read -
 
-  bao write auth/kubernetes/role/cert-manager \
-    bound_service_account_names=cert-manager-cloudflare-token \
-    bound_service_account_namespaces=cert-manager \
-    policies=cloudflare-read \
-    ttl=1h
+# Verify the policy
+kubectl -n openbao exec openbao-0 \
+  -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" \
+    bao policy read cloudflare-read
 
-  bao write auth/kubernetes/role/external-dns \
-    bound_service_account_names=external-dns-cloudflare-token \
-    bound_service_account_namespaces=external-dns \
-    policies=cloudflare-read \
-    ttl=1h
-
-  bao write auth/kubernetes/role/external-secrets \
-    bound_service_account_names=external-secrets \
-    bound_service_account_namespaces=external-secrets \
-    policies=cloudflare-read \
-    ttl=1h
-"
+# 4.4c. Write the three Kubernetes auth roles
+for entry in \
+  "cert-manager:cert-manager-cloudflare-token" \
+  "external-dns:external-dns-cloudflare-token" \
+  "external-secrets:external-secrets"; do
+  ns="${entry%:*}"
+  sa="${entry#*:}"
+  echo "==> role $ns (SA $ns/$sa)"
+  kubectl -n openbao exec openbao-0 \
+    -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$ROOT_TOKEN" \
+      bao write "auth/kubernetes/role/$ns" \
+        "bound_service_account_names=$sa" \
+        "bound_service_account_namespaces=$ns" \
+        policies=cloudflare-read \
+        ttl=1h
+done
 ```
 
 Expected: each command succeeds. The `auth enable` and `secrets enable` may already have succeeded if you re-run; the `|| echo ...` makes that case non-fatal.
@@ -761,8 +768,7 @@ Expected: each command succeeds. The `auth enable` and `secrets enable` may alre
 You need the Cloudflare API token value (with `Zone.Zone:Read` + `Zone.DNS:Edit` scoped to `chalupatech.com`). Get it from 1Password.
 
 ```bash
-export OPENBAO_TOKEN=$ROOT_TOKEN
-./scripts/openbao/kv-put.sh cloudflare/api-token token "<paste-cloudflare-token-value-here>"
+OPENBAO_TOKEN=$ROOT_TOKEN ./scripts/openbao/kv-put.sh cloudflare/api-token token "<paste-cloudflare-token-value-here>"
 
 # Verify
 kubectl -n openbao exec openbao-0 -- bao kv get -mount=secret cloudflare/api-token
