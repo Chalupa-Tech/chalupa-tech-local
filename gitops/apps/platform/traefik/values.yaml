@@ -1,0 +1,42 @@
+traefik:
+  ingressRoute:
+    dashboard:
+      enabled: false
+  service:
+    type: LoadBalancer
+    annotations:
+      # MetalLB-specific annotation (replaces the deprecated loadBalancerIP field)
+      metallb.universe.tf/loadBalancerIPs: "192.168.1.230"
+  ports:
+    web:
+      port: 8000
+      exposedPort: 80
+      expose:
+        default: true
+      protocol: TCP
+    websecure:
+      port: 8443
+      exposedPort: 443
+      expose:
+        default: true
+      protocol: TCP
+      http:
+        tls:
+          enabled: true
+  providers:
+    kubernetesCRD:
+      enabled: true
+      allowCrossNamespace: true
+    kubernetesIngress:
+      enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  logs:
+    general:
+      level: INFO
+    access:
+      enabled: true
