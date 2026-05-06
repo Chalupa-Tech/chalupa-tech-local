@@ -30,18 +30,35 @@ PODS=(openbao-0 openbao-1 openbao-2)
 
 for pod in "${PODS[@]}"; do
   echo "==> $pod"
-  sealed=$(kubectl -n "$NS" exec "$pod" -- bao status -format=json 2>/dev/null | jq -r '.sealed' 2>/dev/null || echo "unreachable")
 
-  if [[ "$sealed" == "unreachable" ]]; then
-    echo "    WARN: could not reach pod, skipping"
+  # bao status returns exit 0 when unsealed, exit 2 when sealed, exit 1 on error.
+  # Capture stdout separately from exit so set -o pipefail doesn't mask exit 2.
+  set +e
+  status_json=$(kubectl -n "$NS" exec "$pod" -- bao status -format=json 2>/dev/null)
+  kubectl_rc=$?
+  set -e
+
+  if [[ -z "$status_json" ]]; then
+    # Empty output means kubectl exec itself failed (pod doesn't exist, not Ready, etc.)
+    echo "    WARN: could not reach pod (kubectl exec rc=$kubectl_rc), skipping"
     continue
   fi
+
+  sealed=$(printf '%s' "$status_json" | jq -r '.sealed' 2>/dev/null || echo "parse-error")
+  initialized=$(printf '%s' "$status_json" | jq -r '.initialized' 2>/dev/null || echo "parse-error")
+
+  if [[ "$initialized" != "true" ]]; then
+    echo "    WARN: pod is not initialized (initialized=$initialized); run 'bao operator init' first, skipping"
+    continue
+  fi
+
   if [[ "$sealed" == "false" ]]; then
     echo "    already unsealed, skipping"
     continue
   fi
+
   if [[ "$sealed" != "true" ]]; then
-    echo "    WARN: unexpected bao status output ($sealed), skipping"
+    echo "    WARN: unexpected bao status output (sealed=$sealed), skipping"
     continue
   fi
 
