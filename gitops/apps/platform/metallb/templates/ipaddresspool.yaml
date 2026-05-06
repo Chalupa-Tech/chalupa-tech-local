@@ -9,5 +9,9 @@ metadata:
 spec:
   addresses:
     - 192.168.1.160-192.168.1.170
+    # Pinned single-IP slot for Traefik (referenced by metallb.universe.tf/loadBalancerIPs
+    # on the traefik Service and by all external-dns Cloudflare A records under
+    # *.frame.chalupatech.com). Keeping the main range intact for other LoadBalancers.
+    - 192.168.1.230/32
   autoAssign: true
   avoidBuggyIPs: true
