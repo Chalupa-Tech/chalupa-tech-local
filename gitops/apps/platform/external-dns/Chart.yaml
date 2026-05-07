@@ -1,0 +1,10 @@
+apiVersion: v2
+name: external-dns-wrapper
+description: Wrapper chart for external-dns with Cloudflare provider
+type: application
+version: 0.1.0
+appVersion: "0.21.0"
+dependencies:
+  - name: external-dns
+    version: 1.21.1
+    repository: https://kubernetes-sigs.github.io/external-dns/

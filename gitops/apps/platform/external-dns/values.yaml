@@ -1,0 +1,26 @@
+external-dns:
+  provider:
+    name: cloudflare
+  sources:
+    - traefik-proxy
+  domainFilters:
+    - frame.chalupatech.com
+  policy: upsert-only
+  registry: txt
+  txtOwnerId: "chalupa-talos"
+  txtPrefix: "_edns."
+  interval: 1m
+  env:
+    - name: CF_API_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: cloudflare-api-token
+          key: token
+  extraArgs:
+    - --traefik-disable-legacy
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
