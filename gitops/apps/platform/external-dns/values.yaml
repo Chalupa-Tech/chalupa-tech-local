@@ -3,8 +3,12 @@ external-dns:
     name: cloudflare
   sources:
     - traefik-proxy
+  # frame.chalupatech.com is a subdomain inside the chalupatech.com zone
+  # (Cloudflare free tier doesn't support sub-zone delegation), so the filter
+  # has to match the actual zone. txtOwnerId + txtPrefix below ensure
+  # external-dns only manages records it created, so broader filter is safe.
   domainFilters:
-    - frame.chalupatech.com
+    - chalupatech.com
   policy: upsert-only
   registry: txt
   txtOwnerId: "chalupa-talos"
