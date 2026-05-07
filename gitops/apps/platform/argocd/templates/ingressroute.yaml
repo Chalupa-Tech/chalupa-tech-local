@@ -3,6 +3,11 @@ kind: IngressRoute
 metadata:
   name: argocd-http
   namespace: argocd
+  annotations:
+    # external-dns target (Traefik's MetalLB LB IP). Required because
+    # external-dns's traefik-proxy source silently skips IngressRoutes
+    # without an explicit target.
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
 spec:
   entryPoints:
     - web
@@ -21,6 +26,8 @@ kind: IngressRoute
 metadata:
   name: argocd-https
   namespace: argocd
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
 spec:
   entryPoints:
     - websecure
