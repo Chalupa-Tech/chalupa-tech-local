@@ -16,8 +16,6 @@ external-dns:
         secretKeyRef:
           name: cloudflare-api-token
           key: token
-  extraArgs:
-    - --traefik-disable-legacy
   resources:
     requests:
       cpu: 25m
