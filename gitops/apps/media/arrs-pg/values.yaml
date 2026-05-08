@@ -1,0 +1,9 @@
+---
+cluster:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4
+  storageSize: 20Gi
+  storageClass: local-path
+
+serviceHostname: arrs-pg-rw.media.svc.cluster.local
+servicePort: 5432

@@ -1,0 +1,68 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: arrs-pg
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  instances: {{ .Values.cluster.instances }}
+  imageName: {{ .Values.cluster.imageName }}
+
+  affinity:
+    podAntiAffinityType: required
+    topologyKey: kubernetes.io/hostname
+
+  storage:
+    size: {{ .Values.cluster.storageSize }}
+    storageClass: {{ .Values.cluster.storageClass }}
+
+  superuserSecret:
+    name: arrs-pg-superuser
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      postInitApplicationSQL:
+        - CREATE ROLE sonarr WITH LOGIN;
+        - CREATE ROLE radarr WITH LOGIN;
+        - CREATE ROLE seerr WITH LOGIN;
+        - CREATE DATABASE sonarr_main OWNER sonarr;
+        - CREATE DATABASE sonarr_log OWNER sonarr;
+        - CREATE DATABASE radarr_main OWNER radarr;
+        - CREATE DATABASE radarr_log OWNER radarr;
+        - CREATE DATABASE seerr OWNER seerr;
+        - GRANT ALL PRIVILEGES ON DATABASE sonarr_main TO sonarr;
+        - GRANT ALL PRIVILEGES ON DATABASE sonarr_log TO sonarr;
+        - GRANT ALL PRIVILEGES ON DATABASE radarr_main TO radarr;
+        - GRANT ALL PRIVILEGES ON DATABASE radarr_log TO radarr;
+        - GRANT ALL PRIVILEGES ON DATABASE seerr TO seerr;
+
+  managed:
+    roles:
+      - name: sonarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: sonarr-pg
+        connectionLimit: 25
+      - name: radarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: radarr-pg
+        connectionLimit: 25
+      - name: seerr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: seerr-pg
+        connectionLimit: 25
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
