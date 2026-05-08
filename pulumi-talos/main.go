@@ -122,6 +122,22 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			Bios:        pulumi.String("ovmf"),
 			Machine:     pulumi.String("q35"),
 
+			// Disk first, then CD-ROM, then network. Without this, Proxmox defaults
+			// to ide3 (CD) before scsi0 (disk). On a fresh VM that's correct — the
+			// installer ISO boots, Talos installs to disk, then kexec's into the
+			// installed kernel without re-reading BIOS. But the next time the VM
+			// is stopped and started cold (e.g. a Pulumi resize that changes
+			// CPU/memory), BIOS re-reads the boot order, hits ide3 first, loads
+			// the ISO, and Talos's `halt_if_installed` kernel param halts the boot
+			// — wedging the node at the installer prompt. With scsi0 first, the
+			// installed Talos boots; the ISO stays attached for fresh-install
+			// fallback (UEFI tries the next entry if scsi0 has no bootloader).
+			BootOrders: pulumi.StringArray{
+				pulumi.String("scsi0"),
+				pulumi.String("ide3"),
+				pulumi.String("net0"),
+			},
+
 			Cpu: &vm.VirtualMachineCpuArgs{
 				Cores: pulumi.Int(node.cores),
 				Type:  pulumi.String("host"),
