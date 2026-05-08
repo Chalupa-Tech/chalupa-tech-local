@@ -40,3 +40,18 @@ spec:
           - CreateNamespace=true
           - ServerSideApply=true
           - SkipDryRunOnMissingResource=true
+      # Silence false-positive drift from admission-controller field
+      # defaulters. Same block as platform.yaml so the media tier's
+      # forthcoming ExternalSecret resources do not show 'OutOfSync but
+      # Healthy' on first sync. Fields empirically observed (2026-05-07)
+      # on cert-manager / external-dns ExternalSecrets.
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /spec/target/deletionPolicy
+          jqPathExpressions:
+            - .spec.data[].remoteRef.conversionStrategy
+            - .spec.data[].remoteRef.decodingStrategy
+            - .spec.data[].remoteRef.metadataPolicy
+            - .spec.data[].remoteRef.nullBytePolicy
