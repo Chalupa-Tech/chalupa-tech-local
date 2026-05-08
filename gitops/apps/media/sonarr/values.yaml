@@ -29,6 +29,8 @@ app-template:
                   port: 8989
                 initialDelaySeconds: 30
                 periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
             readiness:
               enabled: true
               custom: true
@@ -38,14 +40,25 @@ app-template:
                   port: 8989
                 initialDelaySeconds: 5
                 periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 5
             startup:
-              enabled: false
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 8989
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 60
           resources:
             requests:
               cpu: 50m
               memory: 256Mi
             limits:
-              memory: 1Gi
+              memory: 2Gi
 
   service:
     sonarr:
