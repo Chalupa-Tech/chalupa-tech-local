@@ -26,6 +26,8 @@ type talosNode struct {
 	ip          string
 	machineType string // "controlplane" or "worker"
 	bootOrder   int
+	cores       int
+	memoryMB    int
 }
 
 func main() {
@@ -60,9 +62,9 @@ func main() {
 
 func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	nodes := []talosNode{
-		{"talos-cp", 300, controlPlaneIP, "controlplane", 4},
-		{"talos-worker-1", 301, "192.168.1.226", "worker", 5},
-		{"talos-worker-2", 302, "192.168.1.227", "worker", 5},
+		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 4, 20480},
+		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480},
+		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480},
 	}
 
 	// Step 1: Generate cluster secrets (stored in Pulumi state for reproducibility)
@@ -87,11 +89,11 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			Machine:     pulumi.String("q35"),
 
 			Cpu: &vm.VirtualMachineCpuArgs{
-				Cores: pulumi.Int(4),
+				Cores: pulumi.Int(node.cores),
 				Type:  pulumi.String("host"),
 			},
 			Memory: &vm.VirtualMachineMemoryArgs{
-				Dedicated: pulumi.Int(20480), // 20 GB
+				Dedicated: pulumi.Int(node.memoryMB),
 			},
 			NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
 				&vm.VirtualMachineNetworkDeviceArgs{
