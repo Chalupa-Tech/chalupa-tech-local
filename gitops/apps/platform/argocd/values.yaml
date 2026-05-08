@@ -32,8 +32,10 @@ argo-cd:
   repoServer:
     resources:
       requests:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
   controller:
     resources:
       requests:
