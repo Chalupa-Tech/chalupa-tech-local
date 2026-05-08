@@ -19,6 +19,28 @@ app-template:
             TZ: America/Los_Angeles
             PUID: "1000"
             PGID: "1000"
+            Sonarr__Postgres__Host: arrs-pg-rw.media.svc.cluster.local
+            Sonarr__Postgres__Port: "5432"
+            Sonarr__Postgres__User:
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-pg
+                  key: username
+            Sonarr__Postgres__Password:
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-pg
+                  key: password
+            Sonarr__Postgres__MainDb:
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-pg
+                  key: main_db
+            Sonarr__Postgres__LogDb:
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-pg
+                  key: log_db
           probes:
             liveness:
               enabled: true
