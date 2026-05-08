@@ -1,0 +1,77 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    nzbget:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/nzbget
+            tag: 21.2-ls28
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            NZBGET_USER: nzbget
+            NZBGET_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: nzbget-credentials
+                  key: control-password
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 6789
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /
+                  port: 6789
+                initialDelaySeconds: 5
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+
+  service:
+    nzbget:
+      controller: nzbget
+      ports:
+        http:
+          port: 6789
+
+  persistence:
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /config
+          subPath: Configs/nzbget
+    downloads:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /downloads
+          subPath: Downloads
