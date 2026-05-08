@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve/vm"
@@ -182,19 +181,13 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			ConfigPatches:   pulumi.StringArray{pulumi.String(patch)},
 		}, nil)
 
-		// Extract DHCP IP from qemu-guest-agent (Talos boots to maintenance mode with DHCP)
-		dhcpIP := talosVM.Ipv4Addresses.ApplyT(func(ips [][]string) (string, error) {
-			for _, ifaceIPs := range ips {
-				for _, ip := range ifaceIPs {
-					if ip != "" && ip != "127.0.0.1" && !strings.HasPrefix(ip, "169.254.") {
-						return ip, nil
-					}
-				}
-			}
-			return "", fmt.Errorf("no valid IP found for %s via qemu-guest-agent", node.name)
-		}).(pulumi.StringOutput)
-
-		// Apply Talos configuration to the node (targets DHCP IP, configures static IP)
+		// Apply Talos configuration to the node, targeting the node's static IP.
+		// Once a node is configured, it lives at node.ip — that's the only IP that's
+		// reliably reachable. Earlier code targeted a DHCP IP captured from
+		// qemu-guest-agent at create time, but that IP was a maintenance-mode lease
+		// that goes stale the moment Talos applies the static-IP config and reboots.
+		// Adding a brand-new node requires a manual `talosctl --insecure apply-config`
+		// against its DHCP IP first, so it lands at node.ip before pulumi up runs.
 		configApply, err := machine.NewConfigurationApply(ctx, fmt.Sprintf("%s-config-apply", node.name), &machine.ConfigurationApplyArgs{
 			ClientConfiguration: machine.ClientConfigurationArgs{
 				CaCertificate:     secrets.ClientConfiguration.CaCertificate(),
@@ -202,8 +195,8 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 				ClientKey:         secrets.ClientConfiguration.ClientKey(),
 			},
 			MachineConfigurationInput: machineConfig.MachineConfiguration(),
-			Node:                      dhcpIP,
-			Endpoint:                  dhcpIP,
+			Node:                      pulumi.String(node.ip),
+			Endpoint:                  pulumi.String(node.ip),
 			ApplyMode:                 pulumi.String("reboot"),
 		}, pulumi.DependsOn([]pulumi.Resource{talosVM}))
 		if err != nil {
