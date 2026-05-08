@@ -92,7 +92,7 @@ func main() {
 
 func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	nodes := []talosNode{
-		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 4, 20480},
+		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 6144},
 		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 6144},
 		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 6144},
 		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480},
