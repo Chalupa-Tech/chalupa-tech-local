@@ -40,3 +40,23 @@ spec:
           - CreateNamespace=true
           - ServerSideApply=true
           - SkipDryRunOnMissingResource=true
+      # Silence false-positive drift from admission-controller field
+      # defaulters. Empirically observed (2026-05-07) on the ExternalSecret
+      # resources owned by cert-manager and external-dns:
+      #   - spec.target.deletionPolicy ("Retain" injected when omitted)
+      #   - spec.data[].remoteRef.conversionStrategy ("Default")
+      #   - spec.data[].remoteRef.decodingStrategy   ("None")
+      #   - spec.data[].remoteRef.metadataPolicy     ("None")
+      #   - spec.data[].remoteRef.nullBytePolicy     ("Ignore")
+      # IngressRoute resources currently show no drift, but the same block
+      # is landed in media.yaml so future ESO-backed media apps inherit it.
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /spec/target/deletionPolicy
+          jqPathExpressions:
+            - .spec.data[].remoteRef.conversionStrategy
+            - .spec.data[].remoteRef.decodingStrategy
+            - .spec.data[].remoteRef.metadataPolicy
+            - .spec.data[].remoteRef.nullBytePolicy
