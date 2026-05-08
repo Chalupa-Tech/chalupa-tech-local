@@ -1,0 +1,101 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    tdarr:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: ghcr.io/haveagitgat/tdarr
+            tag: "2.21.01"
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            UMASK_SET: "002"
+            serverIP: "0.0.0.0"
+            serverPort: "8266"
+            webUIPort: "8265"
+            internalNode: "true"
+            inContainer: "true"
+            ffmpegVersion: "6"
+            nodeName: "tdarr-internal"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/v2/status
+                  port: 8265
+                initialDelaySeconds: 60
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/v2/status
+                  port: 8265
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 4
+              memory: 6Gi
+
+  service:
+    tdarr:
+      controller: tdarr
+      ports:
+        http:
+          port: 8265
+        server:
+          port: 8266
+
+  persistence:
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /app/configs
+          subPath: Configs/tdarr/config
+    server-data:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /app/server
+          subPath: Configs/tdarr/cache
+    transcode-cache:
+      enabled: true
+      type: emptyDir
+      globalMounts:
+        - path: /temp
+    media-movies:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /media/movies
+          subPath: Movies
+    media-tv:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /media/tv
+          subPath: TVShows
