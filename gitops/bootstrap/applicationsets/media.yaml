@@ -55,3 +55,30 @@ spec:
             - .spec.data[].remoteRef.decodingStrategy
             - .spec.data[].remoteRef.metadataPolicy
             - .spec.data[].remoteRef.nullBytePolicy
+        - group: postgresql.cnpg.io
+          kind: Cluster
+          jsonPointers:
+            - /spec/enablePDB
+            - /spec/enableSuperuserAccess
+            - /spec/failoverDelay
+            - /spec/logLevel
+            - /spec/maxSyncReplicas
+            - /spec/minSyncReplicas
+            - /spec/monitoring
+            - /spec/postgresGID
+            - /spec/postgresUID
+            - /spec/postgresql
+            - /spec/primaryUpdateMethod
+            - /spec/primaryUpdateStrategy
+            - /spec/probes
+            - /spec/replicationSlots
+            - /spec/smartShutdownTimeout
+            - /spec/startDelay
+            - /spec/stopDelay
+            - /spec/switchoverDelay
+            - /spec/bootstrap/initdb/encoding
+            - /spec/bootstrap/initdb/localeCType
+            - /spec/bootstrap/initdb/localeCollate
+            - /spec/storage/resizeInUseVolumes
+          jqPathExpressions:
+            - .spec.managed.roles[].inherit
