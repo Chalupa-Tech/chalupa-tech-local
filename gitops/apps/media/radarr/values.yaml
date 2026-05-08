@@ -19,6 +19,28 @@ app-template:
             TZ: America/Los_Angeles
             PUID: "1000"
             PGID: "1000"
+            Radarr__Postgres__Host: arrs-pg-rw.media.svc.cluster.local
+            Radarr__Postgres__Port: "5432"
+            Radarr__Postgres__User:
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-pg
+                  key: username
+            Radarr__Postgres__Password:
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-pg
+                  key: password
+            Radarr__Postgres__MainDb:
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-pg
+                  key: main_db
+            Radarr__Postgres__LogDb:
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-pg
+                  key: log_db
           probes:
             liveness:
               enabled: true
