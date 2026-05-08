@@ -19,6 +19,24 @@ app-template:
             TZ: America/Los_Angeles
             LOG_LEVEL: info
             PORT: "5055"
+            DB_TYPE: postgres
+            DB_HOST: arrs-pg-rw.media.svc.cluster.local
+            DB_PORT: "5432"
+            DB_USER:
+              valueFrom:
+                secretKeyRef:
+                  name: seerr-pg
+                  key: username
+            DB_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: seerr-pg
+                  key: password
+            DB_NAME:
+              valueFrom:
+                secretKeyRef:
+                  name: seerr-pg
+                  key: db
           probes:
             liveness:
               enabled: true
