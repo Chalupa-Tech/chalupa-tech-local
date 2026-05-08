@@ -13,8 +13,8 @@ app-template:
       containers:
         main:
           image:
-            repository: fallenbagel/jellyseerr
-            tag: "2.1.0"
+            repository: ghcr.io/seerr-team/seerr
+            tag: latest
           env:
             TZ: America/Los_Angeles
             LOG_LEVEL: info
