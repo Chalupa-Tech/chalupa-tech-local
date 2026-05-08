@@ -53,3 +53,20 @@ Deployment and provisioning are handled entirely through Pull Requests and GitHu
 
 - **Pulumi**: Runs `pulumi preview` on PRs (leaving a comment with the diff) and `pulumi up` on merge to `main`.
 - **Ansible**: Runs linting and `ansible-playbook --check --diff` on PRs (posting results as a comment) and applies configuration on merge to `main`.
+
+## Operational notes
+
+### Adding a new VM: DHCP reservation is required
+
+The Unifi gateway only issues a LAN IP to a MAC address that has a DHCP reservation. When `pulumi up` creates a new VM, Proxmox assigns it a freshly generated MAC, so DHCP fails and Talos boots without a LAN IP. The Pulumi run then errors with `no valid IP found for <node> via qemu-guest-agent` because `Ipv4Addresses` from the guest agent contains only loopback.
+
+**When this fires:** the first `pulumi up` after a new node is added to `pulumi-talos/main.go` (or after a `pulumi destroy` + recreate). Existing nodes are unaffected — their MACs are stable in Pulumi state.
+
+**Recovery (no destroy needed):**
+
+1. Look up the new VM's MAC in the Proxmox UI (Hardware → Network Device) or via `ssh root@192.168.1.223 "qm config <VMID> | grep ^net0"`.
+2. Add a DHCP reservation in the Unifi UI for that MAC.
+3. Soft-reset the VM so Talos retries DHCP: `ssh root@192.168.1.223 "qm reset <VMID>"`.
+4. Re-run the failed deploy workflow: `gh run rerun <RUN_ID> --failed`.
+
+After the reservation grants an IP, Pulumi re-reads `Ipv4Addresses`, applies the Talos config (which sets the *final* static IP from the patch), and the node joins the cluster.
