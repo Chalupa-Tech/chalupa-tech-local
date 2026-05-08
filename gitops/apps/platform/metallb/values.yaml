@@ -1,5 +1,33 @@
 metallb:
   speaker:
     enabled: true
+    # Explicit resources so kubelet schedules predictably and doesn't evict
+    # under host pressure. Speaker is a DaemonSet — can't reschedule.
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    # Loosen probe thresholds for busy nodes (default timeoutSeconds=1
+    # was killing the pod on talos-worker-1 under load).
+    livenessProbe:
+      failureThreshold: 5
+      timeoutSeconds: 5
+    readinessProbe:
+      failureThreshold: 5
+      timeoutSeconds: 5
   controller:
     enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    livenessProbe:
+      failureThreshold: 5
+      timeoutSeconds: 5
+    readinessProbe:
+      failureThreshold: 5
+      timeoutSeconds: 5
