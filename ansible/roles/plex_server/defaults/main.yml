@@ -1,9 +1,9 @@
 ---
 plex_server_nfs_server: "{{ truenas_vm_ip }}"
 plex_server_nfs_shares:
-  - src: "/mnt/PlexMedia/Movies"
+  - src: "/mnt/PlexMedia/frame/Movies"
     dest: "/mnt/plex/movies"
-  - src: "/mnt/PlexMedia/TVShows"
+  - src: "/mnt/PlexMedia/frame/TVShows"
     dest: "/mnt/plex/tvshows"
 plex_server_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"
 plex_server_user: "tbigelow"
