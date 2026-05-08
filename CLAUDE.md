@@ -38,7 +38,7 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 
 **Plex LXC** (VMID 200): Ubuntu 24.04, privileged, 8 cores, 8GB RAM, 16GB disk, GPU `/dev/dri/renderD128` passthrough, static IP `192.168.1.224`, boot order 3
 
-**Talos K8s Cluster** (VMIDs 300, 304, 305 + 301, 302): Talos Linux v1.12.6, 5 nodes (3 CP + 2 workers — HA control plane). All CPs (`talos-cp`, `talos-cp-2`, `talos-cp-3` at .225, .228, .229): 2 cores / 6 GB each. Workers (`talos-worker-1`, `-2` at .226, .227): 4 cores / 20 GB each. All nodes 50 GB disk, boot order 4 (CP) / 5 (worker). Cluster endpoint: https://192.168.1.231:6443 (Talos shared VIP). Fully destroyable and recreatable via pipeline.
+**Talos K8s Cluster** (VMIDs 300, 304, 305 + 301, 302, 303): Talos Linux v1.12.6, 6 nodes (3 CP + 3 workers — HA control plane). All CPs (.225, .228, .229): 2 cores / 6 GB each. Workers (.226, .227, .232): 4 cores / 20 GB each. All nodes 50 GB disk, boot order 4 (CP) / 5 (worker). Cluster endpoint: https://192.168.1.231:6443 (Talos shared VIP). Fully destroyable and recreatable via pipeline.
 
 ## Network
 
@@ -50,6 +50,7 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 | Talos CP (talos-cp) | 192.168.1.225 |
 | Talos Worker 1 | 192.168.1.226 |
 | Talos Worker 2 | 192.168.1.227 |
+| Talos Worker 3 | 192.168.1.232 |
 | Talos CP-2 (talos-cp-2) | 192.168.1.228 |
 | Talos CP-3 (talos-cp-3) | 192.168.1.229 |
 | Talos cluster VIP | 192.168.1.231 |

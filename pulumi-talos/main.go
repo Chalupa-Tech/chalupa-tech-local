@@ -97,6 +97,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 6144},
 		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480},
 		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480},
+		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 20480},
 	}
 
 	// Step 1: Generate cluster secrets (stored in Pulumi state for reproducibility)
@@ -257,6 +258,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			pulumi.String("192.168.1.229"),
 			pulumi.String("192.168.1.226"),
 			pulumi.String("192.168.1.227"),
+			pulumi.String("192.168.1.232"),
 		},
 	}, nil)
 
