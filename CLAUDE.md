@@ -38,7 +38,7 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 
 **Plex LXC** (VMID 200): Ubuntu 24.04, privileged, 8 cores, 8GB RAM, 16GB disk, GPU `/dev/dri/renderD128` passthrough, static IP `192.168.1.224`, boot order 3
 
-**Talos K8s Cluster** (VMIDs 300-302): Talos Linux v1.12.6, 3 nodes (1 CP + 2 workers), 4 cores / 20GB RAM each, 50GB disk, static IPs .225-.227, boot order 4-5. Fully destroyable and recreatable via pipeline.
+**Talos K8s Cluster** (VMIDs 300, 304, 305 + 301, 302): Talos Linux v1.12.6, 5 nodes (3 CP + 2 workers — HA control plane). Original CP `talos-cp` (192.168.1.225): 4 cores / 20 GB (resize to 2c/6GB pending PR 4). New CPs `talos-cp-2`/`-3` (.228, .229): 2 cores / 6 GB each. Workers (.226, .227): 4 cores / 20 GB each. All nodes 50 GB disk, boot order 4 (CP) / 5 (worker). Cluster endpoint: https://192.168.1.225:6443 (VIP migration pending PR 3). Fully destroyable and recreatable via pipeline.
 
 ## Network
 
@@ -50,6 +50,8 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 | Talos CP (talos-cp) | 192.168.1.225 |
 | Talos Worker 1 | 192.168.1.226 |
 | Talos Worker 2 | 192.168.1.227 |
+| Talos CP-2 (talos-cp-2) | 192.168.1.228 |
+| Talos CP-3 (talos-cp-3) | 192.168.1.229 |
 | TrueNAS VM | 192.168.1.40 |
 
 ## Commands
