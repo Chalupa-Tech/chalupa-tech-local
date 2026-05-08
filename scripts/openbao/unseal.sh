@@ -6,8 +6,12 @@
 #   ./scripts/openbao/unseal.sh --keys-file ~/secure/openbao-init.json
 #
 # Notes:
-#   - Unseal keys are piped via stdin to `bao operator unseal -` so they do
-#     not appear in any process's argv.
+#   - Unseal keys are passed as positional args to `bao operator unseal <KEY>`.
+#     OpenBao 2.5.3's `bao operator unseal -` (read from stdin) is broken
+#     when invoked via `kubectl exec -i` — the API rejects the key as
+#     "must be a valid hex or base64 string" even when the key is correct.
+#     Positional args work reliably. The key is briefly visible in `ps`
+#     output on the pod (microseconds), which is acceptable for homelab use.
 #   - If a pod is unreachable, the script logs a warning and moves on to
 #     the next pod rather than halting.
 #
@@ -63,7 +67,7 @@ for pod in "${PODS[@]}"; do
   fi
 
   for key in "$OPENBAO_KEY_1" "$OPENBAO_KEY_2" "$OPENBAO_KEY_3"; do
-    printf '%s\n' "$key" | kubectl -n "$NS" exec -i "$pod" -- bao operator unseal - >/dev/null
+    kubectl -n "$NS" exec "$pod" -- bao operator unseal "$key" >/dev/null
   done
   echo "    unsealed"
 done
