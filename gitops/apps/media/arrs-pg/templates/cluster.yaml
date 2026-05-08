@@ -12,6 +12,10 @@ spec:
   affinity:
     podAntiAffinityType: required
     topologyKey: kubernetes.io/hostname
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
 
   storage:
     size: {{ .Values.cluster.storageSize }}
