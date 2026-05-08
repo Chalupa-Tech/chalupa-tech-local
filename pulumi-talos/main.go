@@ -214,6 +214,10 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 	}
 
 	// Step 3: Bootstrap the cluster (once, on the control plane node, using static IP post-reboot)
+	// Bootstrap targets controlPlaneIP directly, NOT the VIP, even though the rest of the
+	// stack speaks to the cluster via the VIP. This is a one-shot operation already recorded
+	// in Pulumi state — changing Node/Endpoint here would attempt a re-bootstrap on a
+	// running cluster (undefined behavior). Leave as controlPlaneIP.
 	bootstrap, err := machine.NewBootstrap(ctx, "talos-bootstrap", &machine.BootstrapArgs{
 		ClientConfiguration: machine.ClientConfigurationArgs{
 			CaCertificate:     secrets.ClientConfiguration.CaCertificate(),
