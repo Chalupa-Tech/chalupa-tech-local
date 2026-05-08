@@ -1,0 +1,38 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: seerr-http
+  namespace: media
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`seerr.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: seerr
+          port: 5055
+      middlewares:
+        - name: redirect-to-https
+          namespace: media
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: seerr-https
+  namespace: media
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`seerr.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: seerr
+          port: 5055
+  tls: {}

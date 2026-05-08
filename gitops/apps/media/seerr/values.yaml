@@ -1,0 +1,64 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    seerr:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: fallenbagel/jellyseerr
+            tag: "2.1.0"
+          env:
+            TZ: America/Los_Angeles
+            LOG_LEVEL: info
+            PORT: "5055"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/v1/status
+                  port: 5055
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/v1/status
+                  port: 5055
+                initialDelaySeconds: 10
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+
+  service:
+    seerr:
+      controller: seerr
+      ports:
+        http:
+          port: 5055
+
+  persistence:
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /app/config
+          subPath: Configs/seerr
