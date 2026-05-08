@@ -1,0 +1,12 @@
+apiVersion: v2
+name: arrs-pg-wrapper
+description: |
+  Wrapper chart for the shared arr-stack PostgreSQL Cluster (CNPG).
+  Owns the Cluster CRD instance plus 4 ExternalSecrets that pull the
+  superuser + per-app credentials from OpenBao. Three application
+  users (sonarr, radarr, seerr) and five databases (sonarr_main,
+  sonarr_log, radarr_main, radarr_log, seerr) are provisioned by the
+  Cluster bootstrap.
+type: application
+version: 0.1.0
+appVersion: "16"
