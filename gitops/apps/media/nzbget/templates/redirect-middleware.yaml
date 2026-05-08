@@ -1,0 +1,11 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-to-https
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

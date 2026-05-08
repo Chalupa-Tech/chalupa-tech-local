@@ -1,0 +1,17 @@
+apiVersion: v2
+name: nzbget-wrapper
+description: |
+  Wrapper chart for NzbGet (Usenet downloader).
+  Owns the shared media-stack resources: PV/PVC for the TrueNAS NFS
+  export at /mnt/PlexMedia/frame, the redirect-to-https Middleware,
+  and the ExternalSecret pulling Usenet provider credentials from
+  OpenBao. The other four media apps (Sonarr, Radarr, Seerr, Tdarr)
+  consume these shared resources by name. If NzbGet is ever removed,
+  these shared resources must be moved to a new owner in the same PR.
+type: application
+version: 0.1.0
+appVersion: "21.2"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/
