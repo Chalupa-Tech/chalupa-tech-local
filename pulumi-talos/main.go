@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
 	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve/vm"
@@ -239,7 +240,20 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		return err
 	}
 
-	ctx.Export("kubeconfig", kubeconfig.KubeconfigRaw)
+	// pulumi-talos's NewKubeconfig pulls the kubeconfig from the cluster, which still
+	// has the original bootstrap server URL (https://controlPlaneIP:6443) baked in —
+	// changing cluster.controlPlaneEndpoint in the machine config doesn't regenerate
+	// the cluster-stored kubeconfig. Rewrite the server URL to point at the VIP so
+	// `kubectl cluster-info` and any tooling consuming this output stay correct.
+	kubeconfigVIP := kubeconfig.KubeconfigRaw.ApplyT(func(raw string) string {
+		return strings.ReplaceAll(
+			raw,
+			fmt.Sprintf("https://%s:6443", controlPlaneIP),
+			fmt.Sprintf("https://%s:6443", controlPlaneVIP),
+		)
+	}).(pulumi.StringOutput)
+
+	ctx.Export("kubeconfig", kubeconfigVIP)
 
 	// Step 5: Generate talosconfig for talosctl access
 	talosClientConfig := client.GetConfigurationOutput(ctx, client.GetConfigurationOutputArgs{
