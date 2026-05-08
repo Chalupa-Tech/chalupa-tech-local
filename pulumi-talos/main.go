@@ -17,6 +17,7 @@ const (
 	talosClusterName = "chalupa-cluster"
 	talosVersion     = "v1.12.6"
 	controlPlaneIP   = "192.168.1.225"
+	controlPlaneVIP  = "192.168.1.231"
 	gateway          = "192.168.1.1"
 )
 
@@ -28,6 +29,36 @@ type talosNode struct {
 	bootOrder   int
 	cores       int
 	memoryMB    int
+}
+
+func buildMachineConfigPatch(node talosNode) string {
+	vipBlock := ""
+	if node.machineType == "controlplane" {
+		vipBlock = fmt.Sprintf("        vip:\n          ip: %s\n", controlPlaneVIP)
+	}
+
+	return fmt.Sprintf(`machine:
+  network:
+    interfaces:
+      - deviceSelector:
+          busPath: "0*"
+        dhcp: false
+        addresses:
+          - %s/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: %s
+%s    nameservers:
+      - 1.1.1.1
+      - 8.8.8.8
+  install:
+    disk: /dev/sda
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: %s
+auto: off
+`, node.ip, gateway, vipBlock, node.name)
 }
 
 func main() {
@@ -140,31 +171,10 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		// Talos v1.12+ auto-generates a HostnameConfig document with auto: stable.
 		// Setting machine.network.hostname in the v1alpha1 doc conflicts with it,
 		// so we override the HostnameConfig document directly (auto: off).
-		patch := fmt.Sprintf(`machine:
-  network:
-    interfaces:
-      - deviceSelector:
-          busPath: "0*"
-        dhcp: false
-        addresses:
-          - %s/24
-        routes:
-          - network: 0.0.0.0/0
-            gateway: %s
-    nameservers:
-      - 1.1.1.1
-      - 8.8.8.8
-  install:
-    disk: /dev/sda
----
-apiVersion: v1alpha1
-kind: HostnameConfig
-hostname: %s
-auto: off
-`, node.ip, gateway, node.name)
+		patch := buildMachineConfigPatch(node)
 
 		machineConfig := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
-			ClusterEndpoint: pulumi.String(fmt.Sprintf("https://%s:6443", controlPlaneIP)),
+			ClusterEndpoint: pulumi.String(fmt.Sprintf("https://%s:6443", controlPlaneVIP)),
 			ClusterName:     pulumi.String(talosClusterName),
 			MachineType:     pulumi.String(node.machineType),
 			MachineSecrets:  secrets.MachineSecrets,
@@ -204,6 +214,10 @@ auto: off
 	}
 
 	// Step 3: Bootstrap the cluster (once, on the control plane node, using static IP post-reboot)
+	// Bootstrap targets controlPlaneIP directly, NOT the VIP, even though the rest of the
+	// stack speaks to the cluster via the VIP. This is a one-shot operation already recorded
+	// in Pulumi state — changing Node/Endpoint here would attempt a re-bootstrap on a
+	// running cluster (undefined behavior). Leave as controlPlaneIP.
 	bootstrap, err := machine.NewBootstrap(ctx, "talos-bootstrap", &machine.BootstrapArgs{
 		ClientConfiguration: machine.ClientConfigurationArgs{
 			CaCertificate:     secrets.ClientConfiguration.CaCertificate(),
@@ -224,8 +238,8 @@ auto: off
 			ClientCertificate: secrets.ClientConfiguration.ClientCertificate(),
 			ClientKey:         secrets.ClientConfiguration.ClientKey(),
 		},
-		Node:     pulumi.String(controlPlaneIP),
-		Endpoint: pulumi.String(controlPlaneIP),
+		Node:     pulumi.String(controlPlaneVIP),
+		Endpoint: pulumi.String(controlPlaneVIP),
 	}, pulumi.DependsOn([]pulumi.Resource{bootstrap}))
 	if err != nil {
 		return err
@@ -242,7 +256,7 @@ auto: off
 		},
 		ClusterName: pulumi.String(talosClusterName),
 		Endpoints: pulumi.StringArray{
-			pulumi.String(controlPlaneIP),
+			pulumi.String(controlPlaneVIP),
 		},
 		Nodes: pulumi.StringArray{
 			pulumi.String(controlPlaneIP),
