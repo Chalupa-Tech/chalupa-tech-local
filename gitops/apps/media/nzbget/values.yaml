@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: lscr.io/linuxserver/nzbget
-            tag: 21.2-ls28
+            tag: latest
           env:
             TZ: America/Los_Angeles
             PUID: "1000"
