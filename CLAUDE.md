@@ -28,7 +28,7 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 - `truenas.go` — TrueNAS Scale VM: 4 cores, 32GB RAM, HBA passthrough (2 mappings), boot order 1
 
 **Pulumi — Talos** (`pulumi-talos/`): Go 1.25.6, stack `tayvenb13/chalupa-talos/proxmox`, providers `pulumi-proxmoxve` v7.13.0 + `pulumi-talos` v0.7.1
-- `main.go` — 3 Talos VMs (VMIDs 300-302), cluster secrets, machine config generation/apply, bootstrap, kubeconfig + talosconfig export
+- `main.go` — 5 Talos VMs (VMIDs 300, 304, 305 + 301, 302), cluster secrets, machine config generation/apply, bootstrap, kubeconfig + talosconfig export
 - Separate stack from infra so `pulumi destroy` cleanly removes only Talos resources without affecting TrueNAS
 
 **Ansible** (`ansible/`): Two inventories, two playbooks:
