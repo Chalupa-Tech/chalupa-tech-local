@@ -1,9 +1,9 @@
 apiVersion: v2
 name: seerr-wrapper
-description: Wrapper chart for Jellyseerr (request UI)
+description: Wrapper chart for Seerr (request UI; consolidation of Overseerr+Jellyseerr)
 type: application
-version: 0.1.0
-appVersion: "2.1.0"
+version: 0.2.0
+appVersion: "latest"
 dependencies:
   - name: app-template
     version: 4.4.0
