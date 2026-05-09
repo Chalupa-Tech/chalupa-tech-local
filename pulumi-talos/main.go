@@ -29,6 +29,7 @@ type talosNode struct {
 	bootOrder   int
 	cores       int
 	memoryMB    int
+	diskGB      int
 }
 
 func buildMachineConfigPatch(node talosNode) string {
@@ -93,12 +94,12 @@ func main() {
 
 func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	nodes := []talosNode{
-		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 6144},
-		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 6144},
-		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 6144},
-		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480},
-		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480},
-		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 20480},
+		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 6144, 50},
+		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 6144, 50},
+		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 6144, 50},
+		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480, 100},
+		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480, 100},
+		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 20480, 100},
 	}
 
 	// Step 1: Generate cluster secrets (stored in Pulumi state for reproducibility)
@@ -154,7 +155,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 				&vm.VirtualMachineDiskArgs{
 					DatastoreId: pulumi.String("local-lvm"),
 					Interface:   pulumi.String("scsi0"),
-					Size:        pulumi.Int(50),
+					Size:        pulumi.Int(node.diskGB),
 					FileFormat:  pulumi.String("raw"),
 				},
 			},
@@ -179,7 +180,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			Vga: &vm.VirtualMachineVgaArgs{
 				Type: pulumi.String("vmware"),
 			},
-		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom", "disks"}))
+		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
 		if err != nil {
 			return err
 		}
