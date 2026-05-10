@@ -1,0 +1,66 @@
+grafana:
+  replicas: 1
+
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: local-path
+    accessModes: [ReadWriteOnce]
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    timeoutSeconds: 5
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    timeoutSeconds: 5
+    periodSeconds: 10
+
+  grafana.ini:
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+    auth:
+      disable_login_form: false
+    server:
+      root_url: https://grafana.frame.chalupatech.com/
+      domain: grafana.frame.chalupatech.com
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+
+  sidecar:
+    datasources:
+      enabled: true
+      label: grafana_datasource
+      labelValue: "1"
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      folder: /tmp/dashboards
+      provider:
+        foldersFromFilesStructure: false
+
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+  testFramework:
+    enabled: false

@@ -1,0 +1,17 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana
+  namespace: grafana
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`grafana.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: grafana
+          port: 80
+  tls: {}
