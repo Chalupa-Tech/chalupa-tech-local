@@ -1,0 +1,10 @@
+apiVersion: v2
+name: vm-system-wrapper
+description: VictoriaMetrics operator + VMSingle (TSDB) + VMAgent (scraper) + cluster-wide kubelet/cAdvisor scrapes
+type: application
+version: 0.1.0
+appVersion: "v0.69.0"
+dependencies:
+  - name: victoria-metrics-operator
+    version: 0.62.1
+    repository: https://victoriametrics.github.io/helm-charts/

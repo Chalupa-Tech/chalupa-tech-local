@@ -1,0 +1,19 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMNodeScrape
+metadata:
+  name: cadvisor
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  scheme: https
+  path: /metrics/cadvisor
+  scrapeInterval: 30s
+  scrapeTimeout: 10s
+  honorLabels: true
+  tlsConfig:
+    insecureSkipVerify: true
+  bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+  relabelConfigs:
+    - action: labelmap
+      regex: __meta_kubernetes_node_label_(.+)

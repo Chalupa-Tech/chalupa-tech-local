@@ -1,0 +1,25 @@
+victoria-metrics-operator:
+  # CRDs ship with the chart; install them. vm-operator's CRDs include
+  # VMSingle, VMAgent, VMServiceScrape, VMPodScrape, VMNodeScrape, VMRule.
+  crds:
+    create: true
+
+  operator:
+    # Enable converter ownership: VM-operator-converted copies of
+    # prometheus-operator objects (ServiceMonitor → VMServiceScrape, etc.)
+    # inherit owner references and are garbage-collected when the source
+    # object is deleted. NOTE: the plan spec wrote
+    # `enable_converter_owner_references` which is silently ignored by the
+    # chart; the actual key is `enable_converter_ownership`. Verified via
+    # `helm template` — wrong key leaves env var
+    # VM_ENABLEDPROMETHEUSCONVERTEROWNERREFERENCES=false; right key sets it
+    # to true.
+    enable_converter_ownership: true
+    disable_prometheus_converter: false
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi

@@ -1,0 +1,57 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: vmagent-chalupa
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  replicaCount: 1
+  scrapeInterval: 30s
+  remoteWrite:
+    - url: http://vmsingle-vmsingle-chalupa.vm-system.svc.cluster.local:8429/api/v1/write
+
+  # Discover all scrape CRDs cluster-wide (both VM-native and prometheus-operator-CRD form).
+  selectAllByDefault: true
+  serviceScrapeNamespaceSelector: {}
+  serviceScrapeSelector: {}
+  podScrapeNamespaceSelector: {}
+  podScrapeSelector: {}
+  nodeScrapeNamespaceSelector: {}
+  nodeScrapeSelector: {}
+  staticScrapeNamespaceSelector: {}
+  staticScrapeSelector: {}
+  probeNamespaceSelector: {}
+  probeSelector: {}
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+  extraArgs:
+    remoteWrite.tmpDataPath: /tmp/vmagent
+    promscrape.streamParse: "true"
+
+  # WAL buffer for samples queued during vmsingle outages.
+  statefulMode: true
+  statefulStorage:
+    accessModes: [ReadWriteOnce]
+    storageClassName: local-path
+    resources:
+      requests:
+        storage: 5Gi
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8429
+    timeoutSeconds: 5
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8429
+    timeoutSeconds: 5
