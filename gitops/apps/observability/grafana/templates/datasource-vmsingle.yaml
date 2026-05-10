@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-vmsingle
+  namespace: grafana
+  labels:
+    grafana_datasource: "1"
+data:
+  vmsingle.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        type: prometheus
+        access: proxy
+        url: http://vmsingle-vmsingle-chalupa.vm-system.svc.cluster.local:8429
+        isDefault: true
+        editable: false
+        jsonData:
+          httpMethod: POST
+          prometheusType: Prometheus
+          prometheusVersion: "2.40.0"
