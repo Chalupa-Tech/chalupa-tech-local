@@ -149,9 +149,9 @@ PR 1 (`allowVolumeExpansion`) and PR 2 (`metrics-server`) could land in either o
 
 | PVC | Size | StorageClass | Backed by | Notes |
 |---|---|---|---|---|
-| `vmsingle-data` | 30 Gi | `local-path` | one Talos worker | 30 day retention; ~6 GB actual at homelab scale; rest is headroom. Pinned-to-node by local-path; pod stays Pending if that node down. Acceptable: vmagent buffers on its own PVC during outages. |
-| `vmagent-data` | 2 Gi | `local-path` | one Talos worker | WAL buffer for samples queued during vmsingle/network outages. |
-| `grafana-data` | 2 Gi | `local-path` | one Talos worker | sqlite + provisioning state (admin user, sessions). Dashboards live in ConfigMaps, not here. |
+| `vmsingle-data` | 40 Gi | `local-path` | one Talos worker | 30 day retention; ~6 GB actual at homelab scale; rest is headroom for cardinality growth (e.g., when arr-app exporters land later) and longer retention if 30d gets bumped. Pinned-to-node by local-path; pod stays Pending if that node down. Acceptable: vmagent buffers on its own PVC during outages. |
+| `vmagent-data` | 5 Gi | `local-path` | one Talos worker | WAL buffer for samples queued during vmsingle/network outages. Sized for multi-hour outages without dropping writes. |
+| `grafana-data` | 5 Gi | `local-path` | one Talos worker | sqlite + provisioning state (admin user, sessions). Dashboards live in ConfigMaps, not here. Headroom for plugins, image cache, render snapshots if ever enabled. |
 
 All three PVCs use the existing `local-path` StorageClass. After PR 1 lands `allowVolumeExpansion: true`, growing any of these is `kubectl edit pvc` (or values.yaml bump on the relevant CRD); local-path's "expansion" is a metadata-only operation since hostPath has no quotas. Real ceiling is the worker's 100 GB host disk (now grown via PR #148), shared with kubelet image cache, CNPG PG replica, and other local-path tenants on the same worker.
 
@@ -175,7 +175,7 @@ spec:
     storageClassName: local-path
     resources:
       requests:
-        storage: 30Gi
+        storage: 40Gi
   resources:
     requests:
       cpu: 100m
@@ -213,7 +213,7 @@ spec:
     storageClassName: local-path
     resources:
       requests:
-        storage: 2Gi
+        storage: 5Gi
 ```
 
 Resource requests/limits are explicitly set per the Talos PSA / OOM-controller lesson: empty `resources: {}` invites the runtime.OOMController to kill the pod under host pressure. Limits are conservative; revisit at impl time after watching steady-state usage in the new dashboards.
