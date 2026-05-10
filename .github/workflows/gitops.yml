@@ -42,12 +42,40 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           fail=0
+
+          # Charts may include `fail` directives that abort rendering when a
+          # CRD's apiVersion isn't available in the cluster's discovered
+          # capabilities (e.g., Traefik's servicemonitor.yaml fails when
+          # monitoring.coreos.com/v1 isn't deployed). In CI there is no
+          # cluster, so we lie to helm via --api-versions. The CRDs listed
+          # here are all installed on our actual cluster (PR #156 +
+          # cnpg-operator + ESO + Traefik), so claiming they exist matches
+          # production reality.
+          API_VERSIONS=(
+            --api-versions monitoring.coreos.com/v1
+            --api-versions monitoring.coreos.com/v1/ServiceMonitor
+            --api-versions monitoring.coreos.com/v1/PodMonitor
+            --api-versions monitoring.coreos.com/v1/PrometheusRule
+            --api-versions external-secrets.io/v1
+            --api-versions traefik.io/v1alpha1
+          )
+
+          # The datreeio CRDs-catalog has stale schemas for vm-operator's
+          # VictoriaMetrics CRDs (e.g., VMNodeScrape.spec.scrapeInterval and
+          # VMAgent.spec.statefulStorage.{accessModes,resources,storageClassName}
+          # are valid in the actual operator's CRDs but missing from the
+          # catalog's v1beta1 snapshot). vm-operator validates these at runtime;
+          # skip them in catalog-based static validation to avoid false negatives.
+          SKIP_KINDS='VMSingle,VMAgent,VMServiceScrape,VMPodScrape,VMNodeScrape,VMRule,VMUser,VMAlertmanager,VMAlert,VMCluster,VMAuth'
+
           for chart_dir in gitops/apps/*/*/; do
             if [ -f "${chart_dir}Chart.yaml" ]; then
               echo "==> Rendering ${chart_dir}"
               helm dependency update "${chart_dir}"
               helm template "$(basename "${chart_dir}")" "${chart_dir}" \
+                "${API_VERSIONS[@]}" \
                 | kubeconform -strict -ignore-missing-schemas -summary \
+                  -skip "${SKIP_KINDS}" \
                   -schema-location default \
                   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
                   || fail=1
