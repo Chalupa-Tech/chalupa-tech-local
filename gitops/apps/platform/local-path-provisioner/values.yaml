@@ -7,6 +7,7 @@ local-path-provisioner:
     name: local-path
     defaultClass: true
     reclaimPolicy: Delete
+    allowVolumeExpansion: true
   nodePathMap:
     - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
       paths:
