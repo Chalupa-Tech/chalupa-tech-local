@@ -97,157 +97,25 @@ Each should print at least one row.
 
 ---
 
-## Task 1: PR 1 — `local-path-provisioner` `allowVolumeExpansion: true`
+## Task 1: ~~PR 1 — `local-path-provisioner` `allowVolumeExpansion: true`~~ — DROPPED
 
-Adds `allowVolumeExpansion: true` to the existing `local-path` StorageClass so observability PVCs (and any future PVC) can be grown via `kubectl edit pvc` without pod restart. local-path doesn't enforce quotas at the filesystem level, so the resize is metadata-only — but the K8s API still requires this flag to accept resize requests.
+**Status:** No PR. Skip directly to Task 2.
 
-**Files:**
-- Modify: `gitops/apps/platform/local-path-provisioner/values.yaml`
+The original premise — that the `local-path` StorageClass needed `allowVolumeExpansion: true` added — was wrong. The upstream chart `local-path-provisioner-0.0.36/templates/storageclass.yaml` hardcodes `allowVolumeExpansion: true` unconditionally; the Helm value `storageClass.allowVolumeExpansion` is not consumed by the template. Verified two ways during code review of PR #150 (closed):
 
-- [ ] **Step 1.1: Create branch**
+1. `kubectl get sc local-path -o yaml | grep allowVolumeExpansion` on the live cluster returns `allowVolumeExpansion: true`.
+2. `helm template` against the unchanged `main` branch values.yaml renders the StorageClass with the flag set — no values change required.
 
-```bash
-git checkout main && git pull
-git checkout -b feat/local-path-allow-volume-expansion
-```
+PR #150 was opened, reviewed, and closed as a no-op. The capability the PR was meant to enable has been enabled the whole time.
 
-- [ ] **Step 1.2: Read current values.yaml**
+**Sanity-check before proceeding to Task 2** (10 seconds, no PR):
 
 ```bash
-cat gitops/apps/platform/local-path-provisioner/values.yaml
-```
-
-Expected current contents (anchor):
-
-```yaml
-# Talos exposes /var as writable+persistent (the ephemeral partition).
-# /var/mnt/ is reserved for mount points and is read-only; using
-# /var/local-path-provisioner directly avoids that constraint.
-local-path-provisioner:
-  storageClass:
-    create: true
-    name: local-path
-    defaultClass: true
-    reclaimPolicy: Delete
-  nodePathMap:
-    - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
-      paths:
-        - /var/local-path-provisioner
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-```
-
-- [ ] **Step 1.3: Add `allowVolumeExpansion: true` under `storageClass`**
-
-Use Edit to change:
-
-```yaml
-  storageClass:
-    create: true
-    name: local-path
-    defaultClass: true
-    reclaimPolicy: Delete
-```
-
-to:
-
-```yaml
-  storageClass:
-    create: true
-    name: local-path
-    defaultClass: true
-    reclaimPolicy: Delete
-    allowVolumeExpansion: true
-```
-
-- [ ] **Step 1.4: Render + validate**
-
-```bash
-helm dependency update gitops/apps/platform/local-path-provisioner/ 2>/dev/null || true
-helm template local-path-provisioner gitops/apps/platform/local-path-provisioner/ > /tmp/lpp-render.yaml
-
-# Confirm the StorageClass picked up the flag:
-grep -A1 'kind: StorageClass' /tmp/lpp-render.yaml
-grep 'allowVolumeExpansion' /tmp/lpp-render.yaml
-# Expect: one line: allowVolumeExpansion: true
-```
-
-If `grep allowVolumeExpansion` returns no match, the chart's value path may differ in this version — inspect `helm show values local-path-provisioner/local-path-provisioner` to find the right key, then update values.yaml accordingly.
-
-- [ ] **Step 1.5: yamllint + kubeconform**
-
-```bash
-yamllint gitops/apps/platform/local-path-provisioner/
-
-kubeconform -strict -ignore-missing-schemas -summary \
-  -schema-location default \
-  /tmp/lpp-render.yaml
-# Expect: 0 invalid resources.
-```
-
-- [ ] **Step 1.6: Commit, push, open PR**
-
-```bash
-git add gitops/apps/platform/local-path-provisioner/values.yaml
-git commit -m "$(cat <<'EOF'
-feat(local-path): allow volume expansion
-
-Enables the storageClass.allowVolumeExpansion flag on the
-local-path StorageClass so PVCs can be grown via kubectl edit
-pvc without pod restart. local-path doesn't enforce quotas at
-the filesystem layer, so the resize is metadata-only — but the
-K8s API still requires this flag to accept resize requests.
-
-Precursor to sub-project #5 (observability) — vmsingle/vmagent/
-grafana PVCs need to be sizeable later as data accumulates or
-retention bumps. PR #148 already grew worker disks 50 → 100 GB
-to make the headroom physically real.
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
-EOF
-)"
-git push -u origin feat/local-path-allow-volume-expansion
-
-gh pr create --title "feat(local-path): allow volume expansion" --body "$(cat <<'EOF'
-## Summary
-- Adds \`allowVolumeExpansion: true\` to the local-path StorageClass
-- One-line values.yaml change; no chart bump
-- Enables online PVC resize for future observability/CNPG growth
-
-## Why
-Sub-project #5 (observability) brainstorming surfaced that PVC resize was blocked because allowVolumeExpansion wasn't set. Landing this first so #5's vmsingle/vmagent/grafana PVCs can be grown later without pod restart.
-
-## Test plan
-- [ ] CI helm template renders cleanly
-- [ ] After merge: \`kubectl get sc local-path -o jsonpath='{.allowVolumeExpansion}'\` returns \`true\`
-- [ ] Existing PVCs unaffected (sanity: \`kubectl get pvc -A\` is unchanged)
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
-```
-
-- [ ] **Step 1.7: STOP — wait for user to merge PR**
-
-Surface the PR URL. Wait for user confirmation that the PR has been merged before proceeding.
-
-- [ ] **Step 1.8: Post-merge verification**
-
-```bash
-git checkout main && git pull
-
 kubectl get sc local-path -o jsonpath='{.allowVolumeExpansion}'
 # Expect: true
-
-kubectl -n argocd get app local-path-provisioner
-# Expect: Synced/Healthy
-
-# Existing PVCs unaffected:
-kubectl get pvc -A | wc -l
-# Expect: same count as before merge
 ```
+
+If this returns `true`, continue. If empty/false (chart bumped to a version that no longer hardcodes the flag), reopen this section and add the values key after confirming the new chart version actually templates it.
 
 ---
 
@@ -2522,7 +2390,7 @@ If any check fails, do not declare #5 complete. Investigate; fix in a small foll
 
 1. **Spec coverage:**
    - Worker disks at 100 GB → done in PR #148 (precursor, merged).
-   - `allowVolumeExpansion: true` → Task 1.
+   - `allowVolumeExpansion: true` → Task 1 dropped (chart hardcodes it; PR #150 closed as no-op).
    - metrics-server → Task 2.
    - observability ApplicationSet → Task 3.
    - prometheus-operator CRDs → Task 4.

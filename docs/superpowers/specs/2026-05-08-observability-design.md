@@ -20,7 +20,7 @@ The cluster gained 3 control-plane nodes plus a 3rd worker over the past two day
 - Day-1 scrape coverage of platform apps that already ship `serviceMonitor.enabled` toggles: ArgoCD (5 components), Traefik, ESO, OpenBao, CNPG operator, and the `arrs-pg` cluster (closes the metrics deferral from sub-project #4).
 - Pre-curated 8-dashboard starter pack committed as JSON files, rendered as labeled ConfigMaps; Grafana sidecar auto-loads them. Future dashboards are added by exporting from UI → committing JSON → ArgoCD reconciles.
 - All Grafana credentials sourced from OpenBao via ESO, matching the established secret pattern.
-- Add `allowVolumeExpansion: true` to the existing `local-path` StorageClass so observability PVCs can be grown later without pod restarts.
+- ~~Add `allowVolumeExpansion: true` to the existing `local-path` StorageClass~~ — verified during review of PR #150 (closed) that the upstream chart template `local-path-provisioner-0.0.36/templates/storageclass.yaml` already hardcodes `allowVolumeExpansion: true`. Live cluster confirms the flag is set. No change required; PVC online expansion is already enabled.
 
 ## Non-Goals (explicitly out of scope)
 
@@ -125,7 +125,7 @@ gitops/
 │   ├── applicationsets/
 │   │   └── observability.yaml                    NEW (clone of platform.yaml retargeted)
 │   └── root-app.yaml                             unchanged
-└── apps/platform/local-path-provisioner/values.yaml   MODIFIED — adds allowVolumeExpansion: true
+└── apps/platform/local-path-provisioner/values.yaml   UNCHANGED — the chart already hardcodes allowVolumeExpansion: true (verified during PR #150 review)
 ```
 
 ### Bootstrap order
@@ -134,7 +134,7 @@ Sub-project #5 lands in 8 PRs. Strict order — each builds on the previous. Eac
 
 | PR | What | Gate |
 |---|---|---|
-| 1 | `platform/local-path-provisioner` adds `allowVolumeExpansion: true`. | StorageClass shows `ALLOWVOLUMEEXPANSION=true` in `kubectl get sc local-path`. |
+| 1 | ~~`platform/local-path-provisioner` adds `allowVolumeExpansion: true`~~ — **DROPPED**: chart already hardcodes the flag (PR #150 closed as no-op after review). | n/a — capability already enabled cluster-wide. |
 | 2 | `platform/metrics-server`. | `kubectl top nodes` returns data. |
 | 3 | `bootstrap/applicationsets/observability.yaml` — empty ApplicationSet (no apps yet — directory glob matches nothing, ApplicationSet generates 0 Applications). | `kubectl -n argocd get appset observability-apps` exists. |
 | 4 | `observability/prometheus-operator-crds`. | `kubectl get crd servicemonitors.monitoring.coreos.com` returns OK. |
@@ -143,7 +143,7 @@ Sub-project #5 lands in 8 PRs. Strict order — each builds on the previous. Eac
 | 7 | `observability/grafana` — full chart, admin secret + ESO, IngressRoute, datasource ConfigMap, 8 starter dashboards. | `https://grafana.frame.chalupatech.com` resolves over HTTPS, the 8 dashboards are visible, queries return data. |
 | 8 | `serviceMonitor.enabled: true` toggles on existing platform apps that ship the option (ArgoCD, Traefik, ESO, OpenBao, CNPG operator) AND `spec.monitoring.enablePodMonitor: true` on the `arrs-pg` Cluster CRD. May land as one PR or split — operator's call. | vmagent's `/api/v1/targets` shows additional jobs UP. The relevant Grafana dashboards (ArgoCD, CNPG) populate. |
 
-PR 1 (`allowVolumeExpansion`) and PR 2 (`metrics-server`) could land in either order; they're independent.
+PR 1 was dropped (verified no-op). The remaining 7 PRs retain their ordering and dependencies.
 
 ### Storage layout (decision c)
 
@@ -153,7 +153,7 @@ PR 1 (`allowVolumeExpansion`) and PR 2 (`metrics-server`) could land in either o
 | `vmagent-data` | 5 Gi | `local-path` | one Talos worker | WAL buffer for samples queued during vmsingle/network outages. Sized for multi-hour outages without dropping writes. |
 | `grafana-data` | 5 Gi | `local-path` | one Talos worker | sqlite + provisioning state (admin user, sessions). Dashboards live in ConfigMaps, not here. Headroom for plugins, image cache, render snapshots if ever enabled. |
 
-All three PVCs use the existing `local-path` StorageClass. After PR 1 lands `allowVolumeExpansion: true`, growing any of these is `kubectl edit pvc` (or values.yaml bump on the relevant CRD); local-path's "expansion" is a metadata-only operation since hostPath has no quotas. Real ceiling is the worker's 100 GB host disk (now grown via PR #148), shared with kubelet image cache, CNPG PG replica, and other local-path tenants on the same worker.
+All three PVCs use the existing `local-path` StorageClass. The StorageClass already has `allowVolumeExpansion: true` (hardcoded by the upstream chart, verified during PR #150 review), so growing any of these is `kubectl edit pvc` (or values.yaml bump on the relevant CRD); local-path's "expansion" is a metadata-only operation since hostPath has no quotas. Real ceiling is the worker's 100 GB host disk (now grown via PR #148), shared with kubelet image cache, CNPG PG replica, and other local-path tenants on the same worker.
 
 VictoriaMetrics's docs explicitly warn against NFS for the timeseries data path — small random I/O during ingestion + background merges interacts poorly with NFSv4 latency. NFS is not used.
 
@@ -393,7 +393,7 @@ Sub-project #4 hit `argocd-repo-server` OOM during chart render of CNPG (PR #131
 
 Each PR's gate is the deploy.yml `Verify GitOps reconciliation` step plus the named below.
 
-**PR 1 — local-path allowVolumeExpansion:**
+**PR 1 — DROPPED** (chart hardcodes the flag; see Bootstrap order table). Sanity check that the existing cluster state matches what we expect:
 ```bash
 kubectl get sc local-path -o jsonpath='{.allowVolumeExpansion}'
 # Expect: true
