@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
-# Seed `secret/grafana/admin` (admin-user + admin-password) and extend the
-# `external-secrets` Vault policy to read `secret/data/grafana/*`.
+# Seed `secret/grafana/admin` (admin-user + admin-password), create the
+# `observability-read` Vault policy granting `secret/data/grafana/*` reads,
+# and bind that policy to the existing `external-secrets` Kubernetes auth role.
 #
-# Idempotent: re-running on an already-seeded cluster is a no-op (skips secret
-# write if the secret exists with both fields, skips policy write if the line
-# is already present). Pass --force to regenerate the password and overwrite.
+# Idempotent: re-running on a seeded cluster is a no-op (skips secret write if
+# both fields exist; bao policy write is upsert; role rebind only happens if
+# observability-read is missing from the role's policies list). Pass --force
+# to regenerate the password.
+#
+# NOTE: an earlier version of this script appended `secret/data/grafana/*` to
+# the policy *named* `external-secrets`, but that policy is NOT bound to the
+# `external-secrets` Kubernetes auth role on this cluster — the role binds
+# `cloudflare-read` + `media-read` per the established <tier>-read convention.
+# The original approach silently produced 403s when ESO tried to read the
+# grafana secret. The current script creates a properly-named tier policy and
+# binds it to the role, matching the existing pattern.
 #
 # Usage:
 #   ./scripts/openbao/seed-grafana-admin.sh                      # default: ~/secure/openbao-init.json
@@ -136,22 +146,39 @@ if [[ "$NEED_WRITE" -eq 1 ]]; then
   unset GRAFANA_PASS
 fi
 
-# ---- Step 2: extend external-secrets policy --------------------------------
+# ---- Step 2: create observability-read policy ------------------------------
+#
+# `bao policy write` is upsert-style — running on each invocation is safe and
+# converges on the desired contents.
 
-POLICY_TMP=$(mktemp -t eso-policy.XXXXXX.hcl)
-trap 'rm -f "$POLICY_TMP"' EXIT
+OBS_POLICY_HCL='path "secret/data/grafana/*" { capabilities = ["read"] }'
+echo "$OBS_POLICY_HCL" | bao_exec policy write observability-read - >/dev/null
+echo "==> Wrote policy 'observability-read' (grants read on secret/data/grafana/*)"
 
-if ! bao_exec policy read external-secrets > "$POLICY_TMP" 2>/dev/null; then
-  echo "ERROR: failed to read external-secrets policy. Was it created in sub-project #2?" >&2
-  exit 1
-fi
+# ---- Step 3: bind observability-read to the external-secrets role ----------
+#
+# Read the role's current config, check whether observability-read is already
+# in the policies array, and if not, re-write the role with the merged list.
+# All other role attributes (bound SAs, namespaces, ttl) are preserved.
 
-if grep -qE 'path "secret/data/grafana/\*"' "$POLICY_TMP"; then
-  echo "==> external-secrets policy already grants secret/data/grafana/*. Skipping."
+ROLE_JSON=$(bao_exec read -format=json auth/kubernetes/role/external-secrets)
+
+CURRENT_POLICIES=$(echo "$ROLE_JSON" | jq -r '.data.policies | join(",")')
+BOUND_SA_NAMES=$(echo "$ROLE_JSON" | jq -r '.data.bound_service_account_names | join(",")')
+BOUND_SA_NAMESPACES=$(echo "$ROLE_JSON" | jq -r '.data.bound_service_account_namespaces | join(",")')
+TOKEN_TTL=$(echo "$ROLE_JSON" | jq -r '.data.token_ttl // 3600')
+
+if echo ",$CURRENT_POLICIES," | grep -q ",observability-read,"; then
+  echo "==> Role 'external-secrets' already binds observability-read. Skipping rebind."
 else
-  printf '\npath "secret/data/grafana/*" { capabilities = ["read"] }\n' >> "$POLICY_TMP"
-  bao_exec policy write external-secrets - < "$POLICY_TMP"
-  echo "==> Extended external-secrets policy: + secret/data/grafana/* (read)"
+  NEW_POLICIES="${CURRENT_POLICIES},observability-read"
+  bao_exec write auth/kubernetes/role/external-secrets \
+    bound_service_account_names="$BOUND_SA_NAMES" \
+    bound_service_account_namespaces="$BOUND_SA_NAMESPACES" \
+    policies="$NEW_POLICIES" \
+    ttl="${TOKEN_TTL}s" >/dev/null
+  echo "==> Bound observability-read to role 'external-secrets'."
+  echo "    policies: $CURRENT_POLICIES → $NEW_POLICIES"
 fi
 
 # ---- Verification ----------------------------------------------------------
@@ -161,13 +188,20 @@ echo "==> Verification:"
 
 # Confirm secret has both fields:
 bao_exec kv get -format=json secret/grafana/admin \
-  | jq -r '.data.data | "    admin-user: " + ."admin-user" + "    admin-password: <" + (."admin-password" | length | tostring) + "-char redacted>"'
+  | jq -r '.data.data | "    secret/grafana/admin: admin-user=" + ."admin-user" + ", admin-password=<" + (."admin-password" | length | tostring) + "-char redacted>"'
 
-# Confirm policy includes the grafana line:
-bao_exec policy read external-secrets \
-  | grep -E 'path "secret/data/grafana/\*"' \
-  | sed 's/^/    /'
+# Confirm policy contents:
+bao_exec policy read observability-read \
+  | sed 's/^/    policy observability-read: /'
+
+# Confirm role binds the policy:
+bao_exec read -format=json auth/kubernetes/role/external-secrets \
+  | jq -r '.data.policies | "    role external-secrets: policies = [" + join(", ") + "]"'
 
 echo
-echo "==> Done. Sub-project #5 Task 7 complete."
-echo "    (Grafana wrapper PR — Task 8 — can now be opened.)"
+echo "==> Done. ESO can now read secret/grafana/admin via the openbao ClusterSecretStore."
+echo "    If Grafana was already deployed and stuck waiting for the secret, the"
+echo "    ExternalSecret should sync within ~1m. Force an immediate sync with:"
+echo
+echo "        kubectl -n grafana annotate externalsecret grafana-admin-creds \\"
+echo "          force-sync=\$(date +%s) --overwrite"
