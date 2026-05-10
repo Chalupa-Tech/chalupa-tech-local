@@ -1,0 +1,33 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: vmsingle-self
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmsingle
+  namespaceSelector:
+    matchNames: [vm-system]
+  endpoints:
+    - port: http
+      interval: 30s
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: vmagent-self
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vmagent
+  namespaceSelector:
+    matchNames: [vm-system]
+  endpoints:
+    - port: http
+      interval: 30s
