@@ -1,0 +1,2 @@
+# CRD-only chart — no controller, no values to tune. Empty is correct.
+prometheus-operator-crds: {}
