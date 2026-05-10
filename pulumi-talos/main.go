@@ -38,6 +38,14 @@ func buildMachineConfigPatch(node talosNode) string {
 		vipBlock = fmt.Sprintf("        vip:\n          ip: %s\n", controlPlaneVIP)
 	}
 
+	// OOMConfig disables Talos 1.12.0's userspace OOM controller, which trips on
+	// transient PSI memory pressure (memory_full_avg10 > 12 with positive derivative)
+	// even when the node has plenty of free RAM, and SIGKILLs random burstable pods —
+	// observed killing openbao-0's sandbox in a tight loop. See siderolabs/talos#12526
+	// (fixed in v1.12.2; we run 1.12.0). Setting triggerExpression to "false" falls
+	// back to the kernel OOM killer (pre-1.12 behavior). cgroupRankingExpression is
+	// intentionally left at the default — the maintainer warned that setting it to
+	// "0.0" disables ranking and is unsafe. Remove this patch after upgrading Talos.
 	return fmt.Sprintf(`machine:
   network:
     interfaces:
@@ -59,6 +67,10 @@ apiVersion: v1alpha1
 kind: HostnameConfig
 hostname: %s
 auto: off
+---
+apiVersion: v1alpha1
+kind: OOMConfig
+triggerExpression: "false"
 `, node.ip, gateway, vipBlock, node.name)
 }
 
