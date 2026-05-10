@@ -1,0 +1,20 @@
+metrics-server:
+  replicas: 1
+
+  args:
+    # Talos's kubelet uses self-signed serving certs by default; metrics-server
+    # talks to kubelet's /metrics/resource. Skip TLS verification on that path.
+    - --kubelet-insecure-tls
+    # Prefer InternalIP for kubelet addressing (Talos sets node IPs as InternalIP).
+    - --kubelet-preferred-address-types=InternalIP
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 50m
+      memory: 128Mi  # Guaranteed QoS — small, foundational
+
+  apiService:
+    create: true
