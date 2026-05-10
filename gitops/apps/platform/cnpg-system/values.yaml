@@ -4,6 +4,9 @@ cloudnative-pg:
 
   replicaCount: 1
 
+  monitoring:
+    podMonitorEnabled: true
+
   resources:
     requests:
       cpu: 50m

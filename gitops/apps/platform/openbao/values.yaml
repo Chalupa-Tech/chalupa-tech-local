@@ -13,6 +13,13 @@ openbao:
             tls_disable = 1
             address = "[::]:8200"
             cluster_address = "[::]:8201"
+            telemetry {
+              unauthenticated_metrics_access = "true"
+            }
+          }
+          telemetry {
+            prometheus_retention_time = "30s"
+            disable_hostname = true
           }
           storage "raft" {
             path = "/openbao/data"
@@ -50,3 +57,6 @@ openbao:
       requests:
         cpu: 100m
         memory: 256Mi
+  serverTelemetry:
+    serviceMonitor:
+      enabled: true

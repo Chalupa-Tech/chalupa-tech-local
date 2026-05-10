@@ -25,11 +25,19 @@ argo-cd:
       # accessed via kubectl port-forward and runs in insecure mode.
       server.insecure: true
   server:
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
     resources:
       requests:
         cpu: 50m
         memory: 128Mi
   repoServer:
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
     resources:
       requests:
         cpu: 100m
@@ -37,12 +45,25 @@ argo-cd:
       limits:
         memory: 1Gi
   controller:
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
     resources:
       requests:
         cpu: 100m
         memory: 256Mi
   applicationSet:
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
     resources:
       requests:
         cpu: 50m
         memory: 64Mi
+  notifications:
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
