@@ -35,6 +35,12 @@ traefik:
       memory: 64Mi
     limits:
       memory: 256Mi
+  metrics:
+    prometheus:
+      service:
+        enabled: true
+      serviceMonitor:
+        enabled: true
   logs:
     general:
       level: INFO

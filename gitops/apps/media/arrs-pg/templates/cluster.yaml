@@ -64,6 +64,9 @@ spec:
           name: seerr-pg
         connectionLimit: 25
 
+  monitoring:
+    enablePodMonitor: true
+
   resources:
     requests:
       cpu: 100m

@@ -1,6 +1,8 @@
 external-secrets:
   installCRDs: true
   replicaCount: 1
+  serviceMonitor:
+    enabled: true
   resources:
     requests:
       cpu: 25m
