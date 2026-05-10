@@ -1,0 +1,10 @@
+apiVersion: v2
+name: node-exporter-wrapper
+description: Wrapper chart for prometheus-node-exporter (per-node CPU/RAM/disk/network metrics, workers only)
+type: application
+version: 0.1.0
+appVersion: "1.11.1"
+dependencies:
+  - name: prometheus-node-exporter
+    version: 4.55.0
+    repository: https://prometheus-community.github.io/helm-charts

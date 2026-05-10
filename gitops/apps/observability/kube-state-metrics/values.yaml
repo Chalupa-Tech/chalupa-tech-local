@@ -1,0 +1,17 @@
+kube-state-metrics:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+  prometheus:
+    monitor:
+      enabled: true   # creates a ServiceMonitor; vmagent picks it up
+      interval: 30s
+
+  selfMonitor:
+    enabled: false

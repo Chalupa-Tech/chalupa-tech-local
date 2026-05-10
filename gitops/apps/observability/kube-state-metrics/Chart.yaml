@@ -1,0 +1,10 @@
+apiVersion: v2
+name: kube-state-metrics-wrapper
+description: Wrapper chart for kube-state-metrics (Pod/Deployment/Node object-state metrics)
+type: application
+version: 0.1.0
+appVersion: "2.15.0"
+dependencies:
+  - name: kube-state-metrics
+    version: 5.37.0
+    repository: https://prometheus-community.github.io/helm-charts

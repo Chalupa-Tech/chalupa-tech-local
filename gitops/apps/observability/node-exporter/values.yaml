@@ -1,0 +1,34 @@
+prometheus-node-exporter:
+  # DaemonSet — one pod per node. By default does NOT tolerate the
+  # control-plane NoSchedule taint, so node-exporter runs on workers only
+  # (the design choice for sub-project #5; CPs run no workloads anyway).
+  hostNetwork: true
+  hostPID: true
+
+  # Override the chart's default toleration `{effect: NoSchedule, operator: Exists}`
+  # that would otherwise place pods on Talos's NoSchedule-tainted control-plane
+  # nodes. Empty list = no NoSchedule toleration → workers-only by virtue of
+  # default scheduler behavior. CPs are 2c/6GB and run no workloads by design.
+  tolerations: []
+
+  service:
+    port: 9100
+    targetPort: 9100
+
+  prometheus:
+    monitor:
+      enabled: true   # creates a ServiceMonitor; vmagent picks it up
+      interval: 30s
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi  # Guaranteed QoS — small DaemonSet workload
+
+  # Exclude virtual / pseudo filesystems from disk metrics; reduce noise.
+  extraArgs:
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
