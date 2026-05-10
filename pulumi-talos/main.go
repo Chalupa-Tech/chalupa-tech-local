@@ -15,7 +15,7 @@ import (
 
 const (
 	talosClusterName = "chalupa-cluster"
-	talosVersion     = "v1.12.6"
+	talosVersion     = "v1.12.7"
 	controlPlaneIP   = "192.168.1.225"
 	controlPlaneVIP  = "192.168.1.231"
 	gateway          = "192.168.1.1"
@@ -172,7 +172,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 				},
 			},
 			Cdrom: &vm.VirtualMachineCdromArgs{
-				FileId: pulumi.String("local:iso/talos-nocloud-amd64.iso"),
+				FileId: pulumi.String(fmt.Sprintf("local:iso/talos-nocloud-amd64-%s.iso", talosVersion)),
 			},
 			Agent: &vm.VirtualMachineAgentArgs{
 				Enabled: pulumi.Bool(true),

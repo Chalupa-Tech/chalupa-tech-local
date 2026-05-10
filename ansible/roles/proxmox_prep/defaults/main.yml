@@ -10,11 +10,14 @@ proxmox_prep_lxc_template_storage: "local"
 
 # Talos ISO settings
 proxmox_prep_talos_enabled: true
-proxmox_prep_talos_version: "v1.12.6"
+proxmox_prep_talos_version: "v1.12.7"
 # Schematic ID includes siderolabs/qemu-guest-agent extension
 # Generated via: POST https://factory.talos.dev/schematics
 #   {"customization":{"systemExtensions":{"officialExtensions":["siderolabs/qemu-guest-agent"]}}}
 proxmox_prep_talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"
-proxmox_prep_talos_iso_name: "talos-nocloud-amd64.iso"
+# ISO filename is version-stamped so bumping proxmox_prep_talos_version triggers
+# a fresh download. Without this the existence check on a fixed filename would
+# always short-circuit and silently keep the old ISO around.
+proxmox_prep_talos_iso_name: "talos-nocloud-amd64-{{ proxmox_prep_talos_version }}.iso"
 proxmox_prep_talos_iso_url: >-
   https://factory.talos.dev/image/{{ proxmox_prep_talos_schematic_id }}/{{ proxmox_prep_talos_version }}/nocloud-amd64.iso
