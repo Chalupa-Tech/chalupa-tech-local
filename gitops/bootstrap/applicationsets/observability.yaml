@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: observability-apps
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - git:
+        repoURL: https://github.com/Chalupa-Tech/chalupa-tech-local
+        revision: main
+        directories:
+          - path: gitops/apps/observability/*
+  template:
+    metadata:
+      name: '{{.path.basename}}'
+      namespace: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Chalupa-Tech/chalupa-tech-local
+        targetRevision: main
+        path: '{{.path.path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.path.basename}}'
+      syncPolicy:
+        automated:
+          prune: false
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - SkipDryRunOnMissingResource=true
+      # Same admission-controller drift block as platform.yaml — silences
+      # false-positive drift on ESO-defaulted ExternalSecret fields. Future
+      # observability apps using ESO will inherit this; it's a no-op until
+      # an ExternalSecret is added (Grafana wrapper in Task 8).
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /spec/target/deletionPolicy
+          jqPathExpressions:
+            - .spec.data[].remoteRef.conversionStrategy
+            - .spec.data[].remoteRef.decodingStrategy
+            - .spec.data[].remoteRef.metadataPolicy
+            - .spec.data[].remoteRef.nullBytePolicy
