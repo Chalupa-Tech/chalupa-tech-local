@@ -3,8 +3,8 @@ name: grafana-wrapper
 description: Wrapper chart for Grafana — anonymous-readonly + admin from OpenBao via ESO, IngressRoute on grafana.frame.chalupatech.com, VictoriaMetrics datasource, 8 starter dashboards loaded via sidecar
 type: application
 version: 0.1.0
-appVersion: "12.3.1"
+appVersion: "13.0.1"
 dependencies:
   - name: grafana
-    version: 10.5.15
-    repository: https://grafana.github.io/helm-charts
+    version: 12.3.0
+    repository: https://grafana-community.github.io/helm-charts
