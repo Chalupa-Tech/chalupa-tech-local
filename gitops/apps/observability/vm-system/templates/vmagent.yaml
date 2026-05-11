@@ -36,14 +36,19 @@ spec:
     remoteWrite.tmpDataPath: /tmp/vmagent
     promscrape.streamParse: "true"
 
-  # WAL buffer for samples queued during vmsingle outages.
-  statefulMode: true
-  statefulStorage:
-    accessModes: [ReadWriteOnce]
-    storageClassName: local-path
-    resources:
-      requests:
-        storage: 5Gi
+  # NOTE: statefulMode + statefulStorage were originally specified per the
+  # plan to give vmagent a 5 Gi local-path WAL surviving vmsingle outages,
+  # but vm-operator 0.69.0 (chart 0.62.1) silently drops the resources
+  # field from statefulStorage during translation to StatefulSet's
+  # volumeClaimTemplates, producing:
+  #   StatefulSet.apps "vmagent-vmagent-chalupa" is invalid:
+  #     spec.volumeClaimTemplates[0].spec.resources[storage]: Required value
+  # vmagent therefore never spawned a pod and vmsingle ingested zero data
+  # from PR #158 merge until this fix landed. Reverting to Deployment mode
+  # (no statefulMode) gets vmagent scraping immediately. The WAL buffer was
+  # always a nice-to-have at homelab scale (single-cluster, vmsingle restarts
+  # in seconds); re-enable later by finding the correct vm-operator 0.6x
+  # storage syntax.
 
   livenessProbe:
     httpGet:
