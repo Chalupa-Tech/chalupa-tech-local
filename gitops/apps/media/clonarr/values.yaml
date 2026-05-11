@@ -10,6 +10,46 @@ app-template:
       type: deployment
       replicas: 1
       strategy: Recreate
+      initContainers:
+        # Clonarr's own `git clone --sparse` + `git sparse-checkout set --no-cone`
+        # sequence races on NFS — the second command's pattern update is
+        # silently dropped, leaving the working tree at the cone-mode default
+        # (`/*` + `!/*/`). Result: `docs/json/` (where TRaSH ships its
+        # profile + custom-format JSON) is never materialized and Clonarr's
+        # UI reports "Pull completed but no TRaSH data was loaded".
+        #
+        # This init container pre-seeds the clone with the correct
+        # non-cone pattern so Clonarr finds an already-valid working tree
+        # on first start. Idempotent — re-applies the pattern on every pod
+        # boot, no-op when correct.
+        ensure-sparse-checkout:
+          image:
+            repository: ghcr.io/prophetse7en/clonarr
+            tag: v2.5.6
+          env:
+            # Same git safe.directory bypass as the main container —
+            # see comment there.
+            GIT_CONFIG_COUNT: "1"
+            GIT_CONFIG_KEY_0: safe.directory
+            GIT_CONFIG_VALUE_0: "*"
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              REPO=/config/data/trash-guides
+              if [ ! -d "$REPO/.git" ]; then
+                echo "No existing TRaSH-Guides clone — performing initial sparse clone."
+                mkdir -p "$(dirname "$REPO")"
+                git clone --filter=blob:none --sparse \
+                  https://github.com/TRaSH-Guides/Guides.git "$REPO"
+              fi
+              cd "$REPO"
+              git sparse-checkout set --no-cone \
+                docs/json/ docs/updates.txt includes/cf-descriptions/
+              echo "Materialized docs/json contents:"
+              ls -d docs/json/*/ 2>/dev/null || echo "(empty — fresh clone)"
       containers:
         main:
           image:
