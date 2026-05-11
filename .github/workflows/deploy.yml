@@ -8,6 +8,65 @@ on:
 
 jobs:
   # ════════════════════════════════════════════════════
+  # Stage 0: Detect what changed
+  #   - dorny/paths-filter compares against the previous commit on push
+  #     (needs fetch-depth: 0) and emits a boolean output per filter.
+  #   - On workflow_dispatch (no diff context) all filters default to true,
+  #     so manual runs always do a full deploy.
+  #   - Skipped jobs satisfy required-status-checks (GH Actions, Apr 2022).
+  # ════════════════════════════════════════════════════
+  detect-changes:
+    name: "Stage 0: Detect changed paths"
+    runs-on: ubuntu-latest
+    # Skip the diff entirely on manual dispatch so a full deploy always runs.
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      proxmox_prep: ${{ steps.filter.outputs.proxmox_prep }}
+      pulumi_infra: ${{ steps.filter.outputs.pulumi_infra }}
+      pulumi_talos: ${{ steps.filter.outputs.pulumi_talos }}
+      lxc_configure: ${{ steps.filter.outputs.lxc_configure }}
+      argocd_bootstrap: ${{ steps.filter.outputs.argocd_bootstrap }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            proxmox_prep:
+              - 'ansible/site.yml'
+              - 'ansible/ansible.cfg'
+              - 'ansible/group_vars/**'
+              - 'ansible/inventory.yml'
+              - 'ansible/roles/proxmox_prep/**'
+              - '.github/workflows/deploy.yml'
+              - '.github/actions/connect-proxmox/**'
+            pulumi_infra:
+              - 'pulumi/**'
+              - '.github/workflows/deploy.yml'
+              - '.github/actions/connect-proxmox/**'
+            pulumi_talos:
+              - 'pulumi-talos/**'
+              - '.github/workflows/deploy.yml'
+              - '.github/actions/connect-proxmox/**'
+            lxc_configure:
+              - 'ansible/ansible.cfg'
+              - 'ansible/group_vars/**'
+              - 'ansible/inventory-vms.yml'
+              - 'ansible/playbooks/vm-configure.yml'
+              - 'ansible/roles/plex_lxc/**'
+              - 'ansible/roles/plex_server/**'
+              - 'pulumi/**'
+              - '.github/workflows/deploy.yml'
+              - '.github/actions/connect-proxmox/**'
+            argocd_bootstrap:
+              - '.github/argocd-bootstrap-values.yaml'
+              - '.github/workflows/deploy.yml'
+              - 'gitops/bootstrap/root-app.yaml'
+              - 'pulumi-talos/**'
+
+  # ════════════════════════════════════════════════════
   # Stage 1: Run Ansible against Proxmox host
   #   - Updates host packages, enables IOMMU/VFIO
   #   - Installs kernel 7, downloads LXC template
@@ -15,6 +74,13 @@ jobs:
   deploy-proxmox-prep:
     name: "Stage 1: Proxmox Host Prep"
     runs-on: ubuntu-latest
+    needs: detect-changes
+    # `always()` lets this run when detect-changes was skipped (workflow_dispatch).
+    if: |
+      always() &&
+      needs.detect-changes.result != 'failure' &&
+      needs.detect-changes.result != 'cancelled' &&
+      (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.proxmox_prep == 'true')
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +113,18 @@ jobs:
   deploy-pulumi:
     name: "Stage 2a: Pulumi VM Provision"
     runs-on: ubuntu-latest
-    needs: deploy-proxmox-prep
+    needs: [detect-changes, deploy-proxmox-prep]
+    # Stage 3 (LXC configure) consumes the inventory-vms artifact this stage
+    # uploads, so we must run whenever Stage 3 will run too.
+    if: |
+      always() &&
+      needs.deploy-proxmox-prep.result != 'failure' &&
+      needs.deploy-proxmox-prep.result != 'cancelled' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        needs.detect-changes.outputs.pulumi_infra == 'true' ||
+        needs.detect-changes.outputs.lxc_configure == 'true'
+      )
     steps:
       - uses: actions/checkout@v4
 
@@ -113,7 +190,12 @@ jobs:
   deploy-talos:
     name: "Stage 2b: Talos K8s Cluster"
     runs-on: ubuntu-latest
-    needs: deploy-proxmox-prep
+    needs: [detect-changes, deploy-proxmox-prep]
+    if: |
+      always() &&
+      needs.deploy-proxmox-prep.result != 'failure' &&
+      needs.deploy-proxmox-prep.result != 'cancelled' &&
+      (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.pulumi_talos == 'true')
     steps:
       - uses: actions/checkout@v4
 
@@ -149,7 +231,14 @@ jobs:
   deploy-vm-configure:
     name: "Stage 3: LXC Create + Configure"
     runs-on: ubuntu-latest
-    needs: deploy-pulumi
+    needs: [detect-changes, deploy-pulumi]
+    # Stage 2a uploads the inventory-vms artifact this stage downloads, so
+    # we require Stage 2a to have actually run (not skipped). The filter for
+    # 2a includes the lxc_configure paths, so this is consistent.
+    if: |
+      always() &&
+      needs.deploy-pulumi.result == 'success' &&
+      (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.lxc_configure == 'true')
     steps:
       - uses: actions/checkout@v4
 
@@ -203,7 +292,12 @@ jobs:
   deploy-argocd:
     name: "Stage 4: ArgoCD Bootstrap"
     runs-on: ubuntu-latest
-    needs: deploy-talos
+    needs: [detect-changes, deploy-talos]
+    if: |
+      always() &&
+      needs.deploy-talos.result != 'failure' &&
+      needs.deploy-talos.result != 'cancelled' &&
+      (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.argocd_bootstrap == 'true')
     steps:
       - uses: actions/checkout@v4
 
