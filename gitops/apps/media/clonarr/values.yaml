@@ -20,6 +20,14 @@ app-template:
             PUID: "1000"
             PGID: "1000"
             PORT: "6060"
+            # Tell git to trust the TRaSH-Guides clone path. With NFS +
+            # PUID/PGID drop, the in-pod stat() of /config/data/trash-guides
+            # reports an owner that doesn't match the running clonarr
+            # process, so git's CVE-2022-24765 dubious-ownership guard
+            # would otherwise refuse to pull.
+            GIT_CONFIG_COUNT: "1"
+            GIT_CONFIG_KEY_0: safe.directory
+            GIT_CONFIG_VALUE_0: "*"
           probes:
             liveness:
               enabled: true
