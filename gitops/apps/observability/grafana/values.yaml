@@ -12,6 +12,18 @@ grafana:
     storageClassName: local-path
     accessModes: [ReadWriteOnce]
 
+  # Disable the init-chown-data container. The chart runs `chown -R 472:472
+  # /var/lib/grafana` in an init container with capabilities.drop=[ALL] +
+  # add=[CHOWN]. That keeps CAP_CHOWN but drops CAP_DAC_READ_SEARCH, so when
+  # Grafana later creates mode-700 subdirs at runtime (png/csv/pdf, etc.),
+  # the next pod restart's init-chown can't traverse into them and fails
+  # with "Permission denied". Pods crash-loop until someone chmods the dirs
+  # by hand. fsGroup: 472 on the pod (default in the chart) already makes
+  # kubelet apply group ownership at mount time, which is all we need.
+  # Observed live 2026-05-11 after a routine grafana pod restart.
+  initChownData:
+    enabled: false
+
   resources:
     requests:
       cpu: 100m
