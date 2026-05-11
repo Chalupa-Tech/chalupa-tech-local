@@ -1,0 +1,38 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: clonarr-http
+  namespace: media
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`clonarr.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: clonarr
+          port: 6060
+      middlewares:
+        - name: redirect-to-https
+          namespace: media
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: clonarr-https
+  namespace: media
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`clonarr.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: clonarr
+          port: 6060
+  tls: {}
