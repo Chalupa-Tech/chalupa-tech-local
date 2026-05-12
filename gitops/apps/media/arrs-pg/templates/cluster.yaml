@@ -32,16 +32,21 @@ spec:
         - CREATE ROLE sonarr WITH LOGIN;
         - CREATE ROLE radarr WITH LOGIN;
         - CREATE ROLE seerr WITH LOGIN;
+        - CREATE ROLE whisparr WITH LOGIN;
         - CREATE DATABASE sonarr_main OWNER sonarr;
         - CREATE DATABASE sonarr_log OWNER sonarr;
         - CREATE DATABASE radarr_main OWNER radarr;
         - CREATE DATABASE radarr_log OWNER radarr;
         - CREATE DATABASE seerr OWNER seerr;
+        - CREATE DATABASE whisparr_main OWNER whisparr;
+        - CREATE DATABASE whisparr_log OWNER whisparr;
         - GRANT ALL PRIVILEGES ON DATABASE sonarr_main TO sonarr;
         - GRANT ALL PRIVILEGES ON DATABASE sonarr_log TO sonarr;
         - GRANT ALL PRIVILEGES ON DATABASE radarr_main TO radarr;
         - GRANT ALL PRIVILEGES ON DATABASE radarr_log TO radarr;
         - GRANT ALL PRIVILEGES ON DATABASE seerr TO seerr;
+        - GRANT ALL PRIVILEGES ON DATABASE whisparr_main TO whisparr;
+        - GRANT ALL PRIVILEGES ON DATABASE whisparr_log TO whisparr;
 
   managed:
     roles:
@@ -62,6 +67,12 @@ spec:
         login: true
         passwordSecret:
           name: seerr-pg
+        connectionLimit: 25
+      - name: whisparr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: whisparr-pg
         connectionLimit: 25
 
   monitoring:

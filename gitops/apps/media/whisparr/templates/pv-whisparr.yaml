@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: media-whisparr
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: media-stack
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  capacity:
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4
+    - soft
+    - timeo=150
+    - retrans=5
+  nfs:
+    server: 192.168.1.40
+    path: /mnt/PlexMedia/WhispArr
+  claimRef:
+    namespace: media
+    name: media-whisparr

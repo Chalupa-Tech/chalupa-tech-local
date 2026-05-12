@@ -1,0 +1,15 @@
+apiVersion: v2
+name: whisparr-wrapper
+description: |
+  Wrapper chart for Whisparr (v3 "Eros") plus a dedicated NzbGet
+  download client. Both controllers live under one Helm release and
+  share only the private NFS PVC (media-whisparr) backed by the
+  TrueNAS export at /mnt/PlexMedia/WhispArr. Whisparr stores Postgres
+  state in the shared arrs-pg cluster; NzbGet has no DB.
+type: application
+version: 0.1.0
+appVersion: "3.3.3"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

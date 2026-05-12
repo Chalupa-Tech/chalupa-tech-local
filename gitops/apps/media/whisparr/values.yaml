@@ -1,0 +1,182 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    whisparr:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: ghcr.io/hotio/whisparr
+            tag: v3-v3.3.3
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            Whisparr__Postgres__Host: arrs-pg-rw.media.svc.cluster.local
+            Whisparr__Postgres__Port: "5432"
+            Whisparr__Postgres__User:
+              valueFrom:
+                secretKeyRef:
+                  name: whisparr-pg
+                  key: username
+            Whisparr__Postgres__Password:
+              valueFrom:
+                secretKeyRef:
+                  name: whisparr-pg
+                  key: password
+            Whisparr__Postgres__MainDb:
+              valueFrom:
+                secretKeyRef:
+                  name: whisparr-pg
+                  key: main_db
+            Whisparr__Postgres__LogDb:
+              valueFrom:
+                secretKeyRef:
+                  name: whisparr-pg
+                  key: log_db
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 6969
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 6969
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 5
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 6969
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 60
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+
+    whisparr-nzbget:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/nzbget
+            tag: latest
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            NZBGET_USER: nzbget
+            NZBGET_PASS:
+              valueFrom:
+                secretKeyRef:
+                  name: whisparr-nzbget-credentials
+                  key: control-password
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 6789
+                initialDelaySeconds: 30
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                tcpSocket:
+                  port: 6789
+                initialDelaySeconds: 5
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+
+  service:
+    whisparr:
+      controller: whisparr
+      ports:
+        http:
+          port: 6969
+    whisparr-nzbget:
+      controller: whisparr-nzbget
+      ports:
+        http:
+          port: 6789
+
+  persistence:
+    whisparr-config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-whisparr
+      advancedMounts:
+        whisparr:
+          main:
+            - path: /config
+              subPath: Configs/whisparr
+    whisparr-media:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-whisparr
+      advancedMounts:
+        whisparr:
+          main:
+            - path: /media
+              subPath: Media
+    shared-downloads:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-whisparr
+      advancedMounts:
+        whisparr:
+          main:
+            - path: /downloads
+              subPath: Downloads
+        whisparr-nzbget:
+          main:
+            - path: /downloads
+              subPath: Downloads
+    nzbget-config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-whisparr
+      advancedMounts:
+        whisparr-nzbget:
+          main:
+            - path: /config
+              subPath: Configs/nzbget
