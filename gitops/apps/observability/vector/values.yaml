@@ -36,7 +36,7 @@ vector:
         source: |
           structured, err = parse_json(.message)
           if err == null && is_object(structured) {
-            . = merge(., structured)
+            . = merge!(., structured)
           }
 
     sinks:
