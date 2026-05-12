@@ -1,0 +1,10 @@
+apiVersion: v2
+name: vl-system-wrapper
+description: VictoriaLogs single-node (vlsingle) — 30 Gi local-path PVC, 30d retention, Loki-compatible ingest + query
+type: application
+version: 0.1.0
+appVersion: "v1.50.0"
+dependencies:
+  - name: victoria-logs-single
+    version: 0.12.4
+    repository: https://victoriametrics.github.io/helm-charts/

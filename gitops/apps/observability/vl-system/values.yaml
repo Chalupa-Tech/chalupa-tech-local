@@ -1,0 +1,27 @@
+victoria-logs-single:
+  server:
+    retentionPeriod: "30d"
+    replicaCount: 1
+    persistentVolume:
+      enabled: true
+      storageClassName: local-path
+      size: 30Gi
+      accessModes:
+        - ReadWriteOnce
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi  # Guaranteed QoS: limits == requests
+    probe:
+      liveness:
+        timeoutSeconds: 5
+        periodSeconds: 30
+      readiness:
+        timeoutSeconds: 5
+        periodSeconds: 10
+    serviceMonitor:
+      enabled: true
+      interval: 30s
