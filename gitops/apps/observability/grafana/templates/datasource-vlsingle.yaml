@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-vlsingle
+  namespace: grafana
+  labels:
+    grafana_datasource: "1"
+data:
+  vlsingle.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaLogs
+        type: loki
+        access: proxy
+        # NOTE: VictoriaLogs serves the Loki query API at /select/loki/api/v1/*
+        # (the standard /loki/api/v1/* path returns 400). The /select prefix
+        # makes Grafana's Loki datasource hit the right path.
+        url: http://vl-system-victoria-logs-single-server.vl-system.svc.cluster.local:9428/select
+        isDefault: false
+        editable: false
