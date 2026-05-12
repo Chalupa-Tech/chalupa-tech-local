@@ -95,7 +95,7 @@ func main() {
 func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	nodes := []talosNode{
 		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 4096, 50},
-		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 6144, 50},
+		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 4096, 50},
 		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 6144, 50},
 		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480, 100},
 		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480, 100},
@@ -113,7 +113,23 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 	// Step 2: Create VMs, generate configs, and apply them
 	var configApplyResources []pulumi.Resource
 
+	// Serialize control-plane VM updates: chain each CP to depend on the previous
+	// one. Without this, Pulumi parallelizes sibling-resource updates and a single
+	// apply that changes (e.g.) memory on all three CPs would cold-restart them
+	// concurrently, breaking etcd quorum. With the chain, Pulumi finishes stop /
+	// update / start on one CP — including WaitForIp for qemu-guest-agent — before
+	// touching the next, keeping at least 2 of 3 etcd members up.
+	var prevCPVM *vm.VirtualMachine
+
 	for _, node := range nodes {
+		vmOpts := []pulumi.ResourceOption{
+			pulumi.Provider(pveProvider),
+			pulumi.IgnoreChanges([]string{"started", "cdrom"}),
+		}
+		if node.machineType == "controlplane" && prevCPVM != nil {
+			vmOpts = append(vmOpts, pulumi.DependsOn([]pulumi.Resource{prevCPVM}))
+		}
+
 		// Create Proxmox VM
 		talosVM, err := vm.NewVirtualMachine(ctx, node.name, &vm.VirtualMachineArgs{
 			VmId:        pulumi.Int(node.vmid),
@@ -180,9 +196,12 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			Vga: &vm.VirtualMachineVgaArgs{
 				Type: pulumi.String("vmware"),
 			},
-		}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started", "cdrom"}))
+		}, vmOpts...)
 		if err != nil {
 			return err
+		}
+		if node.machineType == "controlplane" {
+			prevCPVM = talosVM
 		}
 
 		// Generate Talos machine configuration with static IP patch.
