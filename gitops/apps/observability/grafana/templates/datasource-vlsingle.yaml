@@ -10,11 +10,17 @@ data:
     apiVersion: 1
     datasources:
       - name: VictoriaLogs
-        type: loki
+        type: victoriametrics-logs-datasource
         access: proxy
-        # NOTE: VictoriaLogs serves the Loki query API at /select/loki/api/v1/*
-        # (the standard /loki/api/v1/* path returns 400). The /select prefix
-        # makes Grafana's Loki datasource hit the right path.
-        url: http://vl-system-victoria-logs-single-server.vl-system.svc.cluster.local:9428/select
+        # The VL Grafana plugin (installed via grafana chart's `plugins:` list)
+        # speaks VictoriaLogs's native LogsQL. The plugin knows VL's path
+        # structure (queries at /select/logsql/*, etc.), so just the base URL
+        # is required here.
+        #
+        # Why not the built-in Grafana Loki datasource? Because VL v1.50.0
+        # serves Loki-compatible INGESTION (/insert/loki/api/v1/push, used by
+        # vector) but has NO Loki query API — every /loki/api/v1/* path
+        # returns 400 "unsupported path". Queries are LogsQL only.
+        url: http://vl-system-victoria-logs-single-server.vl-system.svc.cluster.local:9428
         isDefault: false
         editable: false

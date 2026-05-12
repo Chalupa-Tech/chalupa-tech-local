@@ -74,5 +74,8 @@ grafana:
     enabled: true
     interval: 30s
 
+  plugins:
+    - victoriametrics-logs-datasource
+
   testFramework:
     enabled: false
