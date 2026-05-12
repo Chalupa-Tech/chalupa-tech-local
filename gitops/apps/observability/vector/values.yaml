@@ -38,6 +38,12 @@ vector:
           if err == null && is_object(structured) {
             . = merge!(., structured)
           }
+          # VictoriaLogs convention: _msg holds the log body. The
+          # kubernetes_logs source names the body .message; copy it to ._msg
+          # so VL doesn't emit "missing _msg field" on every event.
+          if exists(.message) {
+            ._msg = .message
+          }
 
     sinks:
       vl:
