@@ -84,6 +84,7 @@ app-template:
 
     whisparr-nzbget:
       type: deployment
+      forceRename: whisparr-nzbget
       replicas: 1
       strategy: Recreate
       containers:
@@ -135,6 +136,7 @@ app-template:
           port: 6969
     whisparr-nzbget:
       controller: whisparr-nzbget
+      forceRename: whisparr-nzbget
       ports:
         http:
           port: 6789
