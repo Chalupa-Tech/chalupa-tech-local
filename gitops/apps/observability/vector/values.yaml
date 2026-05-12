@@ -1,0 +1,81 @@
+vector:
+  role: Agent
+
+  # Workers-only — chart default tolerations is already [] (no CP NoSchedule
+  # toleration shipped), so this explicit empty list is redundant-but-harmless
+  # and makes the intent clear: vector must never schedule on control-plane nodes.
+  tolerations: []
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi   # Guaranteed QoS
+
+  customConfig:
+    data_dir: /vector-data-dir
+
+    api:
+      enabled: true
+      address: 127.0.0.1:8686
+
+    sources:
+      k8s:
+        type: kubernetes_logs
+      # NEW — emits vector's own internal metrics (events processed, sink health,
+      # buffer state, etc.) for the PodMonitor / VMAgent to scrape on port 9090.
+      internal_metrics:
+        type: internal_metrics
+
+    transforms:
+      parse_json:
+        type: remap
+        inputs: [k8s]
+        source: |
+          structured, err = parse_json(.message)
+          if err == null && is_object(structured) {
+            . = merge(., structured)
+          }
+
+    sinks:
+      vl:
+        type: loki
+        inputs: [parse_json]
+        # Actual live service name (verified post-Task-1). The spec/plan docs
+        # incorrectly reference vlsingle-vlsingle-chalupa.*; victoria-logs-single
+        # is a plain Helm chart (not operator-managed), so the service follows
+        # <release>-<chart>-<component>: vl-system-victoria-logs-single-server.
+        endpoint: http://vl-system-victoria-logs-single-server.vl-system.svc.cluster.local:9428
+        labels:
+          # VRL event-reference syntax uses {{ }}; wrap in Go print to pass through
+          # Helm's tpl rendering without being interpreted as Go template directives.
+          namespace: >-
+            {{ print "{{kubernetes.pod_namespace}}" }}
+          pod: >-
+            {{ print "{{kubernetes.pod_name}}" }}
+          container: >-
+            {{ print "{{kubernetes.container_name}}" }}
+          node: >-
+            {{ print "{{kubernetes.pod_node_name}}" }}
+        encoding:
+          codec: json
+        compression: snappy
+        out_of_order_action: accept
+      # NEW — exposes the internal_metrics source on :9090 in Prometheus format.
+      # Required because podMonitor.enabled: true creates a PodMonitor that
+      # scrapes the chart's standard `prom-exporter` port; without this sink,
+      # the port doesn't exist and VMAgent gets "connection refused" on every
+      # scrape attempt.
+      prom_exporter:
+        type: prometheus_exporter
+        inputs: [internal_metrics]
+        address: 0.0.0.0:9090
+
+  # NOTE: the plan template specified serviceMonitor.enabled — that key does NOT
+  # exist in this chart (vector chart 0.52.0 only ships podMonitor, not serviceMonitor).
+  # Using podMonitor instead; vmagent discovers both PodMonitor and ServiceMonitor CRDs.
+  podMonitor:
+    enabled: true
+    interval: 30s

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: vector-wrapper
+description: Vector log shipper — workers-only DaemonSet that tails container stdout/stderr and ships to vlsingle via Loki API
+type: application
+version: 0.1.0
+appVersion: "0.55.0-distroless-libc"
+dependencies:
+  - name: vector
+    version: 0.52.0
+    repository: https://helm.vector.dev
