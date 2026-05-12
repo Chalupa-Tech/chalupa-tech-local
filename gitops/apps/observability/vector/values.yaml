@@ -47,7 +47,7 @@ vector:
         # incorrectly reference vlsingle-vlsingle-chalupa.*; victoria-logs-single
         # is a plain Helm chart (not operator-managed), so the service follows
         # <release>-<chart>-<component>: vl-system-victoria-logs-single-server.
-        endpoint: http://vl-system-victoria-logs-single-server.vl-system.svc.cluster.local:9428
+        endpoint: http://vl-system-victoria-logs-single-server.vl-system.svc.cluster.local:9428/insert
         labels:
           # VRL event-reference syntax uses {{ }}; wrap in Go print to pass through
           # Helm's tpl rendering without being interpreted as Go template directives.
