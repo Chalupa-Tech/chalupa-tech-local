@@ -113,3 +113,21 @@
   when:
     - proxmox_prep_talos_enabled
     - not (proxmox_prep_talos_iso_check.stat.exists | default(false))
+
+# --- Home Assistant OS qcow2 (for the HAOS VM created by Pulumi) ---
+# HAOS ships as .qcow2.xz. download.File in pulumi-proxmoxve only handles
+# gz/lzo/zst/bz2, not xz — so Ansible owns the download+decompress. The
+# decompressed .qcow2 lives in the existing `iso` content type on `local`
+# storage; pulumi/homeassistant.go references it as
+# `local:iso/haos_ova-<ver>.qcow2` via Disks[0].FileId.
+- name: Ensure HAOS qcow2 image (compressed) is present on host
+  ansible.builtin.get_url:
+    url: "https://github.com/home-assistant/operating-system/releases/download/{{ haos_version }}/{{ haos_image_filename }}"
+    dest: "/var/lib/vz/template/iso/{{ haos_image_filename }}"
+    checksum: "{{ haos_image_sha256 }}"
+    mode: "0644"
+
+- name: Decompress HAOS qcow2 in place
+  ansible.builtin.command:
+    cmd: "xz --decompress --keep --force /var/lib/vz/template/iso/{{ haos_image_filename }}"
+    creates: "/var/lib/vz/template/iso/{{ haos_image_filename | regex_replace('\\.xz$', '') }}"

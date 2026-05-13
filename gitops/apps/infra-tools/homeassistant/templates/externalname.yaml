@@ -1,0 +1,16 @@
+---
+# Routes Traefik (in-cluster) to the off-cluster HAOS VM. ExternalName
+# resolves to the LAN IP via cluster DNS, and Traefik treats it like any
+# other Service backend.
+apiVersion: v1
+kind: Service
+metadata:
+  name: homeassistant
+  namespace: homeassistant
+spec:
+  type: ExternalName
+  externalName: {{ .Values.homeassistant.externalIP | quote }}
+  ports:
+    - name: http
+      port: {{ .Values.homeassistant.port }}
+      protocol: TCP

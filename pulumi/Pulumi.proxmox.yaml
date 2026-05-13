@@ -2,3 +2,8 @@ environment:
   - chalupa-infra/proxmox
 config:
   proxmoxve:insecure: true
+  # Home Assistant OS image version. Stays in sync with
+  # ansible/group_vars/all.yml -> haos_version. pulumi/homeassistant.go
+  # reads this value to build the FileId reference to the qcow2 staged
+  # at /var/lib/vz/template/iso/ by proxmox_prep.
+  chalupa-infra:haosVersion: "17.3"

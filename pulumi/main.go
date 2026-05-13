@@ -45,6 +45,11 @@ func main() {
 			return err
 		}
 
+		// Create Home Assistant OS VM (sub-project #6)
+		if err := createHomeAssistantVM(ctx, pveProvider); err != nil {
+			return err
+		}
+
 		// Plex LXC container (VMID 200) is managed by Ansible, not Pulumi.
 		// Proxmox restricts LXC device passthrough and feature flags to
 		// root@pam, which API tokens cannot provide. Ansible runs as root

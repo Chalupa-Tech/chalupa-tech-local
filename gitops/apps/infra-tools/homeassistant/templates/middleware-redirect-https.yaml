@@ -1,0 +1,16 @@
+---
+# HTTP -> HTTPS redirect, attached to the `web` entrypoint IngressRoute
+# in ingressroute.yaml. sync-wave -1 ensures it exists before the
+# IngressRoute that references it (otherwise the IngressRoute would
+# error temporarily on first sync).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-to-https
+  namespace: homeassistant
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
