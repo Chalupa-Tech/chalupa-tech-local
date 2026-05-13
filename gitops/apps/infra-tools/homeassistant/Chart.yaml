@@ -1,0 +1,12 @@
+apiVersion: v2
+name: homeassistant-wrapper
+description: |
+  Traefik ingress for the off-cluster Home Assistant OS VM at
+  192.168.1.234:8123. Renders an ExternalName Service, an HTTP→HTTPS
+  redirect Middleware, and IngressRoute entries on the `web` and
+  `websecure` entrypoints. The HAOS VM itself is provisioned by
+  Pulumi (pulumi/homeassistant.go); this chart only handles K8s-level
+  HTTPS routing into it.
+type: application
+version: 0.1.0
+appVersion: "OS"

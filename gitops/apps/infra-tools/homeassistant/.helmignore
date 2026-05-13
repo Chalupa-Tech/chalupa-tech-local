@@ -1,0 +1,11 @@
+# Editor and OS metadata
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Plan or local scratch files
+*.bak
+*.tmp

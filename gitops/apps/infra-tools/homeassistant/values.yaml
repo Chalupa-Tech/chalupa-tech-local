@@ -1,0 +1,6 @@
+# Off-cluster HAOS VM coordinates. Used by the ExternalName Service
+# and by the IngressRoute services entries.
+homeassistant:
+  host: "homeassistant.frame.chalupatech.com"
+  externalIP: "192.168.1.234"
+  port: 8123
