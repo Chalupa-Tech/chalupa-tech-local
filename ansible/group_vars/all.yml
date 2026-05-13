@@ -1,2 +1,8 @@
 ---
 truenas_vm_ip: "192.168.1.40"
+
+# Home Assistant OS image. Pinned for proxmox_prep download + decompress.
+# Stays in sync with pulumi/Pulumi.proxmox.yaml -> chalupa-infra:haosVersion.
+haos_version: "17.3"
+haos_image_filename: "haos_ova-17.3.qcow2.xz"
+haos_image_sha256: "sha256:d42fadf806c0690792a4460ff3a72c2846c4e16e2033aefad0835662e7a9696f"
