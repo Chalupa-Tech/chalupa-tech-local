@@ -88,18 +88,22 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		},
 	},
 		pulumi.Provider(pveProvider),
-		// Intentionally NOT ignoring "disks" yet. PR #191's failed deploy
-		// left Pulumi state thinking the resource exists with FileId
-		// set, but the live VM 250 has no scsi0 disk. We need Pulumi to
-		// see and reconcile the disk diff this time. After this PR's
-		// deploy lands a working scsi0, a follow-up PR adds "disks" to
-		// IgnoreChanges (same pattern as truenas-scale) to suppress
-		// the provider-sub-fields drift noise.
+		// Two protections held off until VM 250 is healthy, re-added in
+		// a follow-up PR:
+		//
+		//   1. IgnoreChanges["disks"]: PR #191's failed deploy recorded
+		//      the resource in Pulumi state, but live VM 250 has no
+		//      scsi0 disk. We need Pulumi to *see* the disk diff this
+		//      time. After the disk lands, ignore the provider-sub-
+		//      fields drift (same pattern as truenas-scale).
+		//
+		//   2. Protect(true): the FileId→ImportFrom change is a
+		//      replace-triggering field, and `replace` is delete+create.
+		//      Protect(true) blocks delete. Pre-cutover, the broken VM
+		//      has nothing of value, so Protect comes off long enough
+		//      for the replace, then back on after cutover (which is
+		//      when the protection genuinely matters).
 		pulumi.IgnoreChanges([]string{"started"}),
-		// Protect(true) matches TrueNAS posture — accidental teardown loses
-		// accumulating HA configuration + history (Z-Wave network state lives
-		// in the dongle NVM and would survive, but everything else wouldn't).
-		pulumi.Protect(true),
 	)
 	return err
 }
