@@ -13,16 +13,18 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 	cfg := config.New(ctx, "chalupa-infra")
 	haosVersion := cfg.Require("haosVersion")
 
-	// FileId references the decompressed HAOS qcow2 staged by Ansible's
-	// proxmox_prep role at /var/lib/vz/template/iso/. The pulumi-proxmoxve
-	// SDK's Disks[0].FileId field expects a datastore-qualified ID, not a
-	// host path. PVE 9.1.9 allows .qcow2 files in the `iso` content type,
-	// so no `pvesm set local --content ...` reconfig is needed.
+	// ImportFrom references the decompressed HAOS qcow2 staged by
+	// Ansible's proxmox_prep role at /var/lib/vz/import/. The
+	// pulumi-proxmoxve provider requires the 'import' content type
+	// for VM disk imports — PR #191's initial FileId+iso form failed
+	// at apply time with "unable to parse directory volume name"
+	// (iso content type is for CDROM media, not VM disks; the SDK
+	// docstring is misleading on this point).
 	//
 	// download.File would be the GitOps-friendly alternative, but its
-	// decompressionAlgorithm only supports gz/lzo/zst/bz2 — not xz, which
-	// is the only format HAOS publishes. Ansible owns the xz step.
-	haosFileId := fmt.Sprintf("local:iso/haos_ova-%s.qcow2", haosVersion)
+	// decompressionAlgorithm only supports gz/lzo/zst/bz2 — not xz,
+	// which is the only format HAOS publishes. Ansible owns the xz step.
+	haosImportRef := fmt.Sprintf("local:import/haos_ova-%s.qcow2", haosVersion)
 
 	_, err := vm.NewVirtualMachine(ctx, "homeassistant", &vm.VirtualMachineArgs{
 		VmId:        pulumi.Int(250),
@@ -50,7 +52,7 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 				Interface:   pulumi.String("scsi0"),
 				Size:        pulumi.Int(60),
 				FileFormat:  pulumi.String("raw"),
-				FileId:      pulumi.String(haosFileId),
+				ImportFrom:  pulumi.String(haosImportRef),
 			},
 		},
 		Usbs: vm.VirtualMachineUsbArray{
@@ -86,10 +88,11 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		},
 	},
 		pulumi.Provider(pveProvider),
-		// IgnoreChanges["disks"] prevents a routine HAOS version bump (which
-		// changes FileId) from triggering a destroy/recreate of the boot disk.
-		// First-apply imports from FileId; thereafter Pulumi leaves the disk
-		// alone. IgnoreChanges["started"] matches the TrueNAS/Talos pattern.
+		// IgnoreChanges["disks"] prevents a routine HAOS version bump
+		// (which changes ImportFrom) from triggering a destroy/recreate
+		// of the boot disk. First-apply imports from ImportFrom;
+		// thereafter Pulumi leaves the disk alone.
+		// IgnoreChanges["started"] matches the TrueNAS/Talos pattern.
 		pulumi.IgnoreChanges([]string{"started", "disks"}),
 		// Protect(true) matches TrueNAS posture — accidental teardown loses
 		// accumulating HA configuration + history (Z-Wave network state lives
