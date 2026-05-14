@@ -117,17 +117,33 @@
 # --- Home Assistant OS qcow2 (for the HAOS VM created by Pulumi) ---
 # HAOS ships as .qcow2.xz. download.File in pulumi-proxmoxve only handles
 # gz/lzo/zst/bz2, not xz — so Ansible owns the download+decompress. The
-# decompressed .qcow2 lives in the existing `iso` content type on `local`
+# decompressed .qcow2 lives in the `import` content type on `local`
 # storage; pulumi/homeassistant.go references it as
-# `local:iso/haos_ova-<ver>.qcow2` via Disks[0].FileId.
+# `local:import/haos_ova-<ver>.qcow2` via Disks[0].ImportFrom.
+- name: Enable 'import' content type on 'local' Proxmox storage
+  # Required by pulumi-proxmoxve's Disks[0].ImportFrom (used by
+  # homeassistant.go). The canonical list below adds 'import' to the
+  # PVE 9 default content set for local; subsequent runs re-set the
+  # same list (no-op). If new content types are ever needed on local,
+  # edit this list directly.
+  ansible.builtin.command:
+    cmd: "pvesm set local --content snippets,vztmpl,backup,iso,import"
+  changed_when: false
+
+- name: Ensure /var/lib/vz/import directory exists
+  ansible.builtin.file:
+    path: /var/lib/vz/import
+    state: directory
+    mode: "0755"
+
 - name: Ensure HAOS qcow2 image (compressed) is present on host
   ansible.builtin.get_url:
     url: "https://github.com/home-assistant/operating-system/releases/download/{{ haos_version }}/{{ haos_image_filename }}"
-    dest: "/var/lib/vz/template/iso/{{ haos_image_filename }}"
+    dest: "/var/lib/vz/import/{{ haos_image_filename }}"
     checksum: "{{ haos_image_sha256 }}"
     mode: "0644"
 
 - name: Decompress HAOS qcow2 in place
   ansible.builtin.command:
-    cmd: "xz --decompress --keep --force /var/lib/vz/template/iso/{{ haos_image_filename }}"
-    creates: "/var/lib/vz/template/iso/{{ haos_image_filename | regex_replace('\\.xz$', '') }}"
+    cmd: "xz --decompress --keep --force /var/lib/vz/import/{{ haos_image_filename }}"
+    creates: "/var/lib/vz/import/{{ haos_image_filename | regex_replace('\\.xz$', '') }}"
