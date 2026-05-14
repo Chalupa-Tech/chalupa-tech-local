@@ -66,6 +66,15 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 				Usb3:    pulumi.Bool(true),
 			},
 		},
+		// Empty CDROM slot. Without this, pulumi-proxmoxve defaults ide3
+		// to a host-CDROM-passthrough form (`ide3: cdrom,media=cdrom`),
+		// which crashes QEMU at start with:
+		//   `host_cdrom` block driver requires a file name
+		// FileId "none" maps to `ide3: none,media=cdrom`, the same
+		// empty-but-bootable form TrueNAS uses.
+		Cdrom: &vm.VirtualMachineCdromArgs{
+			FileId: pulumi.String("none"),
+		},
 		BootOrders: pulumi.StringArray{
 			pulumi.String("scsi0"),
 		},
@@ -88,22 +97,19 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		},
 	},
 		pulumi.Provider(pveProvider),
-		// Two protections held off until VM 250 is healthy, re-added in
-		// a follow-up PR:
-		//
-		//   1. IgnoreChanges["disks"]: PR #191's failed deploy recorded
-		//      the resource in Pulumi state, but live VM 250 has no
-		//      scsi0 disk. We need Pulumi to *see* the disk diff this
-		//      time. After the disk lands, ignore the provider-sub-
-		//      fields drift (same pattern as truenas-scale).
-		//
-		//   2. Protect(true): the FileId→ImportFrom change is a
-		//      replace-triggering field, and `replace` is delete+create.
-		//      Protect(true) blocks delete. Pre-cutover, the broken VM
-		//      has nothing of value, so Protect comes off long enough
-		//      for the replace, then back on after cutover (which is
-		//      when the protection genuinely matters).
-		pulumi.IgnoreChanges([]string{"started"}),
+		// IgnoreChanges["disks"]: pulumi-proxmoxve doesn't model
+		// Proxmox's disk sub-fields (aio, backup, cache, discard,
+		// iothread, replicate, ssd). Without this ignore, every apply
+		// reads them as drift and produces a no-op `[diff: ~disks]`
+		// update — same pattern as truenas-scale.
+		// IgnoreChanges["started"] matches the TrueNAS/Talos pattern
+		// (avoid restart drift in normal operation).
+		pulumi.IgnoreChanges([]string{"started", "disks"}),
+		// Protect(true) prevents accidental teardown post-cutover, when
+		// HA holds accumulating configuration + history. Restored here
+		// now that the VM is healthy; PR #192 dropped it temporarily to
+		// allow Pulumi to replace the broken VM 250 shell.
+		pulumi.Protect(true),
 	)
 	return err
 }
