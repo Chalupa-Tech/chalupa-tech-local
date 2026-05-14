@@ -66,6 +66,15 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 				Usb3:    pulumi.Bool(true),
 			},
 		},
+		// Empty CDROM slot. Without this, pulumi-proxmoxve defaults ide3
+		// to a host-CDROM-passthrough form (`ide3: cdrom,media=cdrom`),
+		// which crashes QEMU at start with:
+		//   `host_cdrom` block driver requires a file name
+		// FileId "none" maps to `ide3: none,media=cdrom`, the same
+		// empty-but-bootable form TrueNAS uses.
+		Cdrom: &vm.VirtualMachineCdromArgs{
+			FileId: pulumi.String("none"),
+		},
 		BootOrders: pulumi.StringArray{
 			pulumi.String("scsi0"),
 		},
