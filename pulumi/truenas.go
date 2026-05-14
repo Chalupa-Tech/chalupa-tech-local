@@ -62,6 +62,15 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 		Vga: &vm.VirtualMachineVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
-	}, pulumi.Provider(pveProvider), pulumi.IgnoreChanges([]string{"started"}), pulumi.Protect(true))
+	},
+		pulumi.Provider(pveProvider),
+		// IgnoreChanges["disks"]: Proxmox sets unmanaged sub-fields
+		// (aio, backup, cache, discard, iothread, replicate, ssd) that
+		// pulumi-proxmoxve reads back as drift, triggering a no-op
+		// "update" on every apply. TrueNAS data lives on the HBA-passed
+		// pool, not scsi0 — ignoring scsi0 entirely is acceptable here.
+		pulumi.IgnoreChanges([]string{"started", "disks"}),
+		pulumi.Protect(true),
+	)
 	return err
 }
