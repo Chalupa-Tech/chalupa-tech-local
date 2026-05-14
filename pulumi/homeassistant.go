@@ -88,12 +88,14 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		},
 	},
 		pulumi.Provider(pveProvider),
-		// IgnoreChanges["disks"] prevents a routine HAOS version bump
-		// (which changes ImportFrom) from triggering a destroy/recreate
-		// of the boot disk. First-apply imports from ImportFrom;
-		// thereafter Pulumi leaves the disk alone.
-		// IgnoreChanges["started"] matches the TrueNAS/Talos pattern.
-		pulumi.IgnoreChanges([]string{"started", "disks"}),
+		// Intentionally NOT ignoring "disks" yet. PR #191's failed deploy
+		// left Pulumi state thinking the resource exists with FileId
+		// set, but the live VM 250 has no scsi0 disk. We need Pulumi to
+		// see and reconcile the disk diff this time. After this PR's
+		// deploy lands a working scsi0, a follow-up PR adds "disks" to
+		// IgnoreChanges (same pattern as truenas-scale) to suppress
+		// the provider-sub-fields drift noise.
+		pulumi.IgnoreChanges([]string{"started"}),
 		// Protect(true) matches TrueNAS posture — accidental teardown loses
 		// accumulating HA configuration + history (Z-Wave network state lives
 		// in the dongle NVM and would survive, but everything else wouldn't).
