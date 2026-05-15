@@ -27,6 +27,11 @@ traefik:
     kubernetesCRD:
       enabled: true
       allowCrossNamespace: true
+      # Required for IngressRoutes that route to off-cluster services
+      # via Service.type=ExternalName (e.g., gitops/apps/infra-tools/
+      # homeassistant → 192.168.1.234). Without this Traefik logs
+      # `externalName services not allowed: ns/name` and returns 404.
+      allowExternalNameServices: true
     kubernetesIngress:
       enabled: false
   resources:
