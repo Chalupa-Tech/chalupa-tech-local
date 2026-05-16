@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStartPre=/bin/sleep 15
-ExecStart=/bin/mount -a -t nfs4
+ExecStart=/bin/mount -a -t nfs
 RemainAfterExit=yes
 
 [Install]
