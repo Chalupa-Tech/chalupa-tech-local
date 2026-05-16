@@ -82,8 +82,13 @@
 
 # ──────────────────────────────────────────────────────────
 # 6. Install NFS client utilities and mount shares
-#    Uses x-systemd.automount so the LXC won't hang at boot
-#    if TrueNAS is temporarily unreachable.
+#    `_netdev,nofail` defers the mount until network-online and
+#    keeps boot from hanging if TrueNAS is unreachable.
+#    x-systemd.automount is NOT supported inside an LXC: the
+#    container kernel doesn't expose autofs, so systemd logs
+#    "Starting of mnt-*.automount unsupported" and the shares
+#    silently never mount after a reboot. nfs-mount-retry.service
+#    below is the safety net for TrueNAS-down-at-boot.
 # ──────────────────────────────────────────────────────────
 - name: Install nfs-common
   ansible.builtin.apt:
@@ -101,9 +106,10 @@
     src: "{{ plex_server_nfs_server }}:{{ item.src }}"
     path: "{{ item.dest }}"
     fstype: nfs
-    opts: "_netdev,nofail,x-systemd.automount,x-systemd.device-timeout=10s,soft,timeo=150,retrans=5,nfsvers=4"
+    opts: "_netdev,nofail,soft,timeo=150,retrans=5,nfsvers=4"
     state: mounted
   loop: "{{ plex_server_nfs_shares }}"
+  notify: Restart plexmediaserver
 
 - name: Deploy NFS mount retry service
   ansible.builtin.template:
