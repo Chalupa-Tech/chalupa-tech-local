@@ -1,5 +1,9 @@
 ---
-plex_server_nfs_server: "{{ truenas_vm_ip }}"
+# Mount NFS via the storage-subnet IP (10.10.10.40) on vmbr1, not the
+# management IP. Plex LXC has eth1 = 10.10.10.224 on the same bridge
+# so this stays software-only inside the host, runs at jumbo MTU, and
+# doesn't compete with management/WAN traffic on vmbr0.
+plex_server_nfs_server: "{{ truenas_storage_ip }}"
 plex_server_nfs_shares:
   - src: "/mnt/PlexMedia/frame/Movies"
     dest: "/mnt/plex/movies"

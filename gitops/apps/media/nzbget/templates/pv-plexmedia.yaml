@@ -38,7 +38,12 @@ spec:
     - noatime
     - nodiratime
   nfs:
-    server: 192.168.1.40
+    # TrueNAS's storage-subnet IP on vmbr1. Mounting via 10.10.10.40
+    # instead of 192.168.1.40 keeps NFS traffic on the dedicated
+    # internal bridge (jumbo MTU, no contention with vmbr0's mgmt+WAN
+    # traffic). All workers have ens19/10.10.10.226-232 with routes to
+    # this subnet; TrueNAS NFS export allows 10.10.10.0/24.
+    server: 10.10.10.40
     path: /mnt/PlexMedia/frame
   claimRef:
     namespace: media
