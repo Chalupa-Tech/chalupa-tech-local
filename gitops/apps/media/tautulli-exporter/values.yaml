@@ -22,7 +22,10 @@ app-template:
                   name: tautulli-exporter
                   key: api-key
             METRICS_PORT: "8000"
-            SCRAPE_INTERVAL: "30s"
+            # Integer seconds — the exporter does int(os.environ['SCRAPE_INTERVAL'])
+            # and crashes on a duration suffix. The README writes the default as
+            # "30s" which is a unit hint, not a parseable value.
+            SCRAPE_INTERVAL: "30"
             LOG_LEVEL: INFO
           probes:
             liveness:
