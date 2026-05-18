@@ -14,7 +14,7 @@ description: |
   see gitops/apps/media/tautulli-exporter/.
 type: application
 version: 0.1.0
-appVersion: "2.17.0"
+appVersion: "2.17.1"
 dependencies:
   - name: app-template
     version: 4.4.0
