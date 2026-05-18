@@ -90,6 +90,19 @@
   changed_when: true
   notify: Restart Plex LXC
 
+# Storage-subnet NIC (eth1 on vmbr1, MTU 9000). Lets NFS traffic to
+# TrueNAS bypass vmbr0's gigabit cap. Storage subnet is link-local —
+# no gateway, no DNS, just the static IP. Adding a NIC to a running
+# container needs the LXC restarted to take effect, which the existing
+# `Restart Plex LXC` handler handles via flush_handlers below.
+- name: Ensure storage NIC (net1 on vmbr1) is configured
+  ansible.builtin.command: >
+    pct set {{ plex_lxc_vmid }}
+    --net1 name=eth1,bridge=vmbr1,ip={{ plex_lxc_storage_ip }}/24,mtu=9000
+  when: "'net1:' not in (plex_lxc_conf.content | b64decode)"
+  changed_when: true
+  notify: Restart Plex LXC
+
 - name: Get current LXC config
   ansible.builtin.command: pct config {{ plex_lxc_vmid }}
   register: plex_lxc_config_output

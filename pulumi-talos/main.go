@@ -30,12 +30,31 @@ type talosNode struct {
 	cores       int
 	memoryMB    int
 	diskGB      int
+	// storageIP is the static address on the vmbr1 storage subnet
+	// (10.10.10.0/24, jumbo, no gateway). Empty for control-plane
+	// nodes — they don't mount NFS. Workers get one and a second NIC
+	// is added to the VM so NFS traffic to TrueNAS bypasses vmbr0.
+	storageIP string
 }
 
 func buildMachineConfigPatch(node talosNode) string {
 	vipBlock := ""
 	if node.machineType == "controlplane" {
 		vipBlock = fmt.Sprintf("        vip:\n          ip: %s\n", controlPlaneVIP)
+	}
+
+	// Second interface on the storage subnet (eth1). Only emitted for
+	// nodes that have a storageIP — i.e. workers. Static config, jumbo
+	// MTU, no routes (the storage subnet is link-local) and no
+	// gateway (eth0 still owns the default route).
+	storageIfaceBlock := ""
+	if node.storageIP != "" {
+		storageIfaceBlock = fmt.Sprintf(`      - interface: eth1
+        dhcp: false
+        mtu: 9000
+        addresses:
+          - %s/24
+`, node.storageIP)
 	}
 
 	return fmt.Sprintf(`machine:
@@ -49,7 +68,7 @@ func buildMachineConfigPatch(node talosNode) string {
         routes:
           - network: 0.0.0.0/0
             gateway: %s
-%s    nameservers:
+%s%s    nameservers:
       - 1.1.1.1
       - 8.8.8.8
   install:
@@ -59,7 +78,7 @@ apiVersion: v1alpha1
 kind: HostnameConfig
 hostname: %s
 auto: off
-`, node.ip, gateway, vipBlock, node.name)
+`, node.ip, gateway, vipBlock, storageIfaceBlock, node.name)
 }
 
 func main() {
@@ -94,12 +113,15 @@ func main() {
 
 func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
 	nodes := []talosNode{
-		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 4096, 50},
-		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 4096, 50},
-		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 4096, 50},
-		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480, 100},
-		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480, 100},
-		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 20480, 100},
+		// Last field (storageIP) is empty for CPs — they don't mount NFS.
+		// Workers get a 10.10.10.x address on vmbr1 matching the last
+		// octet of their primary IP for sanity.
+		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 4096, 50, ""},
+		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 4096, 50, ""},
+		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 4096, 50, ""},
+		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480, 100, "10.10.10.226"},
+		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480, 100, "10.10.10.227"},
+		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 20480, 100, "10.10.10.232"},
 	}
 
 	// Step 1: Generate cluster secrets (stored in Pulumi state for reproducibility)
@@ -162,11 +184,25 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			Memory: &vm.VirtualMachineMemoryArgs{
 				Dedicated: pulumi.Int(node.memoryMB),
 			},
-			NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
-				&vm.VirtualMachineNetworkDeviceArgs{
-					Bridge: pulumi.String("vmbr0"),
-				},
-			},
+			NetworkDevices: func() vm.VirtualMachineNetworkDeviceArray {
+				devs := vm.VirtualMachineNetworkDeviceArray{
+					// net0: management + WAN egress, default MTU 1500.
+					&vm.VirtualMachineNetworkDeviceArgs{
+						Bridge: pulumi.String("vmbr0"),
+					},
+				}
+				// net1: storage subnet on vmbr1 (jumbo, internal-only).
+				// Only added for nodes with a storageIP — i.e. workers,
+				// since CPs don't mount NFS. The matching machine-config
+				// patch configures eth1 with the static IP and MTU 9000.
+				if node.storageIP != "" {
+					devs = append(devs, &vm.VirtualMachineNetworkDeviceArgs{
+						Bridge: pulumi.String("vmbr1"),
+						Mtu:    pulumi.Int(9000),
+					})
+				}
+				return devs
+			}(),
 			Disks: vm.VirtualMachineDiskArray{
 				&vm.VirtualMachineDiskArgs{
 					DatastoreId: pulumi.String("local-lvm"),
