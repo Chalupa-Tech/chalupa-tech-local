@@ -49,6 +49,28 @@ OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
 
 For ongoing operations, replace the root token with a per-operator token that has `update` capability on the relevant `secret/data/<path>` paths. Keep the root token in 1Password and only export it for the rare administrative operations that need it.
 
+### Phase 5: Routine — Update a policy (e.g. add a new app's KV path)
+
+Policies are codified in `scripts/openbao/policies/<name>.hcl` and applied with `apply-policy.sh`. The .hcl file is the source of truth; if it drifts from the live policy, re-apply.
+
+```bash
+# 1. Edit the .hcl file (e.g. add a new `path "secret/data/myapp/*" { capabilities = ["read"] }` line)
+$EDITOR scripts/openbao/policies/media-read.hcl
+
+# 2. Apply (idempotent — bao policy write replaces in-place)
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
+  ./scripts/openbao/apply-policy.sh media-read
+
+# 3. Verify drift = 0
+kubectl -n openbao exec openbao-0 \
+  -- env BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$OPENBAO_TOKEN" \
+    bao policy read media-read
+```
+
+**Workflow for a new app needing a Bao path:** add the path line to the relevant policy .hcl, apply it (or hand the apply step to the operator runbook in the same PR), then commit both the .hcl change and the new app's ExternalSecret manifest in one PR.
+
+**Currently codified:** `media-read.hcl`. The two sibling policies `cloudflare-read` and `observability-read` are still hand-maintained on the live cluster only — codify them the next time they need editing.
+
 ## Security notes
 
 - KV values flow over `kubectl exec` stdin and never appear in any process's `argv`. Path and key arguments are passed as direct args to `bao kv put` (not via a shell-interpolated string), so quoting edge cases are not a concern.
@@ -56,3 +78,4 @@ For ongoing operations, replace the root token with a per-operator token that ha
 - Unseal keys are piped via stdin to `bao operator unseal -` so they do not appear in `argv` on either side.
 - `unseal.sh` accepts keys via env vars or a `--keys-file` JSON path. The JSON file should live somewhere encrypted at rest (e.g., `~/secure/`) and should not be committed.
 - `kv-put.sh` requires `OPENBAO_TOKEN`; do not export this variable in your shell history. Set it inline (`OPENBAO_TOKEN=$(...) ./scripts/openbao/kv-put.sh ...`) or in a single-shot subshell.
+- `apply-policy.sh` pipes the .hcl via stdin (file contents never appear in argv) and passes the token via `env` (see `kv-put.sh` for the same pattern + rationale).
