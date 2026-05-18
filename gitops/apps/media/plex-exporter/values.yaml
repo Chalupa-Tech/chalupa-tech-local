@@ -1,0 +1,58 @@
+app-template:
+  controllers:
+    plex-exporter:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            repository: ghcr.io/axsuul/plex-media-server-exporter
+            tag: v0.30.0
+          env:
+            # Plex runs in the LXC at 192.168.1.224:32400 (outside the
+            # cluster). The exporter pod reaches it via the worker node's
+            # default route — no DNS, no service indirection, just LAN.
+            PLEX_ADDR: http://192.168.1.224:32400
+            PLEX_TOKEN:
+              valueFrom:
+                secretKeyRef:
+                  name: plex-exporter
+                  key: token
+            METRICS_PORT: "9594"
+            # Pull more frequent stats since Plex sessions change fast
+            METRICS_INTERVAL_SECONDS: "30"
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 9594
+                periodSeconds: 30
+                initialDelaySeconds: 15
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 9594
+                periodSeconds: 10
+                initialDelaySeconds: 5
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+
+  service:
+    main:
+      controller: plex-exporter
+      ports:
+        http:
+          port: 9594

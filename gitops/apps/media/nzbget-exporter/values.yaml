@@ -1,0 +1,58 @@
+app-template:
+  controllers:
+    nzbget-exporter:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            # frebib's exporter is the actively-maintained NZBGet exporter
+            # (mariusv/nzbget-exporter — sometimes cited — returns 404).
+            repository: ghcr.io/frebib/nzbget-exporter
+            tag: latest
+          env:
+            # NZBGet's Service ClusterIP, port 6789 (web/JSON-RPC).
+            NZBGET_HOST: http://nzbget.media.svc.cluster.local:6789
+            # NZBGet's JSON-RPC ControlUsername is "nzbget" (matches the
+            # nzbget chart's NZBGET_USER env). The password comes from
+            # the shared `nzbget-credentials` secret (owned by the
+            # nzbget chart's ExternalSecret).
+            NZBGET_USERNAME: nzbget
+            NZBGET_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: nzbget-credentials
+                  key: control-password
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 9452
+                periodSeconds: 30
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 9452
+                periodSeconds: 10
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+
+  service:
+    main:
+      controller: nzbget-exporter
+      ports:
+        http:
+          port: 9452

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: nzbget-exporter
+description: |
+  Prometheus exporter for NZBGet. Scrapes NZBGet's JSON-RPC API and
+  exposes metrics on :9452 for VictoriaMetrics. Uses the existing
+  `nzbget-credentials` secret (owned by the nzbget chart's
+  ExternalSecret) for control-password auth.
+type: application
+version: 0.1.0
+appVersion: "1.0"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

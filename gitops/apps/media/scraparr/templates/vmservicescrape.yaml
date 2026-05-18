@@ -1,0 +1,22 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: scraparr
+  namespace: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: scraparr
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics
+      basicAuth:
+        username:
+          name: scraparr-scrape-auth
+          key: username
+        password:
+          name: scraparr-scrape-auth
+          key: password
