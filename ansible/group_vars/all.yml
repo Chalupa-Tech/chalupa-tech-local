@@ -1,5 +1,10 @@
 ---
 truenas_vm_ip: "192.168.1.40"
+# Storage-subnet IP on vmbr1 — NFS clients should mount here so traffic
+# bypasses vmbr0's gigabit cap and uses jumbo frames. The management
+# IP (truenas_vm_ip) remains the canonical address for everything else
+# (UI, API tokens, monitoring scrapes).
+truenas_storage_ip: "10.10.10.40"
 
 # Home Assistant OS image. Pinned for proxmox_prep download + decompress.
 # Stays in sync with pulumi/Pulumi.proxmox.yaml -> chalupa-infra:haosVersion.
