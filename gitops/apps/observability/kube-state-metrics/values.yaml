@@ -12,6 +12,16 @@ kube-state-metrics:
     monitor:
       enabled: true   # creates a ServiceMonitor; vmagent picks it up
       interval: 30s
+      # KSM re-emits target-shaped labels (namespace, pod, job) as its
+      # actual payload — kube_pod_info{namespace="grafana", pod="..."}
+      # describes the WATCHED pod, not the scrape target. Without
+      # honorLabels, vmagent's auto-injected namespace=kube-state-metrics
+      # / pod=kube-state-metrics-xxx clobbers KSM's real values, which
+      # get demoted to exported_namespace / exported_pod. Every
+      # kube_pod_info series ends up looking like it belongs to the
+      # kube-state-metrics namespace, breaking namespace dropdowns in
+      # any KSM-based dashboard (15760, 15757, etc.).
+      honorLabels: true
 
   selfMonitor:
     enabled: false
