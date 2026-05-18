@@ -57,9 +57,18 @@ scraparr:
               name: scraparr-apikeys
               key: radarr
 
-    seerr:
+    # The seerr-team/seerr fork (ghcr.io/seerr-team/seerr) is Overseerr-
+    # API-compatible (verified: `GET /api/v1/status` returns the same
+    # version/commitTag/updateAvailable JSON shape as Overseerr). The
+    # scraparr binary's ACTIVE_CONNECTORS list (src/scraparr/const.py)
+    # only recognizes `overseerr` and `jellyseerr` — a `seerr:` key is
+    # silently ignored. Using the `overseerr` key with seerr's URL
+    # routes the scrape through scraparr's Overseerr connector which
+    # works against the unified seerr fork.
+    overseerr:
       - url: http://seerr.media.svc.cluster.local:5055
         alias: seerr
+        api_version: v1
         interval: 30
         detailed: true
         api_key:
@@ -89,14 +98,14 @@ scraparr:
     # iterates zero items (no init container), and the binary sees
     # zero instances (no validation error).
     #
-    # `seerr` isn't a chart default key, it's one we add ourselves
-    # with a list above — no override needed.
+    # `overseerr` is configured above — not in this list. `seerr` is
+    # not a scraparr connector at all (despite us using the seerr-team
+    # fork) so no override needed for it.
     bazarr: []
     jellyfin: []
     jellyseerr: []
     kavita: []
     lidarr: []
-    overseerr: []
     prowlarr: []
     readarr: []
     whisparr: []
