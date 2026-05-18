@@ -15,10 +15,28 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
   mountOptions:
-    - nfsvers=4
-    - soft
-    - timeo=150
-    - retrans=5
+    # NFSv4.2 for sparse files / hole punching / server-side copy.
+    - nfsvers=4.2
+    # `hard` blocks on slow server instead of returning EIO. With the
+    # previous `soft,timeo=150,retrans=5`, a 90-second NFS hiccup would
+    # abort active reads — Plex would drop playback, NZBGet would error
+    # mid-decode. `hard` retries until the server returns, which is the
+    # correct semantic for media file I/O.
+    - hard
+    # Explicit 1 MiB block size (NFSv4 max). Modern kernels usually
+    # negotiate this anyway, but pinning it removes guesswork.
+    - rsize=1048576
+    - wsize=1048576
+    # nconnect=4 opens 4 parallel TCP connections per mount so NFS RPCs
+    # distribute across them instead of serializing through one stream.
+    # This is the single largest throughput win for any client doing
+    # large sequential reads/writes (Plex direct stream, NZBGet decode,
+    # *arr scans). Linux 5.3+ client; Talos and Ubuntu 24.04 both have it.
+    - nconnect=4
+    # Skip atime/diratime updates so reads don't generate stealth writes
+    # back to the server (every Plex playback was triggering them).
+    - noatime
+    - nodiratime
   nfs:
     server: 192.168.1.40
     path: /mnt/PlexMedia/frame
