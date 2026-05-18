@@ -22,8 +22,20 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 			Dedicated: pulumi.Int(32768),
 		},
 		NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
+			// net0: management + WAN egress (default MTU 1500).
 			&vm.VirtualMachineNetworkDeviceArgs{
 				Bridge: pulumi.String("vmbr0"),
+			},
+			// net1: storage-only subnet on vmbr1 (jumbo frames, no
+			// physical port). Internal NFS traffic to Talos workers
+			// and Plex LXC flows here so the management plane stays
+			// at MTU 1500 and the gigabit cap on vmbr0 doesn't pinch
+			// NFS throughput. TrueNAS-side IP (10.10.10.40/24) is
+			// configured manually in the TrueNAS UI — pulumi only
+			// adds the virtual NIC; the OS owns IP assignment.
+			&vm.VirtualMachineNetworkDeviceArgs{
+				Bridge: pulumi.String("vmbr1"),
+				Mtu:    pulumi.Int(9000),
 			},
 		},
 		Hostpcis: vm.VirtualMachineHostpciArray{

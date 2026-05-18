@@ -147,3 +147,29 @@
   ansible.builtin.command:
     cmd: "xz --decompress --keep --force /var/lib/vz/import/{{ haos_image_filename }}"
     creates: "/var/lib/vz/import/{{ haos_image_filename | regex_replace('\\.xz$', '') }}"
+
+# --- Storage-only bridge (vmbr1) ---
+# Internal-only software bridge for NFS traffic between TrueNAS and its
+# clients (Talos workers + Plex LXC). No physical port attached, so MTU
+# 9000 (jumbo) stays contained — packets can't escape to the WAN/switch
+# where MTU mismatches would black-hole traffic. 10.10.10.0/24 is the
+# storage subnet; the bridge itself has no IP because Proxmox doesn't
+# participate in NFS.
+- name: Configure vmbr1 storage bridge in /etc/network/interfaces.d/
+  ansible.builtin.copy:
+    dest: /etc/network/interfaces.d/vmbr1
+    mode: "0644"
+    content: |
+      auto vmbr1
+      iface vmbr1 inet manual
+          bridge-ports none
+          bridge-stp off
+          bridge-fd 0
+          mtu 9000
+  notify: Bring up vmbr1
+
+- name: Ensure /etc/network/interfaces sources interfaces.d/
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    line: "source /etc/network/interfaces.d/*"
+    state: present

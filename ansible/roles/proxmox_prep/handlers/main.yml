@@ -20,3 +20,7 @@
 - name: Prompt reboot
   ansible.builtin.debug:
     msg: "A system reboot is required for IOMMU and VFIO changes to take effect."
+
+- name: Bring up vmbr1
+  ansible.builtin.command: ifup vmbr1
+  changed_when: true

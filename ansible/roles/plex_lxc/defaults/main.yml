@@ -9,6 +9,10 @@ plex_lxc_disk: "local-lvm:256"
 plex_lxc_ip: "192.168.1.224"
 plex_lxc_gateway: "192.168.1.1"
 plex_lxc_nameserver: "192.168.1.1 1.1.1.1"
+# Storage-subnet IP on vmbr1 — used by the NFS client to reach TrueNAS
+# at 10.10.10.40 without traversing vmbr0. No gateway; storage subnet
+# is link-local and the LXC keeps eth0 for everything else.
+plex_lxc_storage_ip: "10.10.10.224"
 plex_lxc_startup_order: 3
 # SSH public keys for root access (personal + CI runner)
 plex_lxc_ssh_keys: |
