@@ -71,9 +71,10 @@ Single PR, single file change.
 `gitops/apps/media/nzbget/values.yaml`:
 
 - `resources.limits.memory`: 2Gi → **4Gi**
-- `resources.requests.memory`: 2Gi → **1Gi** (Guaranteed → Burstable;
-  the limit is the actual safeguard and dropping the request frees
-  scheduler headroom on the worker)
+- `resources.requests.memory`: 2Gi → **4Gi** (kept equal to the limit
+  so the pod stays in **Guaranteed** QoS — eligible last for eviction
+  under node memory pressure; worker has 20 Gi allocatable so the
+  reservation is not a scheduling concern)
 - `image.tag`: `latest` → **v26.1-ls241** (the build the container
   was actually running per the `[ls.io-init]` banner — pinning to
   the known-good current state)
