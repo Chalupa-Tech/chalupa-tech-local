@@ -70,6 +70,23 @@ scraparr:
               name: scraparr-apikeys
               key: seerr
 
+    # The chart's deployment template emits a `wait-for-<service>` init
+    # container for every key under config that matches the regex
+    # `radarr|sonarr|prowlarr|bazarr|readarr|lidarr|jellyseerr|overseerr`.
+    # The chart defaults set each of those to `{}` (empty map) — the
+    # "kindIs map" branch generates a single init container pointed at
+    # an empty URL that loops 30×10s and times out. Setting each
+    # unconfigured service to an empty list `[]` hits the "kindIs slice"
+    # branch with zero items → no init container emitted.
+    # `seerr` is NOT in the chart's regex, so our seerr block above
+    # doesn't generate a wait-init regardless.
+    bazarr: []
+    jellyseerr: []
+    lidarr: []
+    overseerr: []
+    prowlarr: []
+    readarr: []
+
     # whisparr:
     #   - url: http://whisparr.media.svc.cluster.local:6969
     #     alias: whisparr
