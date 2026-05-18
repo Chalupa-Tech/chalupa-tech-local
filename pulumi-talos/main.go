@@ -68,6 +68,19 @@ func buildMachineConfigPatch(node talosNode) string {
 	}
 
 	return fmt.Sprintf(`machine:
+  kubelet:
+    # Pin kubelet's registered Node InternalIP to the management subnet.
+    # Without this, on multi-NIC workers Talos's default heuristic can
+    # pick ens19's storage IP (10.10.10.x) as the InternalIP — that
+    # subnet exists only on vmbr1, which CPs don't sit on, so the API
+    # server can no longer reach the kubelet for exec/logs/port-forward/
+    # proxy. Observed live 2026-05-18 right after PR #202 fixed the
+    # storage-net duplicate-IP bug: workers came up with
+    # InternalIP=10.10.10.226 and every exec attempt failed
+    # "dial tcp 10.10.10.226:10250" from the API server.
+    nodeIP:
+      validSubnets:
+        - 192.168.1.0/24
   network:
     interfaces:
       - interface: ens18
