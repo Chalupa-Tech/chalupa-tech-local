@@ -62,6 +62,10 @@ grafana:
       enabled: true
       label: grafana_datasource
       labelValue: "1"
+      # Watch ConfigMaps across all namespaces so apps can ship their own
+      # datasources alongside themselves. Default ("") restricts to the
+      # release namespace.
+      searchNamespace: ALL
     dashboards:
       enabled: true
       label: grafana_dashboard
@@ -69,6 +73,10 @@ grafana:
       folder: /tmp/dashboards
       provider:
         foldersFromFilesStructure: false
+      # Watch ConfigMaps across all namespaces so apps can ship their own
+      # dashboards alongside themselves. Default ("") restricts to the
+      # release namespace.
+      searchNamespace: ALL
 
   serviceMonitor:
     enabled: true
