@@ -43,13 +43,23 @@ func buildMachineConfigPatch(node talosNode) string {
 		vipBlock = fmt.Sprintf("        vip:\n          ip: %s\n", controlPlaneVIP)
 	}
 
-	// Second interface on the storage subnet (eth1). Only emitted for
-	// nodes that have a storageIP — i.e. workers. Static config, jumbo
-	// MTU, no routes (the storage subnet is link-local) and no
-	// gateway (eth0 still owns the default route).
+	// Talos on QEMU/KVM uses systemd predictable interface naming —
+	// the first virtio NIC is `ens18`, the second is `ens19`, not
+	// eth0/eth1. Using `interface: eth1` matches nothing and silently
+	// fails. Worse, `deviceSelector: busPath: "0*"` is a glob that
+	// matches every NIC on PCI bus 0 (both ens18 and ens19 in a
+	// 2-NIC VM), so a glob in the primary stanza applies the primary
+	// IP to BOTH interfaces — duplicate IP, broken storage subnet.
+	// The PR #201 storage-net work shipped exactly that bug; this
+	// patch pins explicit interface names to fix it.
+
+	// Second interface on the storage subnet (ens19). Only emitted for
+	// nodes with a storageIP — i.e. workers. Static config, jumbo MTU,
+	// no routes (storage subnet is link-local) and no gateway (ens18
+	// still owns the default route).
 	storageIfaceBlock := ""
 	if node.storageIP != "" {
-		storageIfaceBlock = fmt.Sprintf(`      - interface: eth1
+		storageIfaceBlock = fmt.Sprintf(`      - interface: ens19
         dhcp: false
         mtu: 9000
         addresses:
@@ -60,8 +70,7 @@ func buildMachineConfigPatch(node talosNode) string {
 	return fmt.Sprintf(`machine:
   network:
     interfaces:
-      - deviceSelector:
-          busPath: "0*"
+      - interface: ens18
         dhcp: false
         addresses:
           - %s/24
@@ -135,13 +144,18 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 	// Step 2: Create VMs, generate configs, and apply them
 	var configApplyResources []pulumi.Resource
 
-	// Serialize control-plane VM updates: chain each CP to depend on the previous
-	// one. Without this, Pulumi parallelizes sibling-resource updates and a single
-	// apply that changes (e.g.) memory on all three CPs would cold-restart them
-	// concurrently, breaking etcd quorum. With the chain, Pulumi finishes stop /
-	// update / start on one CP — including WaitForIp for qemu-guest-agent — before
-	// touching the next, keeping at least 2 of 3 etcd members up.
+	// Serialize VM updates within each pool: chain each CP to depend on the
+	// previous CP, and each worker to depend on the previous worker. Without
+	// this, Pulumi parallelizes sibling-resource updates and a single apply
+	// that triggers reboots (e.g. CPU/memory resize, machine-config change)
+	// cold-restarts every member of the pool concurrently. For CPs that
+	// breaks etcd quorum; for workers it drops the entire scheduling
+	// capacity at once (verified live during PR #201 — all three workers
+	// went NotReady simultaneously for ~60s while applying a new machine
+	// config). The two pools chain independently so worker reboots don't
+	// wait on CPs (or vice versa) — they just stagger within their own pool.
 	var prevCPVM *vm.VirtualMachine
+	var prevWorkerVM *vm.VirtualMachine
 
 	for _, node := range nodes {
 		vmOpts := []pulumi.ResourceOption{
@@ -150,6 +164,9 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		}
 		if node.machineType == "controlplane" && prevCPVM != nil {
 			vmOpts = append(vmOpts, pulumi.DependsOn([]pulumi.Resource{prevCPVM}))
+		}
+		if node.machineType == "worker" && prevWorkerVM != nil {
+			vmOpts = append(vmOpts, pulumi.DependsOn([]pulumi.Resource{prevWorkerVM}))
 		}
 
 		// Create Proxmox VM
@@ -238,6 +255,9 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		}
 		if node.machineType == "controlplane" {
 			prevCPVM = talosVM
+		}
+		if node.machineType == "worker" {
+			prevWorkerVM = talosVM
 		}
 
 		// Generate Talos machine configuration with static IP patch.
