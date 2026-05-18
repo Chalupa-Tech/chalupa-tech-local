@@ -70,22 +70,36 @@ scraparr:
               name: scraparr-apikeys
               key: seerr
 
-    # The chart's deployment template emits a `wait-for-<service>` init
-    # container for every key under config that matches the regex
-    # `radarr|sonarr|prowlarr|bazarr|readarr|lidarr|jellyseerr|overseerr`.
-    # The chart defaults set each of those to `{}` (empty map) — the
-    # "kindIs map" branch generates a single init container pointed at
-    # an empty URL that loops 30×10s and times out. Setting each
-    # unconfigured service to an empty list `[]` hits the "kindIs slice"
-    # branch with zero items → no init container emitted.
-    # `seerr` is NOT in the chart's regex, so our seerr block above
-    # doesn't generate a wait-init regardless.
+    # Override the chart's defaults (which set each unconfigured
+    # service to `{}`). Two problems with leaving them as empty maps:
+    #
+    # 1. The chart's deployment template emits a `wait-for-<service>`
+    #    init container for any key matching the regex
+    #    `radarr|sonarr|prowlarr|bazarr|readarr|lidarr|jellyseerr|overseerr`
+    #    — with empty map, it generates an init pointed at an empty
+    #    URL that loops 30×10s and fails.
+    #
+    # 2. The scraparr BINARY parses `<service>: {}` as one instance
+    #    with no URL/api_key and crashes on validation
+    #    ("Invalid config: whisparr (instance 0): missing 'url'").
+    #    The binary supports services not in the chart's init regex —
+    #    whisparr, jellyfin, kavita — so those also need overrides.
+    #
+    # Empty lists `[]` solve both: the chart's "kindIs slice" branch
+    # iterates zero items (no init container), and the binary sees
+    # zero instances (no validation error).
+    #
+    # `seerr` isn't a chart default key, it's one we add ourselves
+    # with a list above — no override needed.
     bazarr: []
+    jellyfin: []
     jellyseerr: []
+    kavita: []
     lidarr: []
     overseerr: []
     prowlarr: []
     readarr: []
+    whisparr: []
 
     # whisparr:
     #   - url: http://whisparr.media.svc.cluster.local:6969
