@@ -1,0 +1,60 @@
+app-template:
+  controllers:
+    tautulli-exporter:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            repository: mm404/tautulli-exporter
+            # 0.2.4 is the current stable release on Docker Hub
+            # (pushed ~6 days before 2026-05-18). Avoid the dev-* /
+            # renovate-branch tags — those are CI builds. Verify with:
+            #   curl -s https://hub.docker.com/v2/repositories/mm404/tautulli-exporter/tags | jq '.results[].name'
+            tag: "0.2.4"
+          env:
+            # In-cluster DNS to the Tautulli Service (sibling wrapper).
+            TAUTULLI_URL: http://tautulli.media.svc.cluster.local:8181
+            TAUTULLI_API_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: tautulli-exporter
+                  key: api-key
+            METRICS_PORT: "8000"
+            SCRAPE_INTERVAL: "30s"
+            LOG_LEVEL: INFO
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthz
+                  port: 8000
+                periodSeconds: 30
+                initialDelaySeconds: 15
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ready
+                  port: 8000
+                periodSeconds: 10
+                initialDelaySeconds: 5
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+
+  service:
+    main:
+      controller: tautulli-exporter
+      ports:
+        http:
+          port: 8000

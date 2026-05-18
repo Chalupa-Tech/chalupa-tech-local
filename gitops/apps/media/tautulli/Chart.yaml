@@ -1,0 +1,21 @@
+apiVersion: v2
+name: tautulli
+description: |
+  Tautulli — analytics, history, and per-user reporting on top of Plex.
+  Runs the LSIO container in the media namespace, persists its SQLite DB
+  and config to the shared media-plexmedia NFS PVC under Configs/tautulli,
+  and exposes the web UI at https://tautulli.frame.chalupatech.com.
+
+  Plex itself runs in the LXC at 192.168.1.224:32400 (outside the
+  cluster). On first login the operator pastes the Plex token via
+  Tautulli's setup wizard; the token never lives in K8s for this app.
+
+  Prometheus metrics live in the sibling `tautulli-exporter` wrapper —
+  see gitops/apps/media/tautulli-exporter/.
+type: application
+version: 0.1.0
+appVersion: "2.17.0"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/
