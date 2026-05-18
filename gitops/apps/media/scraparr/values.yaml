@@ -1,0 +1,91 @@
+scraparr:
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+  # API keys are pulled from the ExternalSecret `scraparr-apikeys`
+  # (templates/scraparr-apikeys-externalsecret.yaml) which syncs from
+  # OpenBao at secret/scraparr/api-keys. The chart's `api_key: { type: ref, ... }`
+  # pattern injects each value as an env var and writes ${VARNAME} into
+  # the config.yaml — keeps the actual secret out of the rendered chart.
+  #
+  # Whisparr isn't configured here yet — no API key in OpenBao. Add a
+  # `whisparr` key to the OpenBao secret and uncomment the stanza below
+  # to enable.
+  #
+  # The seerr-team/seerr fork shares the Overseerr API surface, so we
+  # use the generic `seerr` connector (scraparr/connectors/seerr.py).
+  config:
+    auth:
+      username: scraparr
+      # Static password — scraparr's /metrics endpoint is in-cluster only,
+      # not exposed via Traefik. VMServiceScrape uses these credentials
+      # via basicAuth to scrape. Real secret value is the same string in
+      # the K8s secret so this rendered ConfigMap is fine.
+      password: scraparr-internal
+
+    sonarr:
+      - url: http://sonarr.media.svc.cluster.local:8989
+        alias: sonarr
+        api_version: v3
+        interval: 30
+        detailed: true
+        api_key:
+          type: ref
+          name: SCRAPARR_SONARR_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: scraparr-apikeys
+              key: sonarr
+
+    radarr:
+      - url: http://radarr.media.svc.cluster.local:7878
+        alias: radarr
+        api_version: v3
+        interval: 30
+        detailed: true
+        api_key:
+          type: ref
+          name: SCRAPARR_RADARR_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: scraparr-apikeys
+              key: radarr
+
+    seerr:
+      - url: http://seerr.media.svc.cluster.local:5055
+        alias: seerr
+        interval: 30
+        detailed: true
+        api_key:
+          type: ref
+          name: SCRAPARR_SEERR_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: scraparr-apikeys
+              key: seerr
+
+    # whisparr:
+    #   - url: http://whisparr.media.svc.cluster.local:6969
+    #     alias: whisparr
+    #     api_version: v3
+    #     interval: 30
+    #     detailed: true
+    #     api_key:
+    #       type: ref
+    #       name: SCRAPARR_WHISPARR_API_KEY
+    #       valueFrom:
+    #         secretKeyRef:
+    #           name: scraparr-apikeys
+    #           key: whisparr
+
+  service:
+    main:
+      ports:
+        http:
+          port: 7100

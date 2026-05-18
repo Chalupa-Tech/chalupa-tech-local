@@ -1,0 +1,19 @@
+apiVersion: v2
+name: plex-exporter
+description: |
+  Prometheus exporter for Plex Media Server. Scrapes Plex's HTTP API
+  (active sessions, transcodes, library stats, bandwidth) and exposes
+  metrics on :9594 for VictoriaMetrics. Plex itself runs in the LXC at
+  192.168.1.224:32400 (outside the cluster) — the exporter pod reaches
+  it over the LAN.
+
+  Uses axsuul/plex-media-server-exporter (Ruby, actively maintained,
+  ships its own Grafana dashboard ID 17891). Plex token lives in
+  OpenBao at secret/plex/exporter and syncs to K8s via ExternalSecret.
+type: application
+version: 0.1.0
+appVersion: "0.30"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/
