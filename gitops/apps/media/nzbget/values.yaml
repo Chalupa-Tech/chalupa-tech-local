@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: lscr.io/linuxserver/nzbget
-            tag: latest
+            tag: v26.1-ls241
           env:
             TZ: America/Los_Angeles
             PUID: "1000"
@@ -34,6 +34,8 @@ app-template:
                   port: 6789
                 initialDelaySeconds: 30
                 periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 10
             readiness:
               enabled: true
               custom: true
@@ -47,9 +49,9 @@ app-template:
           resources:
             requests:
               cpu: 500m
-              memory: 2Gi
+              memory: 4Gi
             limits:
-              memory: 2Gi
+              memory: 4Gi
 
   service:
     nzbget:
