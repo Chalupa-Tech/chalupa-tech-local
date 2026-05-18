@@ -15,12 +15,21 @@ spec:
       requests:
         storage: 40Gi
   resources:
+    # 256Mi memory was the original sizing and worked at low series counts,
+    # but with ~280K active time series across 30d retention vmsingle now
+    # sits at ~250Mi steady-state (97% of the old limit). Under that
+    # pressure, GC pauses make the /health probe time out and HTTP queries
+    # return nothing — observed live 2026-05-18 with vmsingle running but
+    # NotReady for 45+ min after a reboot, even though `started in 4.4s`
+    # appeared in its log. 1Gi gives comfortable headroom for current
+    # series count + cold-start cache fill; 500m CPU lets compaction
+    # finish promptly without throttling HTTP handlers.
     requests:
       cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 500m
+      memory: 1Gi
   livenessProbe:
     httpGet:
       path: /health
