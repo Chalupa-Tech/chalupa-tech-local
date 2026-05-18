@@ -25,11 +25,17 @@ grafana:
     enabled: false
 
   resources:
+    # Memory limit bumped from 512Mi → 1Gi after observing peak working
+    # set hit 459 MiB (90% of old limit) following the storage-subnet +
+    # plex + arrs dashboard additions in PRs #210-#212. No OOM kills
+    # yet, but 1Gi gives ~2× headroom for ongoing growth. Request stays
+    # at 256Mi (scheduling-only, actual baseline is ~330 MiB). CPU is
+    # comfortably underused (~8m avg on 100m request) so unchanged.
     requests:
       cpu: 100m
       memory: 256Mi
     limits:
-      memory: 512Mi
+      memory: 1Gi
 
   livenessProbe:
     httpGet:
