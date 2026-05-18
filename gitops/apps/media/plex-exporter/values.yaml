@@ -8,7 +8,10 @@ app-template:
         main:
           image:
             repository: ghcr.io/axsuul/plex-media-server-exporter
-            tag: v0.30.0
+            # 2.1.0 is the current stable. Earlier `v0.30.0` was an
+            # invented tag (404 on ghcr). Verify with `gh api
+            # repos/axsuul/plex-media-server-exporter/releases | jq '.[].tag_name'`.
+            tag: "2.1.0"
           env:
             # Plex runs in the LXC at 192.168.1.224:32400 (outside the
             # cluster). The exporter pod reaches it via the worker node's
@@ -19,9 +22,9 @@ app-template:
                 secretKeyRef:
                   name: plex-exporter
                   key: token
-            METRICS_PORT: "9594"
-            # Pull more frequent stats since Plex sessions change fast
-            METRICS_INTERVAL_SECONDS: "30"
+            # v2.x renamed METRICS_PORT → PORT (per upstream README).
+            # METRICS_INTERVAL_SECONDS doesn't exist — removed.
+            PORT: "9594"
           probes:
             liveness:
               enabled: true
