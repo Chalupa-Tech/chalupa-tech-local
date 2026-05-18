@@ -106,7 +106,13 @@
     src: "{{ plex_server_nfs_server }}:{{ item.src }}"
     path: "{{ item.dest }}"
     fstype: nfs
-    opts: "_netdev,nofail,soft,timeo=150,retrans=5,nfsvers=4"
+    # See PV media-plexmedia in gitops for the full rationale; same opts
+    # on both clients of the TrueNAS share. Key wins: nconnect=4
+    # parallelises NFS RPCs across 4 TCP streams (single biggest direct-
+    # stream throughput bump), hard prevents Plex aborting playback on
+    # transient NFS hiccups, noatime/nodiratime stop reads from
+    # triggering atime writes back to the server.
+    opts: "_netdev,nofail,hard,nfsvers=4.2,rsize=1048576,wsize=1048576,nconnect=4,noatime,nodiratime"
     state: mounted
   loop: "{{ plex_server_nfs_shares }}"
   notify: Restart plexmediaserver
