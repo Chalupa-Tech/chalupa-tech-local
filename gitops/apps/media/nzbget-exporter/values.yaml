@@ -25,6 +25,19 @@ app-template:
                   name: nzbget-credentials
                   key: control-password
           probes:
+            # frebib's exporter has no dedicated /healthz, so we probe
+            # /metrics — but hitting /metrics triggers a full scrape of
+            # NZBGet's JSON-RPC API. When NZBGet is busy (active
+            # download, post-processing, large queue), the scrape can
+            # take several seconds. Kubelet's default probe
+            # timeoutSeconds is 1 — too tight, kills the pod ~every
+            # 22 min in a restart loop (observed: 10 restarts in 3h41m).
+            #
+            # Bumped to 10s timeout, and stretched periodSeconds so we
+            # don't generate excess scrape load just from probes:
+            # readiness every 30s, liveness every 60s. failureThreshold
+            # 3 means a transient slow scrape doesn't kill the pod —
+            # 3 consecutive failures over 3 min before restart.
             liveness:
               enabled: true
               custom: true
@@ -32,7 +45,9 @@ app-template:
                 httpGet:
                   path: /metrics
                   port: 9452
-                periodSeconds: 30
+                periodSeconds: 60
+                timeoutSeconds: 10
+                failureThreshold: 3
             readiness:
               enabled: true
               custom: true
@@ -40,7 +55,9 @@ app-template:
                 httpGet:
                   path: /metrics
                   port: 9452
-                periodSeconds: 10
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 3
             startup:
               enabled: false
           resources:
