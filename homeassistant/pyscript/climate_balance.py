@@ -148,12 +148,38 @@ def _notify_transition(prev, d):
     notify.discord(message=f"{emoji} {body}", target=[_DISCORD_TARGET])
 
 
-def _expose_decision(d):
-    _set_sensor(_S_MODE, d.mode.value,
-                attrs={"friendly_name": "Climate Balance Mode",
-                       "icon": "mdi:home-thermometer"})
-    _set_sensor(_S_REASON, d.reason,
+def _expose_decision(effective_d, current_d=None):
+    """Update mode/reason/status sensors.
+
+    effective_d: decision currently engaged (post min-runtime gating)
+    current_d:   engine's latest raw output. May differ from effective_d
+                 while a cooldown is gating a transition. Defaults to
+                 effective_d. Always show current_d.reason so the
+                 dashboard reflects what conditions look like NOW.
+    """
+    if current_d is None:
+        current_d = effective_d
+
+    holding = current_d.mode != effective_d.mode
+    mode_attrs = {
+        "friendly_name": "Climate Balance Mode",
+        "icon": "mdi:home-thermometer",
+        "wanted_mode": current_d.mode.value,
+        "wanted_reason": current_d.reason,
+        "holding_for_min_runtime": holding,
+    }
+    _set_sensor(_S_MODE, effective_d.mode.value, attrs=mode_attrs)
+
+    if holding:
+        reason_text = (
+            f"{current_d.reason} (holding {effective_d.mode.value} until "
+            f"min-runtime cooldown ends)"
+        )
+    else:
+        reason_text = current_d.reason
+    _set_sensor(_S_REASON, reason_text,
                 attrs={"friendly_name": "Climate Balance Reason"})
+
     _set_sensor(_S_STATUS, "Auto" if _ACTUATE else "Dry-run (Phase 2)",
                 attrs={"friendly_name": "Climate Balance Status"})
 
@@ -180,13 +206,12 @@ def _evaluate_and_apply():
         _effective_mode = d.mode
         _effective_decision = d
         _last_change_ts = now
-        _expose_decision(d)
+        _expose_decision(d, d)
         _notify_transition(prev, d)
     else:
-        # Hold previous decision; just refresh sensors with reason from engine
-        # (so the user can see what the engine WANTS, even when min-runtime
-        # holds the device in the current mode)
-        _expose_decision(_effective_decision)
+        # Holding due to cooldown. Show engine's wanted mode + reason in
+        # attributes so the dashboard is transparent.
+        _expose_decision(_effective_decision, current_d=d)
 
 
 @time_trigger("startup")
