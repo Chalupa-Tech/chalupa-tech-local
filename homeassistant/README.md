@@ -9,11 +9,15 @@ Plan: `docs/superpowers/plans/2026-05-25-ha-climate-balance-automation-plan.md`
 
 ## Layout
 
+Pyscript treats top-level `.py` files in `/config/pyscript/` as **trigger
+scripts** (containing `@state_trigger` / `@time_trigger`). Importable libraries
+must live in `/config/pyscript/modules/`. Our pure-logic modules go there.
+
 | Path | Purpose | Synced to HAOS? |
 |---|---|---|
-| `pyscript/dew_point.py` | Magnus formula | yes → `/config/pyscript/` |
-| `pyscript/cooler_chart.py` | Chart data + nearest-cell lookup | yes → `/config/pyscript/` |
-| `pyscript/fan_speed.py` | Headroom → fan speed mapping | yes → `/config/pyscript/` |
+| `pyscript/modules/dew_point.py` | Magnus formula | yes → `/config/pyscript/modules/` |
+| `pyscript/modules/cooler_chart.py` | Chart data + nearest-cell lookup | yes → `/config/pyscript/modules/` |
+| `pyscript/modules/fan_speed.py` | Headroom → fan speed mapping | yes → `/config/pyscript/modules/` |
 | `pyscript/climate_balance.py` | Pyscript entry (state triggers; Phase 2+ adds engine + actuators) | yes → `/config/pyscript/` |
 | `packages/climate_balance.yaml` | HA helpers (input_boolean / input_number / input_datetime) | yes → `/config/packages/` |
 | `tests/` | pytest unit tests for pure logic modules | **no** — never copy to HAOS |
@@ -58,7 +62,9 @@ glue, and integration is verified by deploying to HA and watching the
 ### Sync (Samba example, macOS)
 
 ```bash
-cp pyscript/*.py /Volumes/config/pyscript/
+mkdir -p /Volumes/config/pyscript/modules /Volumes/config/packages
+cp pyscript/climate_balance.py /Volumes/config/pyscript/
+cp pyscript/modules/*.py /Volumes/config/pyscript/modules/
 cp packages/*.yaml /Volumes/config/packages/
 ```
 
