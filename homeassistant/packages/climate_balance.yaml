@@ -1,0 +1,75 @@
+# Climate Balance helpers.
+# Copy this file to HAOS /config/packages/climate_balance.yaml
+# Requires configuration.yaml to contain:
+#   homeassistant:
+#     packages: !include_dir_named packages
+
+input_boolean:
+  climate_balance_enabled:
+    name: "Climate Balance Enabled"
+    initial: on
+    icon: mdi:home-thermometer
+  climate_balance_vacation:
+    name: "Climate Balance Vacation Mode"
+    initial: off
+    icon: mdi:airplane
+
+input_number:
+  climate_balance_target_temp:
+    name: "Target Indoor Temperature"
+    min: 65
+    max: 80
+    step: 1
+    initial: 70
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer
+  climate_balance_whf_target:
+    name: "Whole House Fan Target Temperature"
+    min: 60
+    max: 75
+    step: 1
+    initial: 68
+    unit_of_measurement: "°F"
+    icon: mdi:fan
+  climate_balance_max_indoor_rh:
+    name: "Max Indoor Relative Humidity"
+    min: 40
+    max: 70
+    step: 1
+    initial: 55
+    unit_of_measurement: "%"
+    icon: mdi:water-percent
+  climate_balance_max_attic_rh:
+    name: "Max Attic Relative Humidity"
+    min: 40
+    max: 70
+    step: 1
+    initial: 50
+    unit_of_measurement: "%"
+    icon: mdi:home-roof
+  climate_balance_max_dew_point:
+    name: "Max Acceptable Dew Point"
+    min: 50
+    max: 70
+    step: 1
+    initial: 60
+    unit_of_measurement: "°F"
+    icon: mdi:water-thermometer
+  climate_balance_override_minutes:
+    name: "Manual Override Duration"
+    min: 15
+    max: 240
+    step: 15
+    initial: 60
+    unit_of_measurement: "min"
+    icon: mdi:timer
+
+input_datetime:
+  cooler_manual_until:
+    name: "Swamp Cooler Manual Override Until"
+    has_date: true
+    has_time: true
+  whf_manual_until:
+    name: "Whole House Fan Manual Override Until"
+    has_date: true
+    has_time: true
