@@ -202,8 +202,40 @@ def _start_snooze(device):
                  target=[_DISCORD_TARGET])
 
 
+# Self-action window: when we call a service on a device, mark the device
+# "ours" for SELF_ACTION_WINDOW seconds. State changes during the window
+# are assumed to be our own service-call echo. Outside the window, any
+# state change is treated as a manual user override.
+#
+# This is more robust than relying on context.user_id (which can be None
+# even for user-initiated changes via certain integrations/voice/physical
+# remotes — observed in production where a UI-driven hvac_mode change did
+# not propagate a user_id through Pyscript's context kwarg).
+SELF_ACTION_WINDOW = timedelta(seconds=12)
+_self_cooler_until = None
+_self_whf_until = None
+
+
+def _mark_self(device):
+    global _self_cooler_until, _self_whf_until
+    deadline = datetime.now() + SELF_ACTION_WINDOW
+    if device == "cooler":
+        _self_cooler_until = deadline
+    else:
+        _self_whf_until = deadline
+
+
+def _is_self(device):
+    deadline = _self_cooler_until if device == "cooler" else _self_whf_until
+    return deadline is not None and datetime.now() < deadline
+
+
 def _actuate_respecting_overrides(d):
-    """Apply Decision but skip devices currently under manual snooze."""
+    """Apply Decision but skip devices currently under manual snooze.
+    Marks each device "self-actuated" for the SELF_ACTION_WINDOW just
+    before issuing the service call, so the state_trigger callback
+    doesn't mistake our own write for a manual user override.
+    """
     cooler_snoozed = _snooze_active("cooler")
     whf_snoozed = _snooze_active("whf")
 
@@ -212,6 +244,7 @@ def _actuate_respecting_overrides(d):
         cur_mode = state.get(_E_COOLER)
         if cur_mode != d.cooler_hvac_mode:
             log.info(f"climate_balance: set cooler hvac_mode → {d.cooler_hvac_mode}")
+            _mark_self("cooler")
             service.call("climate", "set_hvac_mode",
                          entity_id=_E_COOLER, hvac_mode=d.cooler_hvac_mode)
         if d.cooler_fan_speed is not None:
@@ -220,6 +253,7 @@ def _actuate_respecting_overrides(d):
             cur_fan = cur.get("fan_mode") if cur else None
             if cur_fan != desired:
                 log.info(f"climate_balance: set cooler fan_mode → {desired}")
+                _mark_self("cooler")
                 service.call("climate", "set_fan_mode",
                              entity_id=_E_COOLER, fan_mode=desired)
 
@@ -229,6 +263,7 @@ def _actuate_respecting_overrides(d):
         desired_whf = "on" if d.whf_on else "off"
         if cur_whf != desired_whf:
             log.info(f"climate_balance: set WHF → {desired_whf}")
+            _mark_self("whf")
             if d.whf_on:
                 service.call("switch", "turn_on", entity_id=_E_WHF)
             else:
@@ -400,6 +435,12 @@ def _evaluate_and_apply():
         # Holding due to cooldown. Show engine's wanted mode + reason in
         # attributes so the dashboard is transparent.
         _expose_decision(_effective_decision, current_d=d)
+        if _ACTUATE and _effective_decision is not None:
+            # State reconciliation: if device drifted from our effective
+            # decision (e.g., MagiqTouch revert, snooze just expired, or a
+            # cold-start applied a no-op call), re-apply. The actuator is
+            # idempotent — only issues service calls when current != desired.
+            _actuate_respecting_overrides(_effective_decision)
     _maybe_warn_danger(s, c)
 
 
@@ -425,21 +466,43 @@ def heartbeat():
     _evaluate_and_apply()
 
 
-@state_trigger(_E_COOLER)
-def on_cooler_change(value=None, old_value=None, context=None):
-    """Detect manual user changes to the cooler and start a snooze."""
-    user_id = getattr(context, "user_id", None) if context else None
-    # context.user_id is None for state.set / service calls without a user;
-    # set when a user (UI, app, voice, physical) made the change.
-    if user_id is None:
+@state_trigger(
+    _E_COOLER,
+    f"{_E_COOLER}.fan_mode",
+    f"{_E_COOLER}.preset_mode",
+    f"{_E_COOLER}.temperature",
+)
+def on_cooler_change(**kwargs):
+    """Detect manual changes to the cooler and start a snooze.
+
+    Listens on both the entity state (hvac_mode) and the user-modifiable
+    attributes (fan_mode, preset_mode, set-point temperature). Pyscript's
+    @state_trigger fires only on the named expression's value changing,
+    so all of these need to be enumerated.
+
+    Uses the self-action window rather than context.user_id, because
+    context.user_id was observed to be None for legitimate UI-driven
+    changes on this HA instance. The window is set just before each
+    of our own service calls in _actuate_respecting_overrides.
+    """
+    log.warning(f"climate_balance: cooler change observed kwargs.var_name="
+                f"{kwargs.get('var_name')} (self_active={_is_self('cooler')}, "
+                f"snoozed={_snooze_active('cooler')})")
+    if _is_self("cooler"):
         return
+    if _snooze_active("cooler"):
+        return  # already snoozed, no need to refresh the timer here
     _start_snooze("cooler")
 
 
 @state_trigger(_E_WHF)
-def on_whf_change(value=None, old_value=None, context=None):
-    user_id = getattr(context, "user_id", None) if context else None
-    if user_id is None:
+def on_whf_change(**kwargs):
+    """Detect manual changes to the WHF. Only the state (on/off) matters."""
+    log.warning(f"climate_balance: WHF state change observed "
+                f"(self_active={_is_self('whf')}, snoozed={_snooze_active('whf')})")
+    if _is_self("whf"):
+        return
+    if _snooze_active("whf"):
         return
     _start_snooze("whf")
 
