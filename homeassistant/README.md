@@ -13,7 +13,10 @@ See `docs/superpowers/specs/2026-05-25-ha-climate-balance-automation-design.md` 
 
 ```bash
 cd homeassistant
-python3.13 -m venv .venv && source .venv/bin/activate
+# Use python3.13 (matches HAOS Pyscript runtime) or any 3.13+ — 3.14 works too.
+# On macOS install with: brew install python@3.13
+python3.13 -m venv .venv 2>/dev/null || python3.14 -m venv .venv
+source .venv/bin/activate
 pip install pytest
 pytest
 ```
