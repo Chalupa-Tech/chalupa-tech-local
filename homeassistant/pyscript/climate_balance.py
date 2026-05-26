@@ -51,6 +51,9 @@ _H_WHF_TARGET = "input_number.climate_balance_whf_target"
 _H_MAX_INDOOR_RH = "input_number.climate_balance_max_indoor_rh"
 _H_MAX_ATTIC_RH = "input_number.climate_balance_max_attic_rh"
 _H_MAX_DP = "input_number.climate_balance_max_dew_point"
+_H_OVERRIDE_MIN = "input_number.climate_balance_override_minutes"
+_H_COOLER_UNTIL = "input_datetime.cooler_manual_until"
+_H_WHF_UNTIL = "input_datetime.whf_manual_until"
 
 # Module-scoped state for hysteresis + min-runtime. Pyscript reloads reset these
 # to None, at which point the next evaluation cold-starts (prev_mode=None, no
@@ -158,6 +161,39 @@ def _notify_transition(prev, d):
     )
 
 
+def _datetime_helper_in_future(entity_id):
+    """True if the input_datetime helper resolves to a future timestamp."""
+    raw = state.get(entity_id)
+    if not raw or raw in ("unknown", "unavailable"):
+        return False
+    try:
+        ts = datetime.fromisoformat(raw.replace(" ", "T"))
+    except ValueError:
+        return False
+    return ts > datetime.now()
+
+
+def _snooze_active(device):
+    """device: 'cooler' or 'whf'."""
+    entity = _H_COOLER_UNTIL if device == "cooler" else _H_WHF_UNTIL
+    return _datetime_helper_in_future(entity)
+
+
+def _start_snooze(device):
+    duration = _read_float(_H_OVERRIDE_MIN) or 60.0
+    until = datetime.now() + timedelta(minutes=duration)
+    entity = _H_COOLER_UNTIL if device == "cooler" else _H_WHF_UNTIL
+    service.call("input_datetime", "set_datetime",
+                 entity_id=entity,
+                 datetime=until.strftime("%Y-%m-%d %H:%M:%S"))
+    label = "swamp cooler" if device == "cooler" else "whole house fan"
+    log.info(f"climate_balance: {device} manual override → {until.isoformat()}")
+    service.call("notify", _NOTIFY_SERVICE,
+                 message=f"📱 Manual override detected on {label} — "
+                         f"pausing automation for {int(duration)} min",
+                 target=[_DISCORD_TARGET])
+
+
 def _actuate(d):
     """Apply Decision to the physical devices. Idempotent: only calls services
     if device state actually differs from desired state. Called inside
@@ -194,6 +230,39 @@ def _actuate(d):
             service.call("switch", "turn_off", entity_id=_E_WHF)
 
 
+def _actuate_respecting_overrides(d):
+    """Apply Decision but skip devices currently under manual snooze."""
+    cooler_snoozed = _snooze_active("cooler")
+    whf_snoozed = _snooze_active("whf")
+
+    # Cooler: skip both hvac_mode and fan_mode service calls if snoozed
+    if not cooler_snoozed:
+        cur_mode = state.get(_E_COOLER)
+        if cur_mode != d.cooler_hvac_mode:
+            log.info(f"climate_balance: set cooler hvac_mode → {d.cooler_hvac_mode}")
+            service.call("climate", "set_hvac_mode",
+                         entity_id=_E_COOLER, hvac_mode=d.cooler_hvac_mode)
+        if d.cooler_fan_speed is not None:
+            desired = str(d.cooler_fan_speed)
+            cur = state.getattr(_E_COOLER)
+            cur_fan = cur.get("fan_mode") if cur else None
+            if cur_fan != desired:
+                log.info(f"climate_balance: set cooler fan_mode → {desired}")
+                service.call("climate", "set_fan_mode",
+                             entity_id=_E_COOLER, fan_mode=desired)
+
+    # WHF
+    if not whf_snoozed:
+        cur_whf = state.get(_E_WHF)
+        desired_whf = "on" if d.whf_on else "off"
+        if cur_whf != desired_whf:
+            log.info(f"climate_balance: set WHF → {desired_whf}")
+            if d.whf_on:
+                service.call("switch", "turn_on", entity_id=_E_WHF)
+            else:
+                service.call("switch", "turn_off", entity_id=_E_WHF)
+
+
 def _expose_decision(effective_d, current_d=None):
     """Update mode/reason/status sensors.
 
@@ -226,7 +295,24 @@ def _expose_decision(effective_d, current_d=None):
     _set_sensor(_S_REASON, reason_text,
                 attrs={"friendly_name": "Climate Balance Reason"})
 
-    _set_sensor(_S_STATUS, "Auto" if _ACTUATE else "Dry-run (Phase 2)",
+    if not _read_bool(_H_ENABLED):
+        status = "Disabled"
+    elif _read_bool(_H_VACATION):
+        status = "Vacation"
+    elif not _ACTUATE:
+        status = "Dry-run"
+    else:
+        cooler_snoozed = _snooze_active("cooler")
+        whf_snoozed = _snooze_active("whf")
+        if cooler_snoozed and whf_snoozed:
+            status = "Both devices in manual override"
+        elif cooler_snoozed:
+            status = "Cooler in manual override"
+        elif whf_snoozed:
+            status = "WHF in manual override"
+        else:
+            status = "Auto"
+    _set_sensor(_S_STATUS, status,
                 attrs={"friendly_name": "Climate Balance Status"})
 
 
@@ -280,3 +366,22 @@ def on_any_input_change(**kwargs):
 @time_trigger("period(now, 5min)")
 def heartbeat():
     _evaluate_and_apply()
+
+
+@state_trigger(_E_COOLER)
+def on_cooler_change(value=None, old_value=None, context=None):
+    """Detect manual user changes to the cooler and start a snooze."""
+    user_id = getattr(context, "user_id", None) if context else None
+    # context.user_id is None for state.set / service calls without a user;
+    # set when a user (UI, app, voice, physical) made the change.
+    if user_id is None:
+        return
+    _start_snooze("cooler")
+
+
+@state_trigger(_E_WHF)
+def on_whf_change(value=None, old_value=None, context=None):
+    user_id = getattr(context, "user_id", None) if context else None
+    if user_id is None:
+        return
+    _start_snooze("whf")
