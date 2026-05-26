@@ -69,7 +69,7 @@ jobs:
   # ════════════════════════════════════════════════════
   # Stage 1: Run Ansible against Proxmox host
   #   - Updates host packages, enables IOMMU/VFIO
-  #   - Installs kernel 7, downloads LXC template
+  #   - Downloads LXC template, Talos ISO, HAOS qcow2
   # ════════════════════════════════════════════════════
   deploy-proxmox-prep:
     name: "Stage 1: Proxmox Host Prep"
