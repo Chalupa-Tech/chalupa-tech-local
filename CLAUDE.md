@@ -86,73 +86,8 @@ ssh -i ~/.ssh/pulumi_proxmox_runner root@192.168.1.223   # Verify host state
 
 ### Home Assistant (HAOS VM 250, IP 192.168.1.234)
 
-**SSH (passwordless sudo as `tayvenbigelow`):**
-```bash
-ssh tayvenbigelow@192.168.1.234 -i ~/.ssh/pulumi_proxmox_runner
-```
-- Root login is rejected; `tayvenbigelow` has `(ALL) NOPASSWD: ALL`.
-- The SSH add-on container doesn't expose SFTP, so `scp` fails. Transfer files
-  via pipe+tee then sudo-mv:
-  ```bash
-  cat local.py | ssh tayvenbigelow@192.168.1.234 "cat > /tmp/x.py"
-  ssh tayvenbigelow@192.168.1.234 "sudo mv /tmp/x.py /config/pyscript/x.py"
-  ```
-- Pyscript auto-reloads on file mtime change in `/config/pyscript/` — no
-  manual reload needed for `.py` updates.
-- HAOS supervisor's `ha` CLI is **not usable** over SSH (SUPERVISOR_TOKEN
-  isn't in the SSH session env, even with sudo). Use the REST API instead.
-
-**REST API (Long-Lived Access Token):**
-```bash
-# Token is in $HOMEASSISTANT_TOKEN if you sourced ~/.zshrc, but
-# non-interactive shells (incl. most agent tool calls) won't see it.
-# Move the export to ~/.zshenv for non-interactive availability, OR fall back to:
-TOK=$(cat ~/.config/ha/llat)
-HA=http://192.168.1.234:8123
-
-# Read a state
-curl -s -H "Authorization: Bearer $TOK" "$HA/api/states/sensor.climate_balance_mode"
-
-# Tail the live error log (only way to see HA logs — /config/home-assistant.log
-# is rotated and the active log lives in the supervisor container)
-curl -s -H "Authorization: Bearer $TOK" "$HA/api/error_log" | tail -50
-
-# Call a service (e.g., reload Pyscript)
-curl -s -X POST -H "Authorization: Bearer $TOK" -d '{}' "$HA/api/services/pyscript/reload"
-
-# Set an input_number
-curl -s -X POST -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
-  -d '{"entity_id":"input_number.climate_balance_target_temp","value":72}' \
-  "$HA/api/services/input_number/set_value"
-```
-
-**Notify (Discord):** the configured service is `notify.homeassistant_tejon_frame`,
-not `notify.discord`. Pass `target=[<channel_id>]` for the climate-balance
-channel (ID 1508674689256652850).
-
-**Recorder DB (SQLite, read-only via SSH):**
-```bash
-ssh tayvenbigelow@192.168.1.234 "sudo sqlite3 -readonly /config/home-assistant_v2.db \
-  \"SELECT m.entity_id, datetime(s.last_updated_ts,'unixepoch','localtime'), s.state \
-   FROM states s JOIN states_meta m ON s.metadata_id=m.metadata_id \
-   WHERE m.entity_id='sensor.climate_balance_mode' \
-   ORDER BY s.last_updated_ts DESC LIMIT 10;\""
-```
-Modern HA schema separates entity IDs into `states_meta` and state values into
-`states` (keyed on `metadata_id`). `last_updated_ts` is epoch seconds.
-
-**Pyscript layout** (HACS add-on at `/config/custom_components/pyscript/`):
-- `/config/pyscript/*.py` — **trigger scripts** (with `@state_trigger` / `@time_trigger`)
-- `/config/pyscript/modules/*.py` — **importable libraries** (the only path
-  trigger scripts can import from; not on `sys.path` for normal trigger files)
-- `/config/packages/*.yaml` — packaged YAML (input_boolean, input_number,
-  input_datetime helpers, etc.); requires `homeassistant: packages: !include_dir_named packages` in `configuration.yaml`
-
-**Pyscript gotchas** (verified in production; in memory under `feedback_pyscript_*.md`):
-- No lambda closures over enclosing-function args (use named helpers with positional args)
-- No `@property` descriptor protocol (use module-level functions taking the instance)
-- No generator expressions in `all(... for ... in ...)` (use explicit `and` chains)
-- Service-call style required for dynamic service names: `service.call("notify", "<svc>", ...)`
+See `homeassistant/CLAUDE.md` for SSH, REST API, recorder-DB, notify-service,
+and Pyscript notes when working on the climate-balance automation.
 
 ### Ansible (from `ansible/`)
 ```bash
