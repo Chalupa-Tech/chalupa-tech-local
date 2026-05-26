@@ -202,42 +202,6 @@ def _start_snooze(device):
                  target=[_DISCORD_TARGET])
 
 
-def _actuate(d):
-    """Apply Decision to the physical devices. Idempotent: only calls services
-    if device state actually differs from desired state. Called inside
-    _evaluate_and_apply only when _ACTUATE is True.
-
-    For cooler fan_mode, the MagiqTouch climate entity expects the fan speed
-    as a string ('1' through '10'). int -> str conversion happens here.
-    """
-    # Cooler HVAC mode (off / fan_only / cool)
-    cur_mode = state.get(_E_COOLER)
-    if cur_mode != d.cooler_hvac_mode:
-        log.info(f"climate_balance: set cooler hvac_mode → {d.cooler_hvac_mode}")
-        service.call("climate", "set_hvac_mode",
-                     entity_id=_E_COOLER, hvac_mode=d.cooler_hvac_mode)
-
-    # Cooler fan speed (only when running)
-    if d.cooler_fan_speed is not None:
-        desired = str(d.cooler_fan_speed)
-        cur = state.getattr(_E_COOLER)
-        cur_fan = cur.get("fan_mode") if cur else None
-        if cur_fan != desired:
-            log.info(f"climate_balance: set cooler fan_mode → {desired}")
-            service.call("climate", "set_fan_mode",
-                         entity_id=_E_COOLER, fan_mode=desired)
-
-    # WHF on/off
-    cur_whf = state.get(_E_WHF)
-    desired_whf = "on" if d.whf_on else "off"
-    if cur_whf != desired_whf:
-        log.info(f"climate_balance: set WHF → {desired_whf}")
-        if d.whf_on:
-            service.call("switch", "turn_on", entity_id=_E_WHF)
-        else:
-            service.call("switch", "turn_off", entity_id=_E_WHF)
-
-
 def _actuate_respecting_overrides(d):
     """Apply Decision but skip devices currently under manual snooze."""
     cooler_snoozed = _snooze_active("cooler")
