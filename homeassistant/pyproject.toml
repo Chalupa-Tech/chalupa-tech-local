@@ -1,0 +1,10 @@
+[project]
+name = "ha-climate-balance"
+version = "0.1.0"
+description = "Pyscript-based climate balance automation for Home Assistant"
+requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
