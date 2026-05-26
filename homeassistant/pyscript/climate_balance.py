@@ -473,9 +473,9 @@ def on_cooler_change(**kwargs):
     changes on this HA instance. The window is set just before each
     of our own service calls in _actuate_respecting_overrides.
     """
-    log.warning(f"climate_balance: cooler change observed kwargs.var_name="
-                f"{kwargs.get('var_name')} (self_active={_is_self('cooler')}, "
-                f"snoozed={_snooze_active('cooler')})")
+    log.info(f"climate_balance: cooler change var={kwargs.get('var_name')} "
+             f"value={kwargs.get('value')} self={_is_self('cooler')} "
+             f"snoozed={_snooze_active('cooler')}")
     if _is_self("cooler"):
         return
     if _snooze_active("cooler"):
