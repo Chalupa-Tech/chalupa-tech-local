@@ -324,28 +324,16 @@ def _expose_decision(effective_d, current_d=None):
 
 
 def _on_snooze_expire(device):
-    """Called once when a snooze transitions from active → inactive."""
+    """Called once when a snooze transitions from active → inactive.
+    Always notifies (the user wants to know the snooze is over and what
+    the engine intends to do). The actuator is idempotent so reapplying
+    is safe even if the device already matches.
+    """
     s = _build_state()
     c = _build_config()
     d = evaluate(s, c, datetime.now(), prev_mode=_effective_mode)
 
     device_label = "swamp cooler" if device == "cooler" else "whole house fan"
-
-    # If current device state already matches desired, silent resume
-    if device == "cooler":
-        cur_mode = state.get(_E_COOLER)
-        if cur_mode == d.cooler_hvac_mode:
-            log.info(f"climate_balance: cooler snooze expired, silent resume "
-                     f"(already in {cur_mode})")
-            return
-    else:
-        cur_whf = state.get(_E_WHF)
-        desired = "on" if d.whf_on else "off"
-        if cur_whf == desired:
-            log.info(f"climate_balance: whf snooze expired, silent resume "
-                     f"(already {cur_whf})")
-            return
-
     service.call("notify", _NOTIFY_SERVICE,
                  message=f"▶️ Resuming {device_label} automation — "
                          f"switching to {d.mode.value} ({d.reason})",
