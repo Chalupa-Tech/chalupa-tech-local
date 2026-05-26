@@ -35,6 +35,25 @@ COOLER_CHART: dict[int, dict[int, int]] = {
 }
 
 
+def _nearest(keys, target):
+    """Return the key numerically closest to target.
+
+    Explicit loop instead of ``min(..., key=lambda)`` because Pyscript's
+    interpreter does not bind enclosing-function parameters inside lambda
+    closures — the lambda raises ``NameError`` for the captured arg at
+    evaluation time. The loop is closure-free and works identically in
+    plain CPython (for pytest) and Pyscript (for HA runtime).
+    """
+    best = None
+    best_d = None
+    for k in keys:
+        d = abs(k - target)
+        if best is None or d < best_d:
+            best = k
+            best_d = d
+    return best
+
+
 def lookup_achievable_temp(outside_temp_f: float, outside_rh_pct: float) -> Optional[int]:
     """Return delivered air temperature (°F) at given outside conditions.
 
@@ -44,10 +63,9 @@ def lookup_achievable_temp(outside_temp_f: float, outside_rh_pct: float) -> Opti
     """
     if outside_temp_f < 75:
         return int(round(outside_temp_f))
-    temp_key = min(COOLER_CHART.keys(), key=lambda k: abs(k - outside_temp_f))
+    temp_key = _nearest(COOLER_CHART.keys(), outside_temp_f)
     row = COOLER_CHART[temp_key]
-    rh_key = min(row.keys(), key=lambda k: abs(k - outside_rh_pct))
-    # Return None if the requested RH is beyond the chart's defined range for this temp
     if outside_rh_pct > max(row.keys()):
         return None
+    rh_key = _nearest(row.keys(), outside_rh_pct)
     return row.get(rh_key)
