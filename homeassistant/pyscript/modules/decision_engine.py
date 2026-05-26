@@ -45,12 +45,17 @@ def has_required(s: ClimateState) -> bool:
     Module-level helper rather than @property on the dataclass because
     Pyscript's interpreter does not honor descriptor protocol — accessing
     a @property attribute returns the bare EvalFunc wrapper instead of
-    invoking the getter. Plain CPython is fine either way.
+    invoking the getter. Explicit boolean expression rather than
+    `all(... for ... in ...)` because Pyscript also does not implement
+    generator expressions (NotImplementedError: ast_generatorexp).
+    Plain CPython is fine either way.
     """
-    return all(v is not None for v in (
-        s.outside_temp_f, s.outside_rh_pct,
-        s.indoor_temp_f, s.indoor_rh_pct,
-    ))
+    return (
+        s.outside_temp_f is not None
+        and s.outside_rh_pct is not None
+        and s.indoor_temp_f is not None
+        and s.indoor_rh_pct is not None
+    )
 
 
 @dataclass(frozen=True)
