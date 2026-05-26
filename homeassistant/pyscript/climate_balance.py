@@ -1,14 +1,17 @@
 """Pyscript entry point for climate balance.
 
 Phase 1: derived sensors (dew points + chart achievable).
-Phase 2 (this version): + decision engine in DRY-RUN mode.
+Phase 2: + decision engine (dry-run mode).
   - Threads effective-mode through evaluate() for asymmetric hysteresis
   - Enforces 10-min minimum runtime per mode (cycling cap at ≤3 cycles/hr)
   - Updates sensor.climate_balance_mode / _reason / _status
-  - Sends Discord notification on mode transition (prefixed [DRY-RUN])
-  - Does NOT call climate.set_* or switch.turn_* yet
+  - Sends Discord notification on mode transition
 
-Phase 3 will flip _ACTUATE = True and wire actuators + manual override.
+Phase 3 (this version): live actuation + manual override + danger warnings.
+  - _ACTUATE = True: calls climate.set_* and switch.turn_* for real
+  - Manual override detection via context.user_id → per-device snooze
+  - Snooze expiry detection → resume notification + re-actuation
+  - Danger warnings when temp/humidity thresholds exceeded during snooze
 """
 from datetime import datetime, timedelta
 
@@ -17,7 +20,7 @@ from decision_engine import ClimateState, Config, Decision, Mode, evaluate
 from dew_point import dew_point_f
 
 
-_ACTUATE = False   # Phase 3 flips this to True
+_ACTUATE = True
 _NOTIFY_SERVICE = "homeassistant_tejon_frame"   # notify.<service> for Discord
 _DISCORD_TARGET = "1508674689256652850"
 _MIN_RUNTIME = timedelta(minutes=10)
@@ -62,6 +65,11 @@ _H_WHF_UNTIL = "input_datetime.whf_manual_until"
 _effective_mode = None
 _effective_decision = None
 _last_change_ts = None
+_last_cooler_snoozed = False
+_last_whf_snoozed = False
+_warned_during_snooze_cooler_attic = False
+_warned_during_snooze_cooler_temp = False
+_warned_during_snooze_whf_temp = False
 
 
 # Mode → emoji for Discord
@@ -316,6 +324,88 @@ def _expose_decision(effective_d, current_d=None):
                 attrs={"friendly_name": "Climate Balance Status"})
 
 
+def _on_snooze_expire(device):
+    """Called once when a snooze transitions from active → inactive."""
+    s = _build_state()
+    c = _build_config()
+    d = evaluate(s, c, datetime.now(), prev_mode=_effective_mode)
+
+    device_label = "swamp cooler" if device == "cooler" else "whole house fan"
+
+    # If current device state already matches desired, silent resume
+    if device == "cooler":
+        cur_mode = state.get(_E_COOLER)
+        if cur_mode == d.cooler_hvac_mode:
+            log.info(f"climate_balance: cooler snooze expired, silent resume "
+                     f"(already in {cur_mode})")
+            return
+    else:
+        cur_whf = state.get(_E_WHF)
+        desired = "on" if d.whf_on else "off"
+        if cur_whf == desired:
+            log.info(f"climate_balance: whf snooze expired, silent resume "
+                     f"(already {cur_whf})")
+            return
+
+    service.call("notify", _NOTIFY_SERVICE,
+                 message=f"▶️ Resuming {device_label} automation — "
+                         f"switching to {d.mode.value} ({d.reason})",
+                 target=[_DISCORD_TARGET])
+    _actuate_respecting_overrides(d)
+
+
+def _maybe_warn_danger(s, c):
+    """Warn (once per condition per snooze window) when danger conditions
+    persist while the relevant device is under manual override.
+
+    Module-level flag bools track which danger conditions we already warned
+    about; they reset when the snooze ends.
+    """
+    global _warned_during_snooze_cooler_attic
+    global _warned_during_snooze_cooler_temp
+    global _warned_during_snooze_whf_temp
+
+    cooler_snoozed = _snooze_active("cooler")
+    whf_snoozed = _snooze_active("whf")
+
+    # Attic humidity danger (cooler should be running fan-only to help)
+    if (cooler_snoozed and s.attic_rh_pct is not None
+            and s.attic_rh_pct > c.max_attic_rh + 10
+            and not _warned_during_snooze_cooler_attic):
+        service.call("notify", _NOTIFY_SERVICE,
+                     message=f"⚠️ Attic humidity at {s.attic_rh_pct:.0f}% but "
+                             f"swamp cooler is in manual override — consider "
+                             f"intervening",
+                     target=[_DISCORD_TARGET])
+        _warned_during_snooze_cooler_attic = True
+
+    # Indoor temp danger (either device under snooze)
+    if s.indoor_temp_f is not None and s.indoor_temp_f > c.target_temp_f + 5:
+        if cooler_snoozed and not _warned_during_snooze_cooler_temp:
+            service.call("notify", _NOTIFY_SERVICE,
+                         message=f"⚠️ Indoor temperature at "
+                                 f"{s.indoor_temp_f:.0f}°F (target "
+                                 f"{c.target_temp_f:.0f}°F) but swamp cooler "
+                                 f"is in manual override — consider intervening",
+                         target=[_DISCORD_TARGET])
+            _warned_during_snooze_cooler_temp = True
+        if whf_snoozed and not _warned_during_snooze_whf_temp:
+            service.call("notify", _NOTIFY_SERVICE,
+                         message=f"⚠️ Indoor temperature at "
+                                 f"{s.indoor_temp_f:.0f}°F (target "
+                                 f"{c.target_temp_f:.0f}°F) but whole house fan "
+                                 f"is in manual override — consider intervening",
+                         target=[_DISCORD_TARGET])
+            _warned_during_snooze_whf_temp = True
+
+    # Clear warning flags when snooze ends
+    if not cooler_snoozed:
+        _warned_during_snooze_cooler_attic = False
+        _warned_during_snooze_cooler_temp = False
+    if not whf_snoozed:
+        _warned_during_snooze_whf_temp = False
+
+
 def _evaluate_and_apply():
     """Read state, evaluate, apply min-runtime gate, expose sensors, notify."""
     global _effective_mode, _effective_decision, _last_change_ts
@@ -339,16 +429,19 @@ def _evaluate_and_apply():
         _effective_decision = d
         _last_change_ts = now
         _expose_decision(d, d)
+        if _ACTUATE:
+            _actuate_respecting_overrides(d)
         _notify_transition(prev, d)
     else:
         # Holding due to cooldown. Show engine's wanted mode + reason in
         # attributes so the dashboard is transparent.
         _expose_decision(_effective_decision, current_d=d)
+    _maybe_warn_danger(s, c)
 
 
 @time_trigger("startup")
 def on_startup():
-    log.info("climate_balance: startup — Phase 2 dry-run engine active")
+    log.info("climate_balance: startup — Phase 3 live actuation active")
     _evaluate_and_apply()
 
 
@@ -385,3 +478,19 @@ def on_whf_change(value=None, old_value=None, context=None):
     if user_id is None:
         return
     _start_snooze("whf")
+
+
+@time_trigger("period(now, 1min)")
+def check_snooze_expiry():
+    """Detect snooze expiry edges and trigger resume."""
+    global _last_cooler_snoozed, _last_whf_snoozed
+    cur_cooler = _snooze_active("cooler")
+    cur_whf = _snooze_active("whf")
+
+    if _last_cooler_snoozed and not cur_cooler:
+        _on_snooze_expire("cooler")
+    if _last_whf_snoozed and not cur_whf:
+        _on_snooze_expire("whf")
+
+    _last_cooler_snoozed = cur_cooler
+    _last_whf_snoozed = cur_whf
