@@ -38,13 +38,19 @@ class ClimateState:
     attic_temp_f: Optional[float]
     attic_rh_pct: Optional[float]
 
-    @property
-    def has_required(self) -> bool:
-        """True if we have the minimum sensors to make any decision."""
-        return all(v is not None for v in (
-            self.outside_temp_f, self.outside_rh_pct,
-            self.indoor_temp_f, self.indoor_rh_pct,
-        ))
+
+def has_required(s: ClimateState) -> bool:
+    """True if we have the minimum sensors to make any decision.
+
+    Module-level helper rather than @property on the dataclass because
+    Pyscript's interpreter does not honor descriptor protocol — accessing
+    a @property attribute returns the bare EvalFunc wrapper instead of
+    invoking the getter. Plain CPython is fine either way.
+    """
+    return all(v is not None for v in (
+        s.outside_temp_f, s.outside_rh_pct,
+        s.indoor_temp_f, s.indoor_rh_pct,
+    ))
 
 
 @dataclass(frozen=True)
@@ -141,7 +147,7 @@ def evaluate(
     if c.vacation:
         return _off("Vacation mode — climate balance suspended")
 
-    if not s.has_required:
+    if not has_required(s):
         return _off("Required sensor unavailable — holding off")
 
     # Rule 2: dehumidify (attic OR indoor RH above limit + dead band)
