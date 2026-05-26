@@ -84,11 +84,54 @@ def test_indoor_humid_but_outside_humid_too_recirculate():
     assert d.mode == Mode.RECIRCULATE
 
 
-def test_attic_humidity_hysteresis():
-    # Below threshold + 5 (i.e., 54%) → should NOT fire DEHUMIDIFY
+def test_dehumidify_does_not_engage_at_or_below_helper():
+    # max_attic_rh=50, attic_rh=50 (at threshold, NOT strictly above) → no engage
     d = evaluate(
-        _state(attic_rh_pct=53.0, indoor_temp_f=70.0, indoor_rh_pct=45.0),
+        _state(attic_rh_pct=50.0, indoor_temp_f=70.0, indoor_rh_pct=45.0),
         _cfg(max_attic_rh=50.0), _NOON,
+    )
+    assert d.mode != Mode.DEHUMIDIFY
+
+
+def test_dehumidify_engages_just_above_helper():
+    # max_attic_rh=50, attic_rh=51 → above entry threshold → engage
+    d = evaluate(
+        _state(attic_rh_pct=51.0, indoor_temp_f=70.0, indoor_rh_pct=45.0,
+               outside_rh_pct=15.0, outside_temp_f=85.0),
+        _cfg(max_attic_rh=50.0), _NOON,
+    )
+    assert d.mode == Mode.DEHUMIDIFY
+
+
+def test_dehumidify_stays_engaged_above_exit_threshold():
+    # In DEHUMIDIFY (prev), max=50 → exit threshold is 40. RH=42 > 40 → STAY.
+    d = evaluate(
+        _state(attic_rh_pct=42.0, indoor_temp_f=70.0, indoor_rh_pct=30.0,
+               outside_rh_pct=15.0, outside_temp_f=85.0),
+        _cfg(max_attic_rh=50.0, max_indoor_rh=50.0), _NOON,
+        prev_mode=Mode.DEHUMIDIFY,
+    )
+    assert d.mode == Mode.DEHUMIDIFY
+
+
+def test_dehumidify_exits_at_or_below_exit_threshold():
+    # In DEHUMIDIFY, max=50, exit threshold=40. RH=40 (at) and 38 (below) → exit.
+    for rh in [40.0, 38.0]:
+        d = evaluate(
+            _state(attic_rh_pct=rh, indoor_temp_f=70.0, indoor_rh_pct=30.0),
+            _cfg(max_attic_rh=50.0, max_indoor_rh=50.0), _NOON,
+            prev_mode=Mode.DEHUMIDIFY,
+        )
+        assert d.mode != Mode.DEHUMIDIFY, f"failed at attic_rh={rh}"
+
+
+def test_dehumidify_does_not_re_engage_in_hysteresis_gap():
+    # Dehumidify just exited (prev_mode=OFF). max=50 → entry 50, exit 40.
+    # RH=45 is in the 40-50 gap. Entry threshold applies → don't engage.
+    d = evaluate(
+        _state(attic_rh_pct=45.0, indoor_temp_f=70.0, indoor_rh_pct=30.0),
+        _cfg(max_attic_rh=50.0, max_indoor_rh=50.0), _NOON,
+        prev_mode=Mode.OFF,
     )
     assert d.mode != Mode.DEHUMIDIFY
 

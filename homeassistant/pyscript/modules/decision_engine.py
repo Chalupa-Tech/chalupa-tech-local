@@ -82,6 +82,10 @@ class Decision:
 
 TEMP_DEAD_BAND_F = 2.0
 RH_DEAD_BAND = 5.0
+# Asymmetric hysteresis on the dehumidify rule. Engage when RH > helper;
+# stay engaged until RH drops to helper - DEHUMIDIFY_RH_EXIT_BAND. Prevents
+# dehumidify flapping when indoor RH hovers near the helper threshold.
+DEHUMIDIFY_RH_EXIT_BAND = 10.0
 DEHUMIDIFY_FAN_SPEED = 2
 
 
@@ -155,10 +159,18 @@ def evaluate(
     if not has_required(s):
         return _off("Required sensor unavailable — holding off")
 
-    # Rule 2: dehumidify (attic OR indoor RH above limit + dead band)
+    # Rule 2: dehumidify — asymmetric hysteresis
+    # Entry: RH > helper. Exit: RH <= helper - DEHUMIDIFY_RH_EXIT_BAND.
+    # Once in DEHUMIDIFY, threshold drops by DEHUMIDIFY_RH_EXIT_BAND so the
+    # engine doesn't disengage at the same point it engaged.
+    in_dehumidify = prev_mode == Mode.DEHUMIDIFY
+    attic_threshold = (c.max_attic_rh - DEHUMIDIFY_RH_EXIT_BAND
+                       if in_dehumidify else c.max_attic_rh)
+    indoor_threshold = (c.max_indoor_rh - DEHUMIDIFY_RH_EXIT_BAND
+                        if in_dehumidify else c.max_indoor_rh)
     attic_too_humid = (s.attic_rh_pct is not None
-                      and s.attic_rh_pct > c.max_attic_rh + RH_DEAD_BAND)
-    indoor_too_humid = s.indoor_rh_pct > c.max_indoor_rh + RH_DEAD_BAND
+                      and s.attic_rh_pct > attic_threshold)
+    indoor_too_humid = s.indoor_rh_pct > indoor_threshold
     if attic_too_humid or indoor_too_humid:
         outside_dp = dew_point_f(s.outside_temp_f, s.outside_rh_pct)
         indoor_dp = dew_point_f(s.indoor_temp_f, s.indoor_rh_pct)
