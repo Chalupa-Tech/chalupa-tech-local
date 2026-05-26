@@ -33,18 +33,18 @@ input_number:
     icon: mdi:fan
   climate_balance_max_indoor_rh:
     name: "Max Indoor Relative Humidity"
-    min: 40
+    min: 35
     max: 70
     step: 1
-    initial: 55
+    initial: 45
     unit_of_measurement: "%"
     icon: mdi:water-percent
   climate_balance_max_attic_rh:
     name: "Max Attic Relative Humidity"
-    min: 40
+    min: 35
     max: 70
     step: 1
-    initial: 50
+    initial: 45
     unit_of_measurement: "%"
     icon: mdi:home-roof
   climate_balance_max_dew_point:

@@ -255,3 +255,96 @@ def test_missing_sensors_returns_off_with_unavailable_reason():
     )
     assert d.mode == Mode.OFF
     assert "sensor" in d.reason.lower()
+
+
+# ---------- Asymmetric hysteresis (prev_mode aware) ----------
+
+def test_whf_stays_running_between_exit_and_entry_thresholds():
+    # whf_target 68; entry > 68, exit ≤ 66 (whf_target - dead band)
+    # Indoor 67 is in the hysteresis gap. If we're ALREADY in WHF_ONLY, stay.
+    d = evaluate(
+        _state(outside_temp_f=55.0, outside_rh_pct=30.0,
+               indoor_temp_f=67.0, indoor_rh_pct=45.0),
+        _cfg(whf_target_f=68.0), _EARLY_MORNING,
+        prev_mode=Mode.WHF_ONLY,
+    )
+    assert d.mode == Mode.WHF_ONLY
+
+
+def test_whf_does_not_enter_in_hysteresis_gap_when_off():
+    # Same conditions but prev_mode is OFF — don't enter
+    d = evaluate(
+        _state(outside_temp_f=55.0, outside_rh_pct=30.0,
+               indoor_temp_f=67.0, indoor_rh_pct=45.0),
+        _cfg(whf_target_f=68.0), _EARLY_MORNING,
+        prev_mode=Mode.OFF,
+    )
+    assert d.mode == Mode.OFF
+
+
+def test_whf_exits_when_indoor_below_exit_threshold():
+    # Indoor 65 is below exit threshold (66) — even with prev WHF_ONLY, exit
+    d = evaluate(
+        _state(outside_temp_f=55.0, outside_rh_pct=30.0,
+               indoor_temp_f=65.0, indoor_rh_pct=45.0),
+        _cfg(whf_target_f=68.0), _EARLY_MORNING,
+        prev_mode=Mode.WHF_ONLY,
+    )
+    assert d.mode == Mode.OFF
+
+
+def test_cooler_stays_running_between_exit_and_entry_thresholds():
+    # target 70; entry > 72, exit ≤ 70. Indoor 71 = in the gap.
+    # If prev is COOLER_FULL, stay running.
+    d = evaluate(
+        _state(outside_temp_f=90.0, outside_rh_pct=20.0,
+               indoor_temp_f=71.0, indoor_rh_pct=45.0),
+        _cfg(target_temp_f=70.0), _NOON,
+        prev_mode=Mode.COOLER_FULL,
+    )
+    assert d.mode == Mode.COOLER_FULL
+
+
+def test_cooler_exits_when_indoor_at_or_below_target():
+    # Indoor 70 = target. With prev COOLER_FULL, indoor > target is False → exit
+    d = evaluate(
+        _state(outside_temp_f=90.0, outside_rh_pct=20.0,
+               indoor_temp_f=70.0, indoor_rh_pct=45.0),
+        _cfg(target_temp_f=70.0), _NOON,
+        prev_mode=Mode.COOLER_FULL,
+    )
+    assert d.mode == Mode.OFF
+
+
+def test_prev_mode_none_uses_entry_thresholds():
+    # Cold start (prev_mode=None) → same behavior as before: must clear entry
+    d = evaluate(
+        _state(outside_temp_f=55.0, outside_rh_pct=30.0,
+               indoor_temp_f=67.0, indoor_rh_pct=45.0),
+        _cfg(whf_target_f=68.0), _EARLY_MORNING,
+        prev_mode=None,
+    )
+    assert d.mode == Mode.OFF
+
+
+# ---------- Cooler-effective overshoot tolerance ----------
+
+def test_cooler_fires_when_achievable_within_overshoot_tolerance():
+    # Outside 90°F @ 20% RH → chart achievable 70°F. dew point ~44°F (under 60 max).
+    # Target 69 → achievable 70 is 1°F over. With COOLER_OVERSHOOT_F = 1.0, fire.
+    d = evaluate(
+        _state(outside_temp_f=90.0, outside_rh_pct=20.0,
+               indoor_temp_f=78.0, indoor_rh_pct=30.0),
+        _cfg(target_temp_f=69.0), _NOON,
+    )
+    assert d.mode == Mode.COOLER_FULL
+
+
+def test_cooler_recirculates_when_achievable_exceeds_overshoot_tolerance():
+    # Outside 105°F @ 40% → achievable 88°F. Target 70 → 88 well above tolerance.
+    d = evaluate(
+        _state(outside_temp_f=105.0, outside_rh_pct=40.0,
+               indoor_temp_f=85.0, indoor_rh_pct=30.0),
+        _cfg(target_temp_f=70.0), _NOON,
+    )
+    assert d.mode == Mode.RECIRCULATE
