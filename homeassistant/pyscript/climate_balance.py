@@ -18,6 +18,7 @@ from dew_point import dew_point_f
 
 
 _ACTUATE = False   # Phase 3 flips this to True
+_NOTIFY_SERVICE = "homeassistant_tejon_frame"   # notify.<service> for Discord
 _DISCORD_TARGET = "1508674689256652850"
 _MIN_RUNTIME = timedelta(minutes=10)
 
@@ -145,7 +146,12 @@ def _notify_transition(prev, d):
         body = f"[DRY-RUN] {body}"
     log.info(f"climate_balance transition: {prev.value if prev else 'init'} -> "
              f"{d.mode.value}: {d.reason}")
-    notify.discord(message=f"{emoji} {body}", target=[_DISCORD_TARGET])
+    # Use service.call so the service name is a runtime string (notify.<dynamic>)
+    service.call(
+        "notify", _NOTIFY_SERVICE,
+        message=f"{emoji} {body}",
+        target=[_DISCORD_TARGET],
+    )
 
 
 def _expose_decision(effective_d, current_d=None):
