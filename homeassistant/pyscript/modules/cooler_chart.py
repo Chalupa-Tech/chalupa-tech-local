@@ -59,10 +59,29 @@ def lookup_achievable_temp(outside_temp_f: float, outside_rh_pct: float) -> Opti
 
     Uses nearest-cell rounding for both temp (5 °F granularity) and RH (5 %).
     Returns None when nearest cell falls in the chart's empty (ineffective) zone.
-    Outside temps below 75 °F are returned unchanged (cooler can't improve cold air).
+
+    For outside temps below 75 °F (the chart's lowest row), extrapolates using
+    the 75 °F row's delta at the same RH:
+
+        delta(rh) = 75 - delivered_at_75(rh)
+        delivered = outside_temp - delta(rh)
+
+    Earlier passthrough behavior (returning outside_temp unchanged for sub-75)
+    was wrong — evap cooling still works at moderate temps, the chart just
+    doesn't cover them. The bug surfaced as the engine engaging COOLER_FULL
+    at outside=71 °F with achievable=71 °F (no cooling effect), barely passing
+    the target+1 overshoot check.
     """
     if outside_temp_f < 75:
-        return int(round(outside_temp_f))
+        row_75 = COOLER_CHART[75]
+        if outside_rh_pct > max(row_75.keys()):
+            return None
+        rh_key = _nearest(row_75.keys(), outside_rh_pct)
+        delivered_at_75 = row_75.get(rh_key)
+        if delivered_at_75 is None:
+            return int(round(outside_temp_f))
+        delta = 75 - delivered_at_75
+        return int(round(outside_temp_f - delta))
     temp_key = _nearest(COOLER_CHART.keys(), outside_temp_f)
     row = COOLER_CHART[temp_key]
     if outside_rh_pct > max(row.keys()):
