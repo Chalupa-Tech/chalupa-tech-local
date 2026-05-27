@@ -34,10 +34,23 @@ def test_nearest_cell_rounding_rh():
     assert lookup_achievable_temp(95, 47) == 83
 
 
-def test_outside_below_75_passthrough():
-    # Cooler can't improve sub-75 input; lookup returns the input temp
-    assert lookup_achievable_temp(65, 30) == 65
-    assert lookup_achievable_temp(70, 80) == 70
+def test_outside_below_75_extrapolates_using_75_row_delta():
+    # Outside 71°F @ 44% RH: 75°F row at 45% (nearest) → 64, delta 11.
+    # Result: 71 - 11 = 60. (This is the case from the production bug report.)
+    assert lookup_achievable_temp(71, 44) == 60
+
+    # Outside 65°F @ 30% RH: 75°F row at 30% → 61, delta 14.
+    # Result: 65 - 14 = 51.
+    assert lookup_achievable_temp(65, 30) == 51
+
+    # Outside 70°F @ 80% RH: 75°F row at 80% → 72, delta 3.
+    # Result: 70 - 3 = 67.
+    assert lookup_achievable_temp(70, 80) == 67
+
+
+def test_outside_below_75_returns_none_if_rh_above_chart():
+    # Row 75 max RH is 80. RH=85 has no chart data → None even for sub-75 outside.
+    assert lookup_achievable_temp(70, 85) is None
 
 
 def test_empty_cell_returns_none():
