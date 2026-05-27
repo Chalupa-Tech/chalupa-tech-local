@@ -73,15 +73,45 @@ def test_indoor_humidity_too_high_dehumidify_when_outside_dry():
     assert d.mode == Mode.DEHUMIDIFY
 
 
-def test_indoor_humid_but_outside_humid_too_recirculate():
-    # Indoor 62% RH at 75°F → indoor DP ~62°F.
-    # Outside 90°F at 70% RH → outside DP ~79°F. Worse — recirculate.
+def test_indoor_humid_hot_outside_humid_recirculate_via_rule4():
+    # Indoor 62% RH at 75°F + outside 90°F at 70% RH (DP ~79).
+    # Rule 2 falls through (outside DP not better than indoor 62).
+    # Rule 3 doesn't fire (outside warmer than indoor).
+    # Rule 4 fires, sees outside DP 79 > max 60 → RECIRCULATE.
     d = evaluate(
         _state(indoor_rh_pct=62.0, indoor_temp_f=75.0,
                outside_temp_f=90.0, outside_rh_pct=70.0),
         _cfg(), _NOON,
     )
     assert d.mode == Mode.RECIRCULATE
+
+
+def test_indoor_humid_outside_cool_within_dp_limit_runs_whf():
+    # User's reported scenario: indoor humid (rule 2 triggers) but outside is
+    # cooler AND outside DP is slightly higher than indoor DP yet still within
+    # max_dew_point_f. Previously this short-circuited to RECIRCULATE from
+    # rule 2; now it falls through to rule 3 → WHF_ONLY.
+    # Indoor 75 + 50% → DP ~55. Outside 70 + 65% → DP ~58 (worse than indoor
+    # but well below max 60). Rule 2 falls through; rule 3 engages WHF.
+    d = evaluate(
+        _state(indoor_rh_pct=50.0, indoor_temp_f=75.0,
+               outside_temp_f=70.0, outside_rh_pct=65.0),
+        _cfg(max_indoor_rh=45.0, max_dew_point_f=60.0), _NOON,
+    )
+    assert d.mode == Mode.WHF_ONLY
+
+
+def test_whf_blocked_when_outside_dp_exceeds_max():
+    # Outside is cooler than indoor BUT muggy enough to exceed max DP.
+    # Indoor 75 + 40% → DP ~50. Outside 70 + 85% → DP ~65 (> max 60).
+    # Rule 3 fires the new DP guard → RECIRCULATE.
+    d = evaluate(
+        _state(indoor_rh_pct=40.0, indoor_temp_f=75.0,
+               outside_temp_f=70.0, outside_rh_pct=85.0),
+        _cfg(max_dew_point_f=60.0, max_indoor_rh=55.0), _NOON,
+    )
+    assert d.mode == Mode.RECIRCULATE
+    assert "dew point" in d.reason.lower()
 
 
 def test_dehumidify_does_not_engage_at_or_below_helper():

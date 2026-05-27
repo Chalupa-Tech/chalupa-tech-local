@@ -181,10 +181,11 @@ def evaluate(
                 f"Dehumidify — {src} above limit; outside DP {outside_dp:.0f}°F "
                 f"< indoor DP {indoor_dp:.0f}°F so pulling outside air helps"
             )
-        return _recirculate(
-            f"Indoor humid but outside dew point {outside_dp:.0f}°F worse than "
-            f"indoor {indoor_dp:.0f}°F — recirculating only"
-        )
+        # Outside DP not strictly better than indoor — don't engage DEHUMIDIFY,
+        # but DON'T short-circuit to RECIRCULATE either. Cooling (rules 3/4)
+        # may still be the right action even if it can't fix humidity. Rules
+        # 3 and 4 have their own absolute DP guard (outside_dp > max_dew_point_f)
+        # to prevent bringing in genuinely muggy air.
 
     # Rule 3: free cooling (WHF only) — asymmetric hysteresis
     # Entry: indoor > whf_target. Exit: indoor ≤ whf_target - 2.
@@ -194,6 +195,13 @@ def evaluate(
     in_whf = prev_mode == Mode.WHF_ONLY
     whf_threshold = c.whf_target_f - TEMP_DEAD_BAND_F if in_whf else c.whf_target_f
     if outside_cooler and s.indoor_temp_f > whf_threshold:
+        outside_dp = dew_point_f(s.outside_temp_f, s.outside_rh_pct)
+        if outside_dp > c.max_dew_point_f:
+            return _recirculate(
+                f"Cooler outside ({s.outside_temp_f:.0f}°F) but outside dew "
+                f"point {outside_dp:.0f}°F > limit {c.max_dew_point_f:.0f}°F "
+                f"— recirculating"
+            )
         return _whf_only(
             f"Free cooling — outside {s.outside_temp_f:.0f}°F < indoor "
             f"{s.indoor_temp_f:.0f}°F, target {c.whf_target_f:.0f}°F"
