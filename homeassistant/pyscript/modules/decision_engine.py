@@ -68,6 +68,9 @@ class Config:
     max_indoor_rh: float
     max_attic_rh: float
     max_dew_point_f: float
+    # Percentage points the engaged-DEHUMIDIFY exit threshold sits below the
+    # helper. With max_indoor_rh=45 and band=10, engage at >45 / exit at <=35.
+    dehumidify_hysteresis_band: float = 10.0
 
 
 @dataclass(frozen=True)
@@ -82,15 +85,11 @@ class Decision:
 
 TEMP_DEAD_BAND_F = 2.0
 RH_DEAD_BAND = 5.0
-# Asymmetric hysteresis on the dehumidify rule. Humidity has strict priority
-# over temperature in mode selection — the swamp cooler in Cool mode adds
-# moisture to indoor air via the wet pads, so running it when RH is already
-# above the helper makes the humidity problem worse. DEHUMIDIFY (Fan-only +
-# WHF) flushes outside air through the house without adding water.
-# Engage at RH > helper. Once engaged, stay engaged until RH well below
-# (helper - EXIT_BAND), giving asymmetric protection against rapid bouncing
-# without requiring an entry buffer.
-DEHUMIDIFY_RH_EXIT_BAND = 10.0
+# Dehumidify rule has strict humidity priority (engage at RH > helper, no
+# entry buffer). The asymmetric exit threshold is controlled by
+# Config.dehumidify_hysteresis_band — once engaged, stay engaged until RH
+# drops to (helper - band). Default 10 points; user-tunable via the
+# climate_balance_dehumidify_hysteresis_band input_number helper.
 DEHUMIDIFY_FAN_SPEED = 2
 
 
@@ -166,12 +165,12 @@ def evaluate(
 
     # Rule 2: dehumidify — asymmetric hysteresis on exit only
     # Entry: RH > helper.
-    # Exit (when in DEHUMIDIFY): RH <= helper - DEHUMIDIFY_RH_EXIT_BAND.
+    # Exit (when in DEHUMIDIFY): RH <= helper - dehumidify_hysteresis_band.
     # Humidity strict priority — engage immediately when above helper.
     in_dehumidify = prev_mode == Mode.DEHUMIDIFY
-    attic_threshold = (c.max_attic_rh - DEHUMIDIFY_RH_EXIT_BAND
+    attic_threshold = (c.max_attic_rh - c.dehumidify_hysteresis_band
                        if in_dehumidify else c.max_attic_rh)
-    indoor_threshold = (c.max_indoor_rh - DEHUMIDIFY_RH_EXIT_BAND
+    indoor_threshold = (c.max_indoor_rh - c.dehumidify_hysteresis_band
                         if in_dehumidify else c.max_indoor_rh)
     attic_too_humid = (s.attic_rh_pct is not None
                       and s.attic_rh_pct > attic_threshold)

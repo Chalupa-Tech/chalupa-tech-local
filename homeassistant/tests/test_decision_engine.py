@@ -155,6 +155,26 @@ def test_dehumidify_exits_at_or_below_exit_threshold():
         assert d.mode != Mode.DEHUMIDIFY, f"failed at attic_rh={rh}"
 
 
+def test_dehumidify_hysteresis_band_is_tunable():
+    # With band=5 instead of default 10, exit shifts to helper-5.
+    # max=50, band=5 → exit at 45. RH=46 > 45 → STAY in DEHUMIDIFY.
+    d = evaluate(
+        _state(attic_rh_pct=46.0, indoor_temp_f=70.0, indoor_rh_pct=30.0,
+               outside_rh_pct=15.0, outside_temp_f=85.0),
+        _cfg(max_attic_rh=50.0, max_indoor_rh=50.0, dehumidify_hysteresis_band=5.0),
+        _NOON, prev_mode=Mode.DEHUMIDIFY,
+    )
+    assert d.mode == Mode.DEHUMIDIFY
+
+    # Same band=5 but RH=44 → below exit threshold of 45 → exit.
+    d2 = evaluate(
+        _state(attic_rh_pct=44.0, indoor_temp_f=70.0, indoor_rh_pct=30.0),
+        _cfg(max_attic_rh=50.0, max_indoor_rh=50.0, dehumidify_hysteresis_band=5.0),
+        _NOON, prev_mode=Mode.DEHUMIDIFY,
+    )
+    assert d2.mode != Mode.DEHUMIDIFY
+
+
 def test_dehumidify_does_not_re_engage_in_hysteresis_gap():
     # Dehumidify just exited (prev=OFF). max=50, entry=50, exit=40.
     # RH=45 is in the 40-50 gap. Don't re-engage.

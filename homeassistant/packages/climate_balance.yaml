@@ -63,6 +63,14 @@ input_number:
     initial: 60
     unit_of_measurement: "min"
     icon: mdi:timer
+  climate_balance_dehumidify_hysteresis_band:
+    name: "Dehumidify Hysteresis Band"
+    min: 5
+    max: 25
+    step: 1
+    initial: 10
+    unit_of_measurement: "%"
+    icon: mdi:swap-vertical
 
 input_datetime:
   cooler_manual_until:

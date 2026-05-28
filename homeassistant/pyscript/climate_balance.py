@@ -54,6 +54,7 @@ _H_WHF_TARGET = "input_number.climate_balance_whf_target"
 _H_MAX_INDOOR_RH = "input_number.climate_balance_max_indoor_rh"
 _H_MAX_ATTIC_RH = "input_number.climate_balance_max_attic_rh"
 _H_MAX_DP = "input_number.climate_balance_max_dew_point"
+_H_DEHUM_BAND = "input_number.climate_balance_dehumidify_hysteresis_band"
 _H_OVERRIDE_MIN = "input_number.climate_balance_override_minutes"
 _H_COOLER_UNTIL = "input_datetime.cooler_manual_until"
 _H_WHF_UNTIL = "input_datetime.whf_manual_until"
@@ -130,6 +131,7 @@ def _build_config():
         max_indoor_rh=_read_float(_H_MAX_INDOOR_RH) or 45.0,
         max_attic_rh=_read_float(_H_MAX_ATTIC_RH) or 45.0,
         max_dew_point_f=_read_float(_H_MAX_DP) or 60.0,
+        dehumidify_hysteresis_band=_read_float(_H_DEHUM_BAND) or 10.0,
     )
 
 
@@ -444,6 +446,7 @@ def on_startup():
     f"{_H_ENABLED}", f"{_H_VACATION}",
     f"{_H_TARGET}", f"{_H_WHF_TARGET}",
     f"{_H_MAX_INDOOR_RH}", f"{_H_MAX_ATTIC_RH}", f"{_H_MAX_DP}",
+    f"{_H_DEHUM_BAND}",
 )
 def on_any_input_change(**kwargs):
     _evaluate_and_apply()
