@@ -82,9 +82,14 @@ class Decision:
 
 TEMP_DEAD_BAND_F = 2.0
 RH_DEAD_BAND = 5.0
-# Asymmetric hysteresis on the dehumidify rule. Engage when RH > helper;
-# stay engaged until RH drops to helper - DEHUMIDIFY_RH_EXIT_BAND. Prevents
-# dehumidify flapping when indoor RH hovers near the helper threshold.
+# Asymmetric hysteresis on the dehumidify rule. Treat the helper as the
+# "things are getting sticky" comfort line, not the intervention trigger.
+# Engage only when RH meaningfully above helper (helper + ENTRY_BAND); stay
+# engaged until RH well below helper (helper - EXIT_BAND). 15-point hysteresis
+# band prevents COOLER_FULL ↔ DEHUMIDIFY flapping when indoor RH wobbles
+# around the helper threshold (cooler hardware bouncing Cool ↔ Fan-only
+# looks like the cooler "turning off" to the user).
+DEHUMIDIFY_RH_ENTRY_BAND = 5.0
 DEHUMIDIFY_RH_EXIT_BAND = 10.0
 DEHUMIDIFY_FAN_SPEED = 2
 
@@ -160,14 +165,16 @@ def evaluate(
         return _off("Required sensor unavailable — holding off")
 
     # Rule 2: dehumidify — asymmetric hysteresis
-    # Entry: RH > helper. Exit: RH <= helper - DEHUMIDIFY_RH_EXIT_BAND.
-    # Once in DEHUMIDIFY, threshold drops by DEHUMIDIFY_RH_EXIT_BAND so the
-    # engine doesn't disengage at the same point it engaged.
+    # Entry: RH > helper + DEHUMIDIFY_RH_ENTRY_BAND.
+    # Exit (when in DEHUMIDIFY): RH <= helper - DEHUMIDIFY_RH_EXIT_BAND.
+    # 15-point band keeps mode stable when RH wobbles near the helper.
     in_dehumidify = prev_mode == Mode.DEHUMIDIFY
     attic_threshold = (c.max_attic_rh - DEHUMIDIFY_RH_EXIT_BAND
-                       if in_dehumidify else c.max_attic_rh)
+                       if in_dehumidify
+                       else c.max_attic_rh + DEHUMIDIFY_RH_ENTRY_BAND)
     indoor_threshold = (c.max_indoor_rh - DEHUMIDIFY_RH_EXIT_BAND
-                        if in_dehumidify else c.max_indoor_rh)
+                        if in_dehumidify
+                        else c.max_indoor_rh + DEHUMIDIFY_RH_ENTRY_BAND)
     attic_too_humid = (s.attic_rh_pct is not None
                       and s.attic_rh_pct > attic_threshold)
     indoor_too_humid = s.indoor_rh_pct > indoor_threshold
