@@ -82,14 +82,14 @@ class Decision:
 
 TEMP_DEAD_BAND_F = 2.0
 RH_DEAD_BAND = 5.0
-# Asymmetric hysteresis on the dehumidify rule. Treat the helper as the
-# "things are getting sticky" comfort line, not the intervention trigger.
-# Engage only when RH meaningfully above helper (helper + ENTRY_BAND); stay
-# engaged until RH well below helper (helper - EXIT_BAND). 15-point hysteresis
-# band prevents COOLER_FULL ↔ DEHUMIDIFY flapping when indoor RH wobbles
-# around the helper threshold (cooler hardware bouncing Cool ↔ Fan-only
-# looks like the cooler "turning off" to the user).
-DEHUMIDIFY_RH_ENTRY_BAND = 5.0
+# Asymmetric hysteresis on the dehumidify rule. Humidity has strict priority
+# over temperature in mode selection — the swamp cooler in Cool mode adds
+# moisture to indoor air via the wet pads, so running it when RH is already
+# above the helper makes the humidity problem worse. DEHUMIDIFY (Fan-only +
+# WHF) flushes outside air through the house without adding water.
+# Engage at RH > helper. Once engaged, stay engaged until RH well below
+# (helper - EXIT_BAND), giving asymmetric protection against rapid bouncing
+# without requiring an entry buffer.
 DEHUMIDIFY_RH_EXIT_BAND = 10.0
 DEHUMIDIFY_FAN_SPEED = 2
 
@@ -164,17 +164,15 @@ def evaluate(
     if not has_required(s):
         return _off("Required sensor unavailable — holding off")
 
-    # Rule 2: dehumidify — asymmetric hysteresis
-    # Entry: RH > helper + DEHUMIDIFY_RH_ENTRY_BAND.
+    # Rule 2: dehumidify — asymmetric hysteresis on exit only
+    # Entry: RH > helper.
     # Exit (when in DEHUMIDIFY): RH <= helper - DEHUMIDIFY_RH_EXIT_BAND.
-    # 15-point band keeps mode stable when RH wobbles near the helper.
+    # Humidity strict priority — engage immediately when above helper.
     in_dehumidify = prev_mode == Mode.DEHUMIDIFY
     attic_threshold = (c.max_attic_rh - DEHUMIDIFY_RH_EXIT_BAND
-                       if in_dehumidify
-                       else c.max_attic_rh + DEHUMIDIFY_RH_ENTRY_BAND)
+                       if in_dehumidify else c.max_attic_rh)
     indoor_threshold = (c.max_indoor_rh - DEHUMIDIFY_RH_EXIT_BAND
-                        if in_dehumidify
-                        else c.max_indoor_rh + DEHUMIDIFY_RH_ENTRY_BAND)
+                        if in_dehumidify else c.max_indoor_rh)
     attic_too_humid = (s.attic_rh_pct is not None
                       and s.attic_rh_pct > attic_threshold)
     indoor_too_humid = s.indoor_rh_pct > indoor_threshold

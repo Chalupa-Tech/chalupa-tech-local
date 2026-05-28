@@ -114,8 +114,8 @@ def test_whf_blocked_when_outside_dp_exceeds_max():
     assert "dew point" in d.reason.lower()
 
 
-def test_dehumidify_does_not_engage_at_helper():
-    # max_attic_rh=50, attic_rh=50 → below entry (helper+5=55). Don't engage.
+def test_dehumidify_does_not_engage_at_or_below_helper():
+    # max_attic_rh=50, attic_rh=50 → at threshold (not strictly >). Don't engage.
     d = evaluate(
         _state(attic_rh_pct=50.0, indoor_temp_f=70.0, indoor_rh_pct=45.0),
         _cfg(max_attic_rh=50.0), _NOON,
@@ -123,21 +123,10 @@ def test_dehumidify_does_not_engage_at_helper():
     assert d.mode != Mode.DEHUMIDIFY
 
 
-def test_dehumidify_does_not_engage_inside_entry_buffer():
-    # max=50, attic_rh=54 (still in the helper+ENTRY buffer zone, 50-55).
-    # User-visible "this is where it's getting sticky" but not yet
-    # uncomfortable enough to swap to fan-only mode.
+def test_dehumidify_engages_just_above_helper():
+    # max_attic_rh=50, attic_rh=51 → strict > helper → engage.
     d = evaluate(
-        _state(attic_rh_pct=54.0, indoor_temp_f=70.0, indoor_rh_pct=45.0),
-        _cfg(max_attic_rh=50.0), _NOON,
-    )
-    assert d.mode != Mode.DEHUMIDIFY
-
-
-def test_dehumidify_engages_above_entry_buffer():
-    # max=50, entry threshold = 55. attic_rh=56 → above → engage.
-    d = evaluate(
-        _state(attic_rh_pct=56.0, indoor_temp_f=70.0, indoor_rh_pct=45.0,
+        _state(attic_rh_pct=51.0, indoor_temp_f=70.0, indoor_rh_pct=45.0,
                outside_rh_pct=15.0, outside_temp_f=85.0),
         _cfg(max_attic_rh=50.0), _NOON,
     )
@@ -167,8 +156,8 @@ def test_dehumidify_exits_at_or_below_exit_threshold():
 
 
 def test_dehumidify_does_not_re_engage_in_hysteresis_gap():
-    # Dehumidify just exited (prev=OFF). max=50, entry=55, exit=40.
-    # RH=45 is in the 40-55 gap. Don't re-engage.
+    # Dehumidify just exited (prev=OFF). max=50, entry=50, exit=40.
+    # RH=45 is in the 40-50 gap. Don't re-engage.
     d = evaluate(
         _state(attic_rh_pct=45.0, indoor_temp_f=70.0, indoor_rh_pct=30.0),
         _cfg(max_attic_rh=50.0, max_indoor_rh=50.0), _NOON,
