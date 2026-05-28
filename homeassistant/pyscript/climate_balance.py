@@ -454,6 +454,33 @@ def heartbeat():
     _evaluate_and_apply()
 
 
+def _cooler_matches_desired():
+    """True if cooler current state matches what the engine currently wants.
+
+    Used to distinguish genuine user actions from MagiqTouch WebSocket sync
+    events (which fire state triggers but don't reflect user intent). If the
+    state matches the engine's desire, treat as a sync — no snooze.
+    """
+    if _effective_decision is None:
+        return False
+    cur_hvac = state.get(_E_COOLER)
+    if cur_hvac != _effective_decision.cooler_hvac_mode:
+        return False
+    if _effective_decision.cooler_fan_speed is None:
+        return True  # off mode, fan_speed doesn't matter
+    cur = state.getattr(_E_COOLER)
+    cur_fan = cur.get("fan_mode") if cur else None
+    return cur_fan == str(_effective_decision.cooler_fan_speed)
+
+
+def _whf_matches_desired():
+    if _effective_decision is None:
+        return False
+    cur_whf = state.get(_E_WHF)
+    desired = "on" if _effective_decision.whf_on else "off"
+    return cur_whf == desired
+
+
 @state_trigger(
     _E_COOLER,
     f"{_E_COOLER}.fan_mode",
@@ -463,32 +490,35 @@ def heartbeat():
 def on_cooler_change(**kwargs):
     """Detect manual changes to the cooler and start a snooze.
 
-    Listens on both the entity state (hvac_mode) and the user-modifiable
-    attributes (fan_mode, preset_mode, set-point temperature). Pyscript's
-    @state_trigger fires only on the named expression's value changing,
-    so all of these need to be enumerated.
-
-    Uses the self-action window rather than context.user_id, because
-    context.user_id was observed to be None for legitimate UI-driven
-    changes on this HA instance. The window is set just before each
-    of our own service calls in _actuate_respecting_overrides.
+    Three checks (in order):
+    1. _is_self window — we just made a service call, ignore the echo.
+    2. _cooler_matches_desired — the new state matches what the engine
+       currently wants. Usually a MagiqTouch WebSocket sync rather than a
+       user action; don't snooze.
+    3. _snooze_active — already snoozed, no need to re-arm.
     """
     log.info(f"climate_balance: cooler change var={kwargs.get('var_name')} "
              f"value={kwargs.get('value')} self={_is_self('cooler')} "
+             f"matches={_cooler_matches_desired()} "
              f"snoozed={_snooze_active('cooler')}")
     if _is_self("cooler"):
         return
+    if _cooler_matches_desired():
+        return
     if _snooze_active("cooler"):
-        return  # already snoozed, no need to refresh the timer here
+        return
     _start_snooze("cooler")
 
 
 @state_trigger(_E_WHF)
 def on_whf_change(**kwargs):
     """Detect manual changes to the WHF. Only the state (on/off) matters."""
-    log.warning(f"climate_balance: WHF state change observed "
-                f"(self_active={_is_self('whf')}, snoozed={_snooze_active('whf')})")
+    log.info(f"climate_balance: WHF change "
+             f"self={_is_self('whf')} matches={_whf_matches_desired()} "
+             f"snoozed={_snooze_active('whf')}")
     if _is_self("whf"):
+        return
+    if _whf_matches_desired():
         return
     if _snooze_active("whf"):
         return
