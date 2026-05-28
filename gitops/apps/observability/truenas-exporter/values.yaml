@@ -1,0 +1,82 @@
+app-template:
+  controllers:
+    truenas-exporter:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            repository: prom/graphite-exporter
+            # Latest tagged release (Oct 2024). Verify with
+            # `curl -s https://hub.docker.com/v2/repositories/prom/graphite-exporter/tags`.
+            tag: "v0.16.0"
+          args:
+            - --graphite.mapping-config=/etc/graphite-exporter/graphite_mapping.conf
+            - --web.listen-address=:9108
+            - --graphite.listen-address=:9109
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 9108
+                periodSeconds: 30
+                initialDelaySeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 9108
+                periodSeconds: 10
+                initialDelaySeconds: 5
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+
+  service:
+    # ClusterIP service scraped by vmagent on :9108.
+    main:
+      controller: truenas-exporter
+      ports:
+        http:
+          port: 9108
+    # LoadBalancer service on a MetalLB pool IP — TrueNAS Reporting →
+    # Exporters config points its Graphite push at this address:9109.
+    # Pinned to a free address in the default-pool (160-170 range); .161
+    # chosen since .160 is the start of the range and may shift if other
+    # LBs are added without pinning.
+    graphite:
+      controller: truenas-exporter
+      type: LoadBalancer
+      annotations:
+        metallb.universe.tf/loadBalancerIPs: 192.168.1.161
+      # Graphite is a plain TCP line protocol — no health checks etc.
+      externalTrafficPolicy: Local
+      ports:
+        graphite:
+          port: 9109
+          protocol: TCP
+
+  # The ConfigMap holding graphite_mapping.conf is created by a sibling
+  # template (templates/configmap-mapping.yaml) so it can use .Files.Get
+  # to embed the upstream file. app-template's persistence section mounts
+  # it by name.
+  persistence:
+    mapping:
+      enabled: true
+      type: configMap
+      name: truenas-exporter-mapping
+      globalMounts:
+        - path: /etc/graphite-exporter/graphite_mapping.conf
+          subPath: graphite_mapping.conf
+          readOnly: true

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: grafana-wrapper
-description: Wrapper chart for Grafana — anonymous-readonly + admin from OpenBao via ESO, IngressRoute on grafana.frame.chalupatech.com, VictoriaMetrics datasource, 8 starter dashboards loaded via sidecar
+description: Wrapper chart for Grafana — anonymous-readonly + admin from OpenBao via ESO, IngressRoute on grafana.frame.chalupatech.com, VictoriaMetrics datasource, starter dashboards loaded via sidecar
 type: application
 version: 0.1.0
 appVersion: "13.0.1"
