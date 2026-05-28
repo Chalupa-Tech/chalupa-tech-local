@@ -1,0 +1,33 @@
+apiVersion: v2
+name: truenas-exporter
+description: |
+  TrueNAS Scale metrics for VictoriaMetrics via the push-based Graphite path.
+
+  Architecture (TrueNAS 25.04+):
+    TrueNAS Reporting → Exporters (graphite) ──push──▶ graphite_exporter
+                                                      │
+                                                  /metrics ─◀── vmagent (scrape)
+
+  The graphite_mapping.conf and netdata.conf under files/ are pinned copies
+  of Supporterino/truenas-graphite-to-prometheus v2.2.1 (Nov 2025). The
+  mapping translates Netdata's Graphite metric names to Prometheus form;
+  the netdata.conf is for the operator to copy onto the TrueNAS host once
+  (TrueNAS 25.04 dropped many default metrics and this restores them).
+
+  graphite_exporter listens on:
+    - 9108 (HTTP /metrics)          scraped by vmagent via VMServiceScrape
+    - 9109 (TCP, Graphite text)     pushed to by TrueNAS at 192.168.1.40
+
+  9109 is exposed via a MetalLB LoadBalancer on 192.168.1.161 so TrueNAS
+  can reach it without NodePort gymnastics. See files/RUNBOOK.md for the
+  one-time TrueNAS UI configuration step.
+
+  Dashboards (5 from upstream v2.2.1) live in the grafana wrapper chart
+  alongside the other dashboards, loaded via Grafana's sidecar.
+type: application
+version: 0.1.0
+appVersion: "0.16.0"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

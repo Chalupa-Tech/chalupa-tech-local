@@ -1,0 +1,22 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: truenas-exporter
+  namespace: truenas-exporter
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  # Match only the ClusterIP Service exposing /metrics on :9108. The
+  # sibling LoadBalancer Service (graphite ingest on :9109) shares the
+  # `app.kubernetes.io/name` label, so we filter by `service` instead.
+  selector:
+    matchLabels:
+      app.kubernetes.io/service: truenas-exporter-main
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics
+      # The graphite_exporter re-emits `job` and `instance` labels per
+      # the mapping config — preserve them rather than letting vmagent
+      # clobber with the scrape-target's labels.
+      honorLabels: true
