@@ -75,12 +75,21 @@ class Config:
 
 @dataclass(frozen=True)
 class Decision:
-    """What the engine decided. Actuators consume this."""
+    """What the engine decided. Actuators consume this.
+
+    Preset mode + temperature OR fan speed are mutually exclusive paths.
+    COOLER_FULL uses the "set temperature" preset so the MagiqTouch firmware
+    chooses fan speed to hit the target. COOLER_QUIET and DEHUMIDIFY use
+    the fan-speed path because we want explicit control (4-cap for quiet,
+    speed 2 for dehumidify).
+    """
     mode: Mode
-    cooler_hvac_mode: str          # "cool", "fan_only", "off"
-    cooler_fan_speed: Optional[int]  # 0-10 or None when off
+    cooler_hvac_mode: str               # "cool", "fan_only", "off"
+    cooler_preset_mode: Optional[str]   # e.g. "Cooling: set temperature"
+    cooler_set_temperature_f: Optional[int]  # target when in temp preset
+    cooler_fan_speed: Optional[int]     # 1-10 when in fan-speed preset
     whf_on: bool
-    reason: str                    # human-readable, goes to sensor.climate_balance_reason
+    reason: str
 
 
 TEMP_DEAD_BAND_F = 2.0
@@ -102,6 +111,7 @@ def _in_quiet_hours(now: datetime) -> bool:
 def _off(reason: str) -> Decision:
     return Decision(
         mode=Mode.OFF, cooler_hvac_mode="off",
+        cooler_preset_mode=None, cooler_set_temperature_f=None,
         cooler_fan_speed=None, whf_on=False, reason=reason,
     )
 
@@ -109,6 +119,7 @@ def _off(reason: str) -> Decision:
 def _recirculate(reason: str) -> Decision:
     return Decision(
         mode=Mode.RECIRCULATE, cooler_hvac_mode="off",
+        cooler_preset_mode=None, cooler_set_temperature_f=None,
         cooler_fan_speed=None, whf_on=False, reason=reason,
     )
 
@@ -116,6 +127,7 @@ def _recirculate(reason: str) -> Decision:
 def _whf_only(reason: str) -> Decision:
     return Decision(
         mode=Mode.WHF_ONLY, cooler_hvac_mode="off",
+        cooler_preset_mode=None, cooler_set_temperature_f=None,
         cooler_fan_speed=None, whf_on=True, reason=reason,
     )
 
@@ -123,14 +135,31 @@ def _whf_only(reason: str) -> Decision:
 def _dehumidify(reason: str) -> Decision:
     return Decision(
         mode=Mode.DEHUMIDIFY, cooler_hvac_mode="fan_only",
+        cooler_preset_mode=None, cooler_set_temperature_f=None,
         cooler_fan_speed=DEHUMIDIFY_FAN_SPEED, whf_on=True, reason=reason,
     )
 
 
-def _cooler(quiet: bool, fan_speed: int, reason: str) -> Decision:
+def _cooler_full_temp(set_temp_f: int, reason: str) -> Decision:
+    """COOLER_FULL via the MagiqTouch 'set temperature' preset — firmware
+    chooses fan speed to hit the target. Used during normal hours."""
     return Decision(
-        mode=Mode.COOLER_QUIET if quiet else Mode.COOLER_FULL,
-        cooler_hvac_mode="cool", cooler_fan_speed=fan_speed,
+        mode=Mode.COOLER_FULL, cooler_hvac_mode="cool",
+        cooler_preset_mode="Cooling: set temperature",
+        cooler_set_temperature_f=set_temp_f,
+        cooler_fan_speed=None,
+        whf_on=True, reason=reason,
+    )
+
+
+def _cooler_quiet_fan(fan_speed: int, reason: str) -> Decision:
+    """COOLER_QUIET via explicit fan speed (capped at 4) — quiet hours
+    need predictable, low fan operation."""
+    return Decision(
+        mode=Mode.COOLER_QUIET, cooler_hvac_mode="cool",
+        cooler_preset_mode="Cooling: set fan speed",
+        cooler_set_temperature_f=None,
+        cooler_fan_speed=fan_speed,
         whf_on=True, reason=reason,
     )
 
@@ -234,13 +263,25 @@ def evaluate(
                 f"recirculating"
             )
         quiet = _in_quiet_hours(now)
-        headroom = c.target_temp_f - achievable
-        speed = speed_for_headroom(headroom, quiet=quiet)
-        return _cooler(
-            quiet, speed,
-            f"{'Quiet ' if quiet else ''}cooler + WHF — chart says we can hit "
-            f"{achievable}°F (outside {s.outside_temp_f:.0f}°F @ "
-            f"{s.outside_rh_pct:.0f}% RH, fan speed {speed})"
+        env_text = (
+            f"indoor {s.indoor_temp_f:.0f}°F @ {s.indoor_rh_pct:.0f}% RH, "
+            f"outside {s.outside_temp_f:.0f}°F @ {s.outside_rh_pct:.0f}% RH"
+        )
+        if quiet:
+            headroom = c.target_temp_f - achievable
+            speed = speed_for_headroom(headroom, quiet=True)
+            return _cooler_quiet_fan(
+                speed,
+                f"Quiet cooler + WHF — fan speed {speed} (chart says we can "
+                f"hit {achievable}°F; {env_text})"
+            )
+        # Normal hours: use temperature-set preset. The MagiqTouch firmware
+        # chooses fan speed to drive the cooler toward the target temp the
+        # chart says we can achieve.
+        return _cooler_full_temp(
+            achievable,
+            f"cooler + WHF — temperature target {achievable}°F "
+            f"({env_text})"
         )
 
     # Rule 6: idle

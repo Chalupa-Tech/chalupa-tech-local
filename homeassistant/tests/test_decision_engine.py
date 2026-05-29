@@ -231,8 +231,9 @@ def test_no_free_cooling_when_outside_only_slightly_cooler():
 
 # ---------- Rule 4: active cooling ----------
 
-def test_active_cooling_full_during_day():
-    # Outside 90°F @ 20% → chart achievable 70°F = target. Fan speed: headroom 0 → 4.
+def test_active_cooling_full_uses_temperature_preset_during_day():
+    # Outside 90°F @ 20% → chart achievable 70°F. COOLER_FULL should use the
+    # "Cooling: set temperature" preset with set_temperature = achievable.
     d = evaluate(
         _state(outside_temp_f=90.0, outside_rh_pct=20.0,
                indoor_temp_f=78.0, indoor_rh_pct=45.0),
@@ -240,29 +241,47 @@ def test_active_cooling_full_during_day():
     )
     assert d.mode == Mode.COOLER_FULL
     assert d.cooler_hvac_mode == "cool"
+    assert d.cooler_preset_mode == "Cooling: set temperature"
+    assert d.cooler_set_temperature_f == 70
+    assert d.cooler_fan_speed is None  # firmware chooses, not us
     assert d.whf_on is True
-    assert d.cooler_fan_speed == 4  # headroom 0
 
 
-def test_active_cooling_quiet_during_bedtime():
+def test_active_cooling_full_reason_text_includes_indoor_conditions():
+    d = evaluate(
+        _state(outside_temp_f=90.0, outside_rh_pct=20.0,
+               indoor_temp_f=78.0, indoor_rh_pct=48.0),
+        _cfg(target_temp_f=70.0), _NOON,
+    )
+    assert "indoor 78°F" in d.reason
+    assert "48% RH" in d.reason
+    assert "outside 90°F" in d.reason
+    assert "20% RH" in d.reason
+
+
+def test_active_cooling_quiet_during_bedtime_uses_fan_speed_preset():
+    # Quiet hours still need explicit fan speed cap, not temperature mode.
     d = evaluate(
         _state(outside_temp_f=90.0, outside_rh_pct=20.0,
                indoor_temp_f=78.0, indoor_rh_pct=45.0),
         _cfg(target_temp_f=70.0), _BEDTIME,
     )
     assert d.mode == Mode.COOLER_QUIET
-    assert d.cooler_fan_speed <= 4
+    assert d.cooler_preset_mode == "Cooling: set fan speed"
+    assert d.cooler_set_temperature_f is None
+    assert d.cooler_fan_speed is not None and d.cooler_fan_speed <= 4
 
 
-def test_active_cooling_fan_speed_scales_with_headroom():
-    # Outside 95°F @ 10% → chart achievable 71°F. Target 80 → headroom 9 → speed 10.
+def test_active_cooling_temperature_target_uses_chart_value():
+    # Outside 95°F @ 10% → chart achievable 71°F. Target 80, so achievable
+    # (71) is comfortably below target. COOLER_FULL sets temp = 71.
     d = evaluate(
         _state(outside_temp_f=95.0, outside_rh_pct=10.0,
                indoor_temp_f=85.0, indoor_rh_pct=30.0),
         _cfg(target_temp_f=80.0), _NOON,
     )
     assert d.mode == Mode.COOLER_FULL
-    assert d.cooler_fan_speed == 10
+    assert d.cooler_set_temperature_f == 71
 
 
 def test_cooler_cannot_reach_target_recirculate():

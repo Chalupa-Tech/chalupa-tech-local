@@ -213,7 +213,7 @@ def _start_snooze(device):
 # even for user-initiated changes via certain integrations/voice/physical
 # remotes — observed in production where a UI-driven hvac_mode change did
 # not propagate a user_id through Pyscript's context kwarg).
-SELF_ACTION_WINDOW = timedelta(seconds=12)
+SELF_ACTION_WINDOW = timedelta(seconds=30)
 _self_cooler_until = None
 _self_whf_until = None
 
@@ -241,7 +241,7 @@ def _actuate_respecting_overrides(d):
     cooler_snoozed = _snooze_active("cooler")
     whf_snoozed = _snooze_active("whf")
 
-    # Cooler: skip both hvac_mode and fan_mode service calls if snoozed
+    # Cooler: skip all writes if snoozed
     if not cooler_snoozed:
         cur_mode = state.get(_E_COOLER)
         if cur_mode != d.cooler_hvac_mode:
@@ -249,10 +249,38 @@ def _actuate_respecting_overrides(d):
             _mark_self("cooler")
             service.call("climate", "set_hvac_mode",
                          entity_id=_E_COOLER, hvac_mode=d.cooler_hvac_mode)
+
+        attrs = state.getattr(_E_COOLER)
+        cur_preset = attrs.get("preset_mode") if attrs else None
+        cur_fan = attrs.get("fan_mode") if attrs else None
+        cur_temp = attrs.get("temperature") if attrs else None
+
+        # Preset mode: switch the cooler between "set temperature" and
+        # "set fan speed" modes.
+        if (d.cooler_preset_mode is not None
+                and cur_preset != d.cooler_preset_mode):
+            log.info(f"climate_balance: set cooler preset_mode → {d.cooler_preset_mode}")
+            _mark_self("cooler")
+            service.call("climate", "set_preset_mode",
+                         entity_id=_E_COOLER, preset_mode=d.cooler_preset_mode)
+
+        # Target temperature (when in "set temperature" preset).
+        if d.cooler_set_temperature_f is not None:
+            try:
+                cur_temp_f = float(cur_temp) if cur_temp is not None else None
+            except (TypeError, ValueError):
+                cur_temp_f = None
+            if cur_temp_f != float(d.cooler_set_temperature_f):
+                log.info(f"climate_balance: set cooler temperature → "
+                         f"{d.cooler_set_temperature_f}")
+                _mark_self("cooler")
+                service.call("climate", "set_temperature",
+                             entity_id=_E_COOLER,
+                             temperature=d.cooler_set_temperature_f)
+
+        # Explicit fan speed (when in "set fan speed" preset / DEHUMIDIFY).
         if d.cooler_fan_speed is not None:
             desired = str(d.cooler_fan_speed)
-            cur = state.getattr(_E_COOLER)
-            cur_fan = cur.get("fan_mode") if cur else None
             if cur_fan != desired:
                 log.info(f"climate_balance: set cooler fan_mode → {desired}")
                 _mark_self("cooler")
@@ -469,11 +497,24 @@ def _cooler_matches_desired():
     cur_hvac = state.get(_E_COOLER)
     if cur_hvac != _effective_decision.cooler_hvac_mode:
         return False
-    if _effective_decision.cooler_fan_speed is None:
-        return True  # off mode, fan_speed doesn't matter
-    cur = state.getattr(_E_COOLER)
-    cur_fan = cur.get("fan_mode") if cur else None
-    return cur_fan == str(_effective_decision.cooler_fan_speed)
+    attrs = state.getattr(_E_COOLER)
+    if _effective_decision.cooler_preset_mode is not None:
+        cur_preset = attrs.get("preset_mode") if attrs else None
+        if cur_preset != _effective_decision.cooler_preset_mode:
+            return False
+    if _effective_decision.cooler_set_temperature_f is not None:
+        cur_temp = attrs.get("temperature") if attrs else None
+        try:
+            cur_temp_f = float(cur_temp) if cur_temp is not None else None
+        except (TypeError, ValueError):
+            cur_temp_f = None
+        if cur_temp_f != float(_effective_decision.cooler_set_temperature_f):
+            return False
+    if _effective_decision.cooler_fan_speed is not None:
+        cur_fan = attrs.get("fan_mode") if attrs else None
+        if cur_fan != str(_effective_decision.cooler_fan_speed):
+            return False
+    return True
 
 
 def _whf_matches_desired():
