@@ -189,6 +189,33 @@ def _snooze_active(device):
     return _datetime_helper_in_future(entity)
 
 
+def _cooler_summary():
+    """Short human-readable description of the cooler's current state.
+    Used in Discord notifications when a manual override is detected so
+    the user can tell at a glance what state they just put it in.
+    """
+    hvac = state.get(_E_COOLER)
+    if hvac == "off":
+        return "off"
+    attrs = state.getattr(_E_COOLER) or {}
+    preset = attrs.get("preset_mode") or ""
+    fan = attrs.get("fan_mode")
+    temp = attrs.get("temperature")
+    if hvac == "fan_only":
+        return f"fan-only / fan {fan}"
+    # cool mode — distinguish temperature- vs fan-speed-preset
+    if "set temperature" in preset:
+        return f"cool / target {temp}°F"
+    if "set fan speed" in preset:
+        return f"cool / fan {fan}"
+    # Fallback: include whatever we have
+    return f"{hvac} / fan {fan} / preset {preset}"
+
+
+def _whf_summary():
+    return state.get(_E_WHF) or "unknown"
+
+
 def _start_snooze(device):
     duration = _read_float(_H_OVERRIDE_MIN) or 60.0
     until = datetime.now() + timedelta(minutes=duration)
@@ -197,9 +224,11 @@ def _start_snooze(device):
                  entity_id=entity,
                  datetime=until.strftime("%Y-%m-%d %H:%M:%S"))
     label = "swamp cooler" if device == "cooler" else "whole house fan"
-    log.info(f"climate_balance: {device} manual override → {until.isoformat()}")
+    cur = _cooler_summary() if device == "cooler" else _whf_summary()
+    log.info(f"climate_balance: {device} manual override → {until.isoformat()} (state: {cur})")
     service.call("notify", _NOTIFY_SERVICE,
                  message=f"📱 Manual override detected on {label} — "
+                         f"currently {cur} — "
                          f"pausing automation for {int(duration)} min",
                  target=[_DISCORD_TARGET])
 
