@@ -460,3 +460,30 @@ def test_cooler_recirculates_when_achievable_exceeds_overshoot_tolerance():
         _cfg(target_temp_f=70.0), _NOON,
     )
     assert d.mode == Mode.RECIRCULATE
+
+
+def test_cooler_fires_when_achievable_above_target_but_below_indoor():
+    # User's hot-day scenario: outside 95°F @ 20% → achievable 74°F.
+    # Target 68°F so achievable is 6°F over target (>1°F overshoot tolerance) —
+    # but indoor is 78°F so 74°F delivers ≥2°F of meaningful relief.
+    # Should engage COOLER_FULL at the achievable temp.
+    d = evaluate(
+        _state(outside_temp_f=95.0, outside_rh_pct=20.0,
+               indoor_temp_f=78.0, indoor_rh_pct=40.0),
+        _cfg(target_temp_f=68.0, max_dew_point_f=60.0), _NOON,
+    )
+    assert d.mode == Mode.COOLER_FULL
+    assert d.cooler_set_temperature_f == 74
+
+
+def test_cooler_recirculates_when_achievable_too_close_to_indoor():
+    # Achievable is above target AND less than dead-band below indoor: no
+    # meaningful relief, so recirculate. Outside 95°F @ 20% → achievable 74°F.
+    # Target 68 (achievable 6° over). Indoor 75°F → achievable only 1°F below
+    # indoor (< 2°F dead band) → recirculate.
+    d = evaluate(
+        _state(outside_temp_f=95.0, outside_rh_pct=20.0,
+               indoor_temp_f=75.0, indoor_rh_pct=40.0),
+        _cfg(target_temp_f=68.0, max_dew_point_f=60.0), _NOON,
+    )
+    assert d.mode == Mode.RECIRCULATE

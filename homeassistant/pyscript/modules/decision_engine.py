@@ -253,14 +253,26 @@ def evaluate(
                 f"Cooling needed but outside dew point {outside_dp:.0f}°F > limit "
                 f"{c.max_dew_point_f:.0f}°F — recirculating"
             )
-        # Accept achievable up to target + COOLER_OVERSHOOT_F (give cooler a chance
-        # near the margin rather than recirculating).
-        if achievable is None or achievable > c.target_temp_f + COOLER_OVERSHOOT_F:
+        # Accept achievable when EITHER:
+        #   (a) near target: achievable ≤ target + COOLER_OVERSHOOT_F.
+        #   (b) meaningful indoor relief: achievable ≤ indoor - TEMP_DEAD_BAND_F.
+        # (b) covers the hot-day case where the chart can't reach target but the
+        # cooler still delivers real cooling vs. the current indoor temp.
+        # Without it, on a 95°F day with achievable=72 and indoor=78 we'd
+        # recirculate and let indoor sit at 78°F instead of pulling it toward 72.
+        if achievable is None:
             return _recirculate(
-                f"Cooling needed but chart says achievable "
-                f"{achievable if achievable is not None else 'N/A'} > target "
-                f"{c.target_temp_f:.0f}°F + {COOLER_OVERSHOOT_F:.0f}°F tolerance — "
-                f"recirculating"
+                f"Cooling needed but cooler chart says outside conditions are "
+                f"out of effective range — recirculating"
+            )
+        near_target = achievable <= c.target_temp_f + COOLER_OVERSHOOT_F
+        meaningful_relief = achievable <= s.indoor_temp_f - TEMP_DEAD_BAND_F
+        if not (near_target or meaningful_relief):
+            return _recirculate(
+                f"Cooling needed but chart says achievable {achievable}°F > "
+                f"target {c.target_temp_f:.0f}°F + {COOLER_OVERSHOOT_F:.0f}°F "
+                f"and not {TEMP_DEAD_BAND_F:.0f}°F below indoor "
+                f"{s.indoor_temp_f:.0f}°F — recirculating"
             )
         quiet = _in_quiet_hours(now)
         env_text = (
