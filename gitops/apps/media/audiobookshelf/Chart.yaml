@@ -1,0 +1,10 @@
+apiVersion: v2
+name: audiobookshelf-wrapper
+description: Wrapper chart for Audiobookshelf (audiobook + podcast server)
+type: application
+version: 0.1.0
+appVersion: "2.35.1"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

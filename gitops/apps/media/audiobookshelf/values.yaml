@@ -1,0 +1,111 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      # ABS image runs as a fixed UID 1000 — PUID/PGID env vars are not
+      # honored (upstream issue #3527). fsGroup must match so the NFS
+      # library mounts and the local-path PVCs are writable.
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    audiobookshelf:
+      type: deployment
+      replicas: 1
+      # ABS holds an exclusive SQLite handle — never run two at once.
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: ghcr.io/advplyr/audiobookshelf
+            tag: 2.35.1
+          env:
+            TZ: America/Los_Angeles
+            PORT: "80"
+            # Required for trusting the X-Forwarded-* headers from Traefik
+            # so OIDC redirects (when configured) resolve to https URLs.
+            SOURCE: docker
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthcheck
+                  port: 80
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthcheck
+                  port: 80
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 5
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /healthcheck
+                  port: 80
+                initialDelaySeconds: 60
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 60
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+
+  service:
+    audiobookshelf:
+      controller: audiobookshelf
+      ports:
+        http:
+          port: 80
+
+  persistence:
+    # /config is SQLite-backed. NFS-backed /config corrupts the DB on
+    # restart — upstream issues #3276, #3510, #4653. local-path is the
+    # default StorageClass via Rancher local-path-provisioner.
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: local-path
+      globalMounts:
+        - path: /config
+    metadata:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      storageClass: local-path
+      globalMounts:
+        - path: /metadata
+    audiobooks:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /audiobooks
+          subPath: Audiobooks
+    ebooks:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /ebooks
+          subPath: Ebooks
