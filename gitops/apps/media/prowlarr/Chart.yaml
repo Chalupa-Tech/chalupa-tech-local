@@ -1,0 +1,10 @@
+apiVersion: v2
+name: prowlarr-wrapper
+description: Wrapper chart for Prowlarr (indexer manager)
+type: application
+version: 0.1.0
+appVersion: "2.4.0"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

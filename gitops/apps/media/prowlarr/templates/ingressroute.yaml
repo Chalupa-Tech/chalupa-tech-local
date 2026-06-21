@@ -1,0 +1,38 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prowlarr-http
+  namespace: media
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`prowlarr.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: prowlarr
+          port: 9696
+      middlewares:
+        - name: redirect-to-https
+          namespace: media
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prowlarr-https
+  namespace: media
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "192.168.1.230"
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`prowlarr.frame.chalupatech.com`)
+      kind: Rule
+      services:
+        - name: prowlarr
+          port: 9696
+  tls: {}
