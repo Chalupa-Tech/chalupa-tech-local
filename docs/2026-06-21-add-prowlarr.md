@@ -118,6 +118,6 @@ API key).
 
 ## Links
 
-- PR: (filled in on creation)
+- PR: #239 (<https://github.com/Chalupa-Tech/chalupa-tech-local/pull/239>)
 - Postgres-for-arr reference: <https://gist.github.com/Roxedus/fb04446c96f38d77a066b9a9a4911b48>
 - Sibling app precedent: `docs/2026-05-18-add-tautulli.md`
