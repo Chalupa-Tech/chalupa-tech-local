@@ -1,0 +1,141 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      # The image entrypoint runs supervisord as root, then drops the
+      # Next.js app to UID 1000 via gosu. fsGroup 1000 lets the dropped
+      # process write to the local-path PVCs and the NFS library.
+      runAsNonRoot: false
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    readmebook:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: ghcr.io/kikootwo/readmeabook
+            tag: 1.2.1
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            PORT: "3030"
+            # Must match the IngressRoute Host(); OAuth flows break
+            # silently on mismatch.
+            PUBLIC_URL: https://readmebook.frame.chalupatech.com
+            # Disable the bundled Postgres — DATABASE_URL forces RMAB
+            # to use the shared arrs-pg CNPG cluster. The bundled
+            # supervisord still starts pg locally; that is wasted
+            # memory but is harmless because nothing connects to it.
+            DATABASE_URL:
+              valueFrom:
+                secretKeyRef:
+                  name: readmebook-app
+                  key: DATABASE_URL
+            JWT_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: readmebook-app
+                  key: JWT_SECRET
+            JWT_REFRESH_SECRET:
+              valueFrom:
+                secretKeyRef:
+                  name: readmebook-app
+                  key: JWT_REFRESH_SECRET
+            CONFIG_ENCRYPTION_KEY:
+              valueFrom:
+                secretKeyRef:
+                  name: readmebook-app
+                  key: CONFIG_ENCRYPTION_KEY
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/health
+                  port: 3030
+                initialDelaySeconds: 60
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/health
+                  port: 3030
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 5
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /api/health
+                  port: 3030
+                # Prisma migrations + supervisord boot take ~60s on
+                # first start; subsequent restarts are quicker.
+                initialDelaySeconds: 60
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+
+  service:
+    readmebook:
+      controller: readmebook
+      ports:
+        http:
+          port: 3030
+
+  persistence:
+    # /app/config holds the auto-generated secret fallback file plus
+    # app-level config. Lives on local-path so it survives pod restart.
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 2Gi
+      storageClass: local-path
+      globalMounts:
+        - path: /app/config
+    # Regenerable thumbnail / metadata cache.
+    cache:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: local-path
+      globalMounts:
+        - path: /app/cache
+    # The path inside RMAB MUST match what NZBGet writes to inside its
+    # own pod (nzbget mounts subPath: Downloads at /downloads). After
+    # NZBGet finishes, RMAB scans this directory for completed nzbs.
+    downloads:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /downloads
+          subPath: Downloads
+    # Library root where RMAB organizes finished M4Bs. ABS scans this
+    # same directory via its /audiobooks mount.
+    media:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /media
+          subPath: Audiobooks
