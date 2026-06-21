@@ -1,0 +1,15 @@
+apiVersion: v2
+name: readmebook-wrapper
+description: |
+  Wrapper chart for ReadMeABook (audiobook automation + request UI).
+  Uses the shared arrs-pg CNPG cluster for Postgres; the bundled
+  Postgres in the container is disabled via DATABASE_URL. Bundled
+  Redis is left in place. Library/downloads come from the shared
+  media-plexmedia NFS PVC.
+type: application
+version: 0.1.0
+appVersion: "1.2.1"
+dependencies:
+  - name: app-template
+    version: 4.4.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

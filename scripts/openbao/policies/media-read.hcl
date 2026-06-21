@@ -22,3 +22,4 @@ path "secret/data/postgres/*"  { capabilities = ["read"] }
 path "secret/data/scraparr/*"  { capabilities = ["read"] }
 path "secret/data/plex/*"      { capabilities = ["read"] }
 path "secret/data/tautulli/*"  { capabilities = ["read"] }
+path "secret/data/readmebook/*" { capabilities = ["read"] }
