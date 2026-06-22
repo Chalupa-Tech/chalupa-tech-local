@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: ghcr.io/seerr-team/seerr
-            tag: latest
+            tag: v3.3.0
           env:
             TZ: America/Los_Angeles
             LOG_LEVEL: info

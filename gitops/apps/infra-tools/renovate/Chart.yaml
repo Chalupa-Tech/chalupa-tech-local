@@ -1,0 +1,16 @@
+apiVersion: v2
+name: renovate-wrapper
+description: |
+  Self-hosted Renovate bot running as a Kubernetes CronJob, scanning
+  Chalupa-Tech/chalupa-tech-local and opening dependency-update PRs.
+  Authenticates as the "chalupa-renovate" GitHub App: an init container
+  mints a short-lived installation token (from credentials synced out of
+  OpenBao via ExternalSecret) and hands it to Renovate through config.js.
+  Update policy lives in the repo-root renovate.json, not here.
+type: application
+version: 0.1.0
+appVersion: "43.231.4"
+dependencies:
+  - name: renovate
+    version: 46.198.4
+    repository: https://docs.renovatebot.com/helm-charts
