@@ -38,13 +38,25 @@ The script is idempotent. Already-unsealed pods are skipped.
 
 ```bash
 OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
-  ./scripts/openbao/kv-put.sh <path> <key> <value>
+  ./scripts/openbao/kv-put.sh <path> <key>=<value> [<key>=<value> ...]
+
+# Value forms per pair: key=value | key=@/path/file | key=-  (read from stdin)
+# A KV v2 put REPLACES the secret, so pass every key the secret needs at once.
 
 # Examples:
 OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
-  ./scripts/openbao/kv-put.sh cloudflare/api-token token "abc123..."
+  ./scripts/openbao/kv-put.sh cloudflare/api-token token=abc123...
 OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
-  ./scripts/openbao/kv-put.sh sonarr/api-key apikey "deadbeef..."
+  ./scripts/openbao/kv-put.sh sonarr/api-key apikey=deadbeef...
+
+# Multi-key (e.g. a GitHub App), reading the PEM from a file:
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
+  ./scripts/openbao/kv-put.sh renovate/github-app \
+    appId=12345 installationId=67890 privateKey=@chalupa-renovate.private-key.pem
+
+# Legacy single-key form (bare <key> <value>) still works:
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
+  ./scripts/openbao/kv-put.sh cloudflare/api-token token "abc123..."
 ```
 
 For ongoing operations, replace the root token with a per-operator token that has `update` capability on the relevant `secret/data/<path>` paths. Keep the root token in 1Password and only export it for the rare administrative operations that need it.

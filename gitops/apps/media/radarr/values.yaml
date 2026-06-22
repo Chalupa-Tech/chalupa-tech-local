@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: lscr.io/linuxserver/radarr
-            tag: latest
+            tag: 6.2.1.10461-ls306
           env:
             TZ: America/Los_Angeles
             PUID: "1000"

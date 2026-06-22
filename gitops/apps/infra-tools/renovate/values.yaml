@@ -1,0 +1,89 @@
+# Values for the upstream `renovate` chart (nested under its dependency name).
+# Secrets/runtime wiring live here; the actual update policy (managers,
+# packageRules) lives in the repo-root renovate.json that Renovate reads.
+renovate:
+  image:
+    # Pinned so deploys are deterministic. Renovate keeps itself current by
+    # bumping the chart `version` in Chart.yaml (helmv3 manager), which pulls a
+    # newer appVersion/image with it.
+    tag: "43.231.4"
+
+  cronjob:
+    schedule: "0 6 * * *"
+    timeZone: "America/Denver"
+    concurrencyPolicy: Forbid
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+    # GitHub App auth: Renovate self-hosted can't mint installation tokens
+    # itself, so this init container builds a JWT from the App private key,
+    # exchanges it for a ~1h installation token, and writes it to the shared
+    # /auth volume that config.js reads at startup.
+    initContainers:
+      - name: mint-github-token
+        image: node:22-alpine
+        command: ["node", "/scripts/mint-token.js"]
+        volumeMounts:
+          - name: github-app
+            mountPath: /github-app
+            readOnly: true
+          - name: auth
+            mountPath: /auth
+          - name: mint-script
+            mountPath: /scripts
+            readOnly: true
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+
+  env:
+    LOG_LEVEL: "info"
+
+  # The renovate chart's own config block -> rendered to config.js and pointed
+  # at via RENOVATE_CONFIG_FILE. Reads the minted token from the shared volume.
+  renovate:
+    configIsJavaScript: true
+    config: |
+      const fs = require('fs');
+      module.exports = {
+        platform: 'github',
+        endpoint: 'https://api.github.com/',
+        token: fs.readFileSync('/auth/token', 'utf8').trim(),
+        autodiscover: false,
+        repositories: ['Chalupa-Tech/chalupa-tech-local'],
+        onboarding: false,
+        requireConfig: 'required',
+        binarySource: 'install',
+      };
+
+  extraVolumes:
+    - name: auth
+      emptyDir: {}
+    - name: github-app
+      secret:
+        secretName: renovate-github-app
+    - name: mint-script
+      configMap:
+        name: renovate-mint-token
+
+  extraVolumeMounts:
+    - name: auth
+      mountPath: /auth
+      readOnly: true
+
+  # fsGroup lets the non-root init container write /auth and the Renovate
+  # container (a different default UID) read the token via its supplemental group.
+  securityContext:
+    fsGroup: 1000
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+    limits:
+      memory: 3Gi
