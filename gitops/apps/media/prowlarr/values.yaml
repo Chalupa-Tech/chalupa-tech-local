@@ -1,0 +1,99 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    prowlarr:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            repository: lscr.io/linuxserver/prowlarr
+            tag: 2.4.0.5397-ls150
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            Prowlarr__Postgres__Host: arrs-pg-rw.media.svc.cluster.local
+            Prowlarr__Postgres__Port: "5432"
+            Prowlarr__Postgres__User:
+              valueFrom:
+                secretKeyRef:
+                  name: prowlarr-pg
+                  key: username
+            Prowlarr__Postgres__Password:
+              valueFrom:
+                secretKeyRef:
+                  name: prowlarr-pg
+                  key: password
+            Prowlarr__Postgres__MainDb:
+              valueFrom:
+                secretKeyRef:
+                  name: prowlarr-pg
+                  key: main_db
+            Prowlarr__Postgres__LogDb:
+              valueFrom:
+                secretKeyRef:
+                  name: prowlarr-pg
+                  key: log_db
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 9696
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 9696
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 5
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 9696
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 60
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+
+  service:
+    prowlarr:
+      controller: prowlarr
+      ports:
+        http:
+          port: 9696
+
+  persistence:
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /config
+          subPath: Configs/prowlarr

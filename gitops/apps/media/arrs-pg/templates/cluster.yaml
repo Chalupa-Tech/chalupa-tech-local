@@ -32,16 +32,26 @@ spec:
         - CREATE ROLE sonarr WITH LOGIN;
         - CREATE ROLE radarr WITH LOGIN;
         - CREATE ROLE seerr WITH LOGIN;
+        - CREATE ROLE prowlarr WITH LOGIN;
+        - CREATE ROLE readmebook WITH LOGIN;
         - CREATE DATABASE sonarr_main OWNER sonarr;
         - CREATE DATABASE sonarr_log OWNER sonarr;
         - CREATE DATABASE radarr_main OWNER radarr;
         - CREATE DATABASE radarr_log OWNER radarr;
         - CREATE DATABASE seerr OWNER seerr;
+        - CREATE DATABASE prowlarr_main OWNER prowlarr;
+        - CREATE DATABASE prowlarr_log OWNER prowlarr;
+        - CREATE DATABASE readmebook_main OWNER readmebook;
+        - CREATE DATABASE readmebook_log OWNER readmebook;
         - GRANT ALL PRIVILEGES ON DATABASE sonarr_main TO sonarr;
         - GRANT ALL PRIVILEGES ON DATABASE sonarr_log TO sonarr;
         - GRANT ALL PRIVILEGES ON DATABASE radarr_main TO radarr;
         - GRANT ALL PRIVILEGES ON DATABASE radarr_log TO radarr;
         - GRANT ALL PRIVILEGES ON DATABASE seerr TO seerr;
+        - GRANT ALL PRIVILEGES ON DATABASE prowlarr_main TO prowlarr;
+        - GRANT ALL PRIVILEGES ON DATABASE prowlarr_log TO prowlarr;
+        - GRANT ALL PRIVILEGES ON DATABASE readmebook_main TO readmebook;
+        - GRANT ALL PRIVILEGES ON DATABASE readmebook_log TO readmebook;
 
   managed:
     roles:
@@ -62,6 +72,18 @@ spec:
         login: true
         passwordSecret:
           name: seerr-pg
+        connectionLimit: 25
+      - name: prowlarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: prowlarr-pg
+        connectionLimit: 25
+      - name: readmebook
+        ensure: present
+        login: true
+        passwordSecret:
+          name: readmebook-pg
         connectionLimit: 25
 
   monitoring:
