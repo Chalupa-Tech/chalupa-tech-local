@@ -9,7 +9,7 @@ Infrastructure-as-code for a local Proxmox hypervisor (AMD Strix Halo Framework 
 ## Architecture
 
 **CI/CD pipeline** (`.github/workflows/deploy.yml`, triggered on merge to `main`):
-1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, kernel 7, LXC template, Talos ISO)
+1. **Stage 1** — Ansible prepares the Proxmox host (IOMMU, LXC template, Talos ISO)
 2. **Stage 2a** — Pulumi provisions TrueNAS VM, exports Plex IP as artifact for Stage 3
 3. **Stage 2b** — Pulumi provisions Talos K8s cluster (3 VMs, bootstrap, kubeconfig) *(parallel with 2a)*
 4. **Stage 3** — Ansible creates Plex LXC on host (privileged, GPU, nesting), then configures software inside it (Plex, VA-API, NFS, firewall)
