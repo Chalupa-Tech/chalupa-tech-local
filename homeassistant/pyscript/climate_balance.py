@@ -81,6 +81,16 @@ _MODE_EMOJI = {
     Mode.COOLER_QUIET: "🌙",
     Mode.DEHUMIDIFY: "💧",
     Mode.RECIRCULATE: "🛑",
+    Mode.DISABLED: "⏸️",
+}
+
+# Helpers whose change means "the user edited config" — their intent applies
+# immediately: hysteresis re-baselines against the new values and the
+# min-runtime gate is bypassed (it exists to stop sensor-driven cycling,
+# not to delay explicit user commands).
+_CONFIG_HELPERS = {
+    _H_ENABLED, _H_VACATION, _H_TARGET, _H_WHF_TARGET,
+    _H_MAX_INDOOR_RH, _H_MAX_ATTIC_RH, _H_MAX_DP, _H_DEHUM_BAND,
 }
 
 
@@ -267,6 +277,10 @@ def _actuate_respecting_overrides(d):
     before issuing the service call, so the state_trigger callback
     doesn't mistake our own write for a manual user override.
     """
+    if d.hands_off:
+        # Master toggle off — leave devices exactly as the user set them.
+        return
+
     cooler_snoozed = _snooze_active("cooler")
     whf_snoozed = _snooze_active("whf")
 
@@ -388,6 +402,8 @@ def _on_snooze_expire(device):
     the engine intends to do). The actuator is idempotent so reapplying
     is safe even if the device already matches.
     """
+    if not _read_bool(_H_ENABLED):
+        return
     s = _build_state()
     c = _build_config()
     d = evaluate(s, c, datetime.now(), prev_mode=_effective_mode)
@@ -410,6 +426,9 @@ def _maybe_warn_danger(s, c):
     global _warned_during_snooze_cooler_attic
     global _warned_during_snooze_cooler_temp
     global _warned_during_snooze_whf_temp
+
+    if not c.enabled:
+        return
 
     cooler_snoozed = _snooze_active("cooler")
     whf_snoozed = _snooze_active("whf")
@@ -452,8 +471,16 @@ def _maybe_warn_danger(s, c):
         _warned_during_snooze_whf_temp = False
 
 
-def _evaluate_and_apply():
-    """Read state, evaluate, apply min-runtime gate, expose sensors, notify."""
+def _evaluate_and_apply(config_changed=False):
+    """Read state, evaluate, apply min-runtime gate, expose sensors, notify.
+
+    config_changed=True means the user just edited a helper. User intent
+    applies immediately: evaluate with prev_mode=None so hysteresis
+    re-baselines against the NEW thresholds (an engaged mode must not keep
+    waiting on an exit threshold derived from the old value), and bypass
+    the min-runtime gate (it exists to stop sensor-noise cycling, not to
+    delay explicit user commands).
+    """
     global _effective_mode, _effective_decision, _last_change_ts
 
     s = _build_state()
@@ -461,7 +488,8 @@ def _evaluate_and_apply():
     _recompute_derived(s)
 
     now = datetime.now()
-    d = evaluate(s, c, now, prev_mode=_effective_mode)
+    prev_for_eval = None if config_changed else _effective_mode
+    d = evaluate(s, c, now, prev_mode=prev_for_eval)
 
     cold_start = _effective_mode is None
     wants_change = d.mode != _effective_mode
@@ -469,7 +497,7 @@ def _evaluate_and_apply():
         _last_change_ts is not None and (now - _last_change_ts) >= _MIN_RUNTIME
     )
 
-    if cold_start or (wants_change and cooldown_done):
+    if cold_start or (wants_change and (cooldown_done or config_changed)):
         prev = _effective_mode
         _effective_mode = d.mode
         _effective_decision = d
@@ -479,6 +507,11 @@ def _evaluate_and_apply():
             _actuate_respecting_overrides(d)
         _notify_transition(prev, d)
     else:
+        if not wants_change:
+            # Same mode, possibly new parameters (e.g. new target temp while
+            # COOLER_FULL is engaged) — adopt the fresh decision so
+            # reconciliation applies current values, not stale ones.
+            _effective_decision = d
         # Holding due to cooldown. Show engine's wanted mode + reason in
         # attributes so the dashboard is transparent.
         _expose_decision(_effective_decision, current_d=d)
@@ -506,7 +539,8 @@ def on_startup():
     f"{_H_DEHUM_BAND}",
 )
 def on_any_input_change(**kwargs):
-    _evaluate_and_apply()
+    var = kwargs.get("var_name")
+    _evaluate_and_apply(config_changed=var in _CONFIG_HELPERS)
 
 
 @time_trigger("period(now, 5min)")
@@ -570,6 +604,8 @@ def on_cooler_change(**kwargs):
        user action; don't snooze.
     3. _snooze_active — already snoozed, no need to re-arm.
     """
+    if not _read_bool(_H_ENABLED):
+        return  # disabled = hands off; manual changes are none of our business
     log.info(f"climate_balance: cooler change var={kwargs.get('var_name')} "
              f"value={kwargs.get('value')} self={_is_self('cooler')} "
              f"matches={_cooler_matches_desired()} "
@@ -586,6 +622,8 @@ def on_cooler_change(**kwargs):
 @state_trigger(_E_WHF)
 def on_whf_change(**kwargs):
     """Detect manual changes to the WHF. Only the state (on/off) matters."""
+    if not _read_bool(_H_ENABLED):
+        return  # disabled = hands off; manual changes are none of our business
     log.info(f"climate_balance: WHF change "
              f"self={_is_self('whf')} matches={_whf_matches_desired()} "
              f"snoozed={_snooze_active('whf')}")

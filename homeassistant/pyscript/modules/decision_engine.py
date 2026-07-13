@@ -26,6 +26,9 @@ class Mode(Enum):
     COOLER_QUIET = "COOLER_QUIET"
     DEHUMIDIFY = "DEHUMIDIFY"
     RECIRCULATE = "RECIRCULATE"
+    # Master toggle off: the engine relinquishes control. Unlike OFF (an
+    # active decision to shut devices down), DISABLED means "touch nothing".
+    DISABLED = "DISABLED"
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,9 @@ class Decision:
     cooler_fan_speed: Optional[int]     # 1-10 when in fan-speed preset
     whf_on: bool
     reason: str
+    # When True the actuator must not issue ANY device commands — devices
+    # stay exactly as the user left them (master toggle off).
+    hands_off: bool = False
 
 
 TEMP_DEAD_BAND_F = 2.0
@@ -113,6 +119,15 @@ def _off(reason: str) -> Decision:
         mode=Mode.OFF, cooler_hvac_mode="off",
         cooler_preset_mode=None, cooler_set_temperature_f=None,
         cooler_fan_speed=None, whf_on=False, reason=reason,
+    )
+
+
+def _disabled(reason: str) -> Decision:
+    return Decision(
+        mode=Mode.DISABLED, cooler_hvac_mode="off",
+        cooler_preset_mode=None, cooler_set_temperature_f=None,
+        cooler_fan_speed=None, whf_on=False, reason=reason,
+        hands_off=True,
     )
 
 
@@ -183,9 +198,12 @@ def evaluate(
 
     Pure function — no I/O. See spec rules 1-6.
     """
-    # Rule 1: master kill
+    # Rule 1: master kill. Disabled = hands off — leave devices exactly as
+    # they are. Vacation = nobody home — actively turn everything off.
     if not c.enabled:
-        return _off("Climate balance disabled (master toggle)")
+        return _disabled(
+            "Climate balance disabled (master toggle) — devices left as-is"
+        )
     if c.vacation:
         return _off("Vacation mode — climate balance suspended")
 

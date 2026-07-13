@@ -3,15 +3,17 @@
 # Requires configuration.yaml to contain:
 #   homeassistant:
 #     packages: !include_dir_named packages
+#
+# Do NOT add `initial:` to any helper — HA force-resets such helpers to that
+# value on every restart, wiping whatever the user set in the UI. Without
+# `initial:` HA restores the previous state across restarts.
 
 input_boolean:
   climate_balance_enabled:
     name: "Climate Balance Enabled"
-    initial: on
     icon: mdi:home-thermometer
   climate_balance_vacation:
     name: "Climate Balance Vacation Mode"
-    initial: off
     icon: mdi:airplane
 
 input_number:
@@ -20,7 +22,6 @@ input_number:
     min: 65
     max: 80
     step: 1
-    initial: 70
     unit_of_measurement: "°F"
     icon: mdi:thermometer
   climate_balance_whf_target:
@@ -28,7 +29,6 @@ input_number:
     min: 60
     max: 75
     step: 1
-    initial: 68
     unit_of_measurement: "°F"
     icon: mdi:fan
   climate_balance_max_indoor_rh:
@@ -36,7 +36,6 @@ input_number:
     min: 35
     max: 70
     step: 1
-    initial: 45
     unit_of_measurement: "%"
     icon: mdi:water-percent
   climate_balance_max_attic_rh:
@@ -44,7 +43,6 @@ input_number:
     min: 35
     max: 70
     step: 1
-    initial: 45
     unit_of_measurement: "%"
     icon: mdi:home-roof
   climate_balance_max_dew_point:
@@ -52,7 +50,6 @@ input_number:
     min: 50
     max: 70
     step: 1
-    initial: 60
     unit_of_measurement: "°F"
     icon: mdi:water-thermometer
   climate_balance_override_minutes:
@@ -60,7 +57,6 @@ input_number:
     min: 15
     max: 240
     step: 15
-    initial: 60
     unit_of_measurement: "min"
     icon: mdi:timer
   climate_balance_dehumidify_hysteresis_band:
@@ -68,7 +64,6 @@ input_number:
     min: 5
     max: 25
     step: 1
-    initial: 10
     unit_of_measurement: "%"
     icon: mdi:swap-vertical
 

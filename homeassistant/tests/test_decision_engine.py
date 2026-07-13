@@ -38,16 +38,39 @@ _EARLY_MORNING = datetime(2026, 5, 25, 4, 0)  # 4 AM, not quiet hours
 
 # ---------- Rule 1: master kill ----------
 
-def test_disabled_returns_off():
+def test_disabled_returns_hands_off_decision():
+    # Disabling the master toggle means "stop managing", NOT "turn cooling off".
+    # The decision must be hands-off so the actuator leaves devices untouched.
     d = evaluate(_state(), _cfg(enabled=False), _NOON)
-    assert d.mode == Mode.OFF
+    assert d.mode == Mode.DISABLED
+    assert d.hands_off is True
     assert "disabled" in d.reason.lower()
 
 
-def test_vacation_returns_off():
+def test_disabled_is_hands_off_even_when_hot():
+    # Regression: cooler running on a hot day + user disables → do NOT issue
+    # any off commands; the cooler keeps whatever state it had.
+    d = evaluate(
+        _state(indoor_temp_f=85.0, outside_temp_f=95.0),
+        _cfg(enabled=False), _NOON,
+    )
+    assert d.mode == Mode.DISABLED
+    assert d.hands_off is True
+
+
+def test_vacation_returns_off_and_still_actuates():
+    # Vacation is different from disabled: nobody home, so actively turn
+    # everything off.
     d = evaluate(_state(), _cfg(vacation=True), _NOON)
     assert d.mode == Mode.OFF
+    assert d.hands_off is False
+    assert d.whf_on is False
     assert "vacation" in d.reason.lower()
+
+
+def test_normal_decisions_are_not_hands_off():
+    d = evaluate(_state(), _cfg(), _NOON)
+    assert d.hands_off is False
 
 
 # ---------- Rule 2: dehumidify ----------
@@ -173,6 +196,20 @@ def test_dehumidify_hysteresis_band_is_tunable():
         _NOON, prev_mode=Mode.DEHUMIDIFY,
     )
     assert d2.mode != Mode.DEHUMIDIFY
+
+
+def test_raised_limit_exits_dehumidify_on_rebaseline():
+    # Bug: user raises max RH from 30 → 50 while DEHUMIDIFY is engaged with
+    # RH=42. The hysteresis exit (helper - band = 40) would keep it running.
+    # The trigger script re-baselines on config change by passing
+    # prev_mode=None; the engine must then use plain entry thresholds and
+    # exit (42 < 50).
+    d = evaluate(
+        _state(attic_rh_pct=42.0, indoor_rh_pct=42.0, indoor_temp_f=70.0),
+        _cfg(max_attic_rh=50.0, max_indoor_rh=50.0), _NOON,
+        prev_mode=None,
+    )
+    assert d.mode != Mode.DEHUMIDIFY
 
 
 def test_dehumidify_does_not_re_engage_in_hysteresis_gap():
@@ -334,7 +371,8 @@ def test_master_kill_beats_humidity_emergency():
         _state(attic_rh_pct=70.0, indoor_rh_pct=70.0, indoor_temp_f=85.0),
         _cfg(enabled=False), _NOON,
     )
-    assert d.mode == Mode.OFF
+    assert d.mode == Mode.DISABLED
+    assert d.hands_off is True
 
 
 def test_dehumidify_beats_cooling():
