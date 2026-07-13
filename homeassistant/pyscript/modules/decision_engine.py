@@ -305,13 +305,18 @@ def evaluate(
                 f"Quiet cooler + WHF — fan speed {speed} (chart says we can "
                 f"hit {achievable}°F; {env_text})"
             )
-        # Normal hours: use temperature-set preset. The MagiqTouch firmware
-        # chooses fan speed to drive the cooler toward the target temp the
-        # chart says we can achieve.
+        # Normal hours: use temperature-set preset with the thermostat at the
+        # USER's target. The chart's achievable temp only gates whether
+        # cooling is worthwhile — setting the thermostat to it would drive
+        # indoor below target on mild days (achievable < target) and is an
+        # unreachable setpoint on hot days anyway. The MagiqTouch firmware
+        # chooses fan speed; it simply bottoms out near achievable when
+        # target is out of reach.
+        set_temp = int(round(c.target_temp_f))
         return _cooler_full_temp(
-            achievable,
-            f"cooler + WHF — temperature target {achievable}°F "
-            f"({env_text})"
+            set_temp,
+            f"cooler + WHF — thermostat {set_temp}°F "
+            f"(chart says achievable {achievable}°F; {env_text})"
         )
 
     # Rule 6: idle

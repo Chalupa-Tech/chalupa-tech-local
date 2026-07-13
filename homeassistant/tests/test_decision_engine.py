@@ -269,8 +269,8 @@ def test_no_free_cooling_when_outside_only_slightly_cooler():
 # ---------- Rule 4: active cooling ----------
 
 def test_active_cooling_full_uses_temperature_preset_during_day():
-    # Outside 90°F @ 20% → chart achievable 70°F. COOLER_FULL should use the
-    # "Cooling: set temperature" preset with set_temperature = achievable.
+    # COOLER_FULL uses the "Cooling: set temperature" preset with the
+    # thermostat set to the user's target helper (NOT the chart value).
     d = evaluate(
         _state(outside_temp_f=90.0, outside_rh_pct=20.0,
                indoor_temp_f=78.0, indoor_rh_pct=45.0),
@@ -309,16 +309,18 @@ def test_active_cooling_quiet_during_bedtime_uses_fan_speed_preset():
     assert d.cooler_fan_speed is not None and d.cooler_fan_speed <= 4
 
 
-def test_active_cooling_temperature_target_uses_chart_value():
-    # Outside 95°F @ 10% → chart achievable 71°F. Target 80, so achievable
-    # (71) is comfortably below target. COOLER_FULL sets temp = 71.
+def test_active_cooling_thermostat_uses_target_helper_not_chart():
+    # Outside 95°F @ 10% → chart achievable 71°F. Target 80. The chart value
+    # gates the decision (71 ≤ 80 + overshoot → cooling is worthwhile), but
+    # the thermostat is set to the user's target (80), not the chart's 71 —
+    # otherwise the cooler drives indoor 9°F below what the user asked for.
     d = evaluate(
         _state(outside_temp_f=95.0, outside_rh_pct=10.0,
                indoor_temp_f=85.0, indoor_rh_pct=30.0),
         _cfg(target_temp_f=80.0), _NOON,
     )
     assert d.mode == Mode.COOLER_FULL
-    assert d.cooler_set_temperature_f == 71
+    assert d.cooler_set_temperature_f == 80
 
 
 def test_cooler_cannot_reach_target_recirculate():
@@ -504,14 +506,15 @@ def test_cooler_fires_when_achievable_above_target_but_below_indoor():
     # User's hot-day scenario: outside 95°F @ 20% → achievable 74°F.
     # Target 68°F so achievable is 6°F over target (>1°F overshoot tolerance) —
     # but indoor is 78°F so 74°F delivers ≥2°F of meaningful relief.
-    # Should engage COOLER_FULL at the achievable temp.
+    # Should engage COOLER_FULL with the thermostat at the user's target;
+    # the cooler will bottom out around the achievable temp on its own.
     d = evaluate(
         _state(outside_temp_f=95.0, outside_rh_pct=20.0,
                indoor_temp_f=78.0, indoor_rh_pct=40.0),
         _cfg(target_temp_f=68.0, max_dew_point_f=60.0), _NOON,
     )
     assert d.mode == Mode.COOLER_FULL
-    assert d.cooler_set_temperature_f == 74
+    assert d.cooler_set_temperature_f == 68
 
 
 def test_cooler_recirculates_when_achievable_too_close_to_indoor():
