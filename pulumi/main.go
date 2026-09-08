@@ -33,7 +33,7 @@ func main() {
 				Agent:    pulumi.Bool(true),
 				Username: pulumi.String(sshUsername),
 			},
-		}, pulumi.Version("7.13.0"))
+		}, pulumi.Version("8.6.0"))
 		if err != nil {
 			return err
 		}
