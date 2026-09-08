@@ -176,7 +176,7 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
       - name: Upload VM inventory artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: inventory-vms
           path: pulumi/inventory-vms.yml
@@ -253,7 +253,7 @@ jobs:
           ansible-galaxy collection install ansible.posix community.general
 
       - name: Download VM inventory artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: inventory-vms
           path: ansible/
