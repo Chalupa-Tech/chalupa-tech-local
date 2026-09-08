@@ -10,7 +10,7 @@ app-template:
             repository: prom/graphite-exporter
             # Latest tagged release (Oct 2024). Verify with
             # `curl -s https://hub.docker.com/v2/repositories/prom/graphite-exporter/tags`.
-            tag: "v0.16.0"
+            tag: "v0.17.0"
           args:
             - --graphite.mapping-config=/etc/graphite-exporter/graphite_mapping.conf
             - --web.listen-address=:9108
