@@ -46,44 +46,6 @@
   notify:
     - Update initramfs
 
-# --- Kernel 7 opt-in (pve-test repo) ---
-- name: Enable pve-test repository for kernel 7
-  ansible.builtin.apt_repository:
-    repo: "deb http://download.proxmox.com/debian/pve trixie pve-test"
-    filename: pve-test
-    state: present
-  when: proxmox_prep_kernel_7_enabled
-
-- name: Install Proxmox kernel 7.0
-  ansible.builtin.apt:
-    name: proxmox-kernel-7.0
-    state: present
-    update_cache: true
-  when: proxmox_prep_kernel_7_enabled
-  notify:
-    - Prompt reboot
-
-- name: Find installed kernel 7.0 version
-  ansible.builtin.shell: >
-    set -o pipefail &&
-    ls /boot/vmlinuz-7.0*-pve 2>/dev/null | sed 's|/boot/vmlinuz-||' | sort -V | tail -1
-  args:
-    executable: /bin/bash
-  register: proxmox_prep_kernel_7_version
-  changed_when: false
-  failed_when: proxmox_prep_kernel_7_version.stdout == ""
-  when: proxmox_prep_kernel_7_enabled
-
-- name: Pin kernel 7 as default boot kernel
-  ansible.builtin.command: >
-    proxmox-boot-tool kernel pin {{ proxmox_prep_kernel_7_version.stdout }}
-  register: proxmox_prep_kernel_pin
-  changed_when: "'pinned' in proxmox_prep_kernel_pin.stdout"
-  failed_when: proxmox_prep_kernel_pin.rc != 0
-  when: proxmox_prep_kernel_7_enabled
-  notify:
-    - Refresh Proxmox boot tool
-
 # --- LXC Container Template ---
 - name: Check if Ubuntu LXC template already exists
   ansible.builtin.command: >
