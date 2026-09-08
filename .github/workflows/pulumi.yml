@@ -87,7 +87,7 @@ jobs:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
       - name: Pulumi Preview
-        uses: pulumi/actions@v3
+        uses: pulumi/actions@v7
         with:
           command: preview
           stack-name: tayvenb13/chalupa-infra/proxmox
@@ -122,7 +122,7 @@ jobs:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
       - name: Pulumi Preview (Talos)
-        uses: pulumi/actions@v3
+        uses: pulumi/actions@v7
         with:
           command: preview
           stack-name: tayvenb13/chalupa-talos/proxmox
