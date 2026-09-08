@@ -15,7 +15,7 @@ import (
 
 const (
 	talosClusterName = "chalupa-cluster"
-	talosVersion     = "v1.12.7"
+	talosVersion     = "v1.14.0"
 	controlPlaneIP   = "192.168.1.225"
 	controlPlaneVIP  = "192.168.1.231"
 	gateway          = "192.168.1.1"

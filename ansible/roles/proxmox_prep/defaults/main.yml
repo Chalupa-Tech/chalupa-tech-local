@@ -10,7 +10,7 @@ proxmox_prep_lxc_template_storage: "local"
 
 # Talos ISO settings
 proxmox_prep_talos_enabled: true
-proxmox_prep_talos_version: "v1.12.7"
+proxmox_prep_talos_version: "v1.14.0"
 # Schematic ID includes siderolabs/qemu-guest-agent extension
 # Generated via: POST https://factory.talos.dev/schematics
 #   {"customization":{"systemExtensions":{"officialExtensions":["siderolabs/qemu-guest-agent"]}}}
