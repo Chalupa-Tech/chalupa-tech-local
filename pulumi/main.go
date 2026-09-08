@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v8/go/proxmoxve"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -18,7 +18,7 @@ func main() {
 		// Create a Proxmox provider with SSH agent support.
 		// This matches the SSH method used by Ansible.
 		//
-		// pulumi.Version is REQUIRED: muhlba91/pulumi-proxmoxve/sdk/v7
+		// pulumi.Version is REQUIRED: muhlba91/pulumi-proxmoxve/sdk/v8
 		// ships with internal.SdkVersion as the zero value, so the
 		// SDK's PkgResourceDefaultOpts never appends a version to
 		// resource options. Without an explicit pin, Pulumi resolves
@@ -33,7 +33,7 @@ func main() {
 				Agent:    pulumi.Bool(true),
 				Username: pulumi.String(sshUsername),
 			},
-		}, pulumi.Version("7.13.0"))
+		}, pulumi.Version("8.6.0"))
 		if err != nil {
 			return err
 		}

@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve/vm"
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v8/go/proxmoxve"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
@@ -26,7 +25,7 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 	// which is the only format HAOS publishes. Ansible owns the xz step.
 	haosImportRef := fmt.Sprintf("local:import/haos_ova-%s.qcow2", haosVersion)
 
-	_, err := vm.NewVirtualMachine(ctx, "homeassistant", &vm.VirtualMachineArgs{
+	_, err := proxmoxve.NewVmLegacy(ctx, "homeassistant", &proxmoxve.VmLegacyArgs{
 		VmId:        pulumi.Int(250),
 		NodeName:    pulumi.String("proxmox"),
 		Name:        pulumi.String("homeassistant"),
@@ -34,20 +33,20 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		Bios:        pulumi.String("ovmf"),
 		Machine:     pulumi.String("q35"),
 
-		Cpu: &vm.VirtualMachineCpuArgs{
+		Cpu: &proxmoxve.VmLegacyCpuArgs{
 			Cores: pulumi.Int(4),
 			Type:  pulumi.String("host"),
 		},
-		Memory: &vm.VirtualMachineMemoryArgs{
+		Memory: &proxmoxve.VmLegacyMemoryArgs{
 			Dedicated: pulumi.Int(8192),
 		},
-		NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
-			&vm.VirtualMachineNetworkDeviceArgs{
+		NetworkDevices: proxmoxve.VmLegacyNetworkDeviceArray{
+			&proxmoxve.VmLegacyNetworkDeviceArgs{
 				Bridge: pulumi.String("vmbr0"),
 			},
 		},
-		Disks: vm.VirtualMachineDiskArray{
-			&vm.VirtualMachineDiskArgs{
+		Disks: proxmoxve.VmLegacyDiskArray{
+			&proxmoxve.VmLegacyDiskArgs{
 				DatastoreId: pulumi.String("local-lvm"),
 				Interface:   pulumi.String("scsi0"),
 				Size:        pulumi.Int(60),
@@ -55,8 +54,8 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 				ImportFrom:  pulumi.String(haosImportRef),
 			},
 		},
-		Usbs: vm.VirtualMachineUsbArray{
-			&vm.VirtualMachineUsbArgs{
+		Usbs: proxmoxve.VmLegacyUsbArray{
+			&proxmoxve.VmLegacyUsbArgs{
 				// Named Proxmox Resource Mapping. Created out-of-band in the
 				// Proxmox UI (Datacenter -> Resource Mappings -> USB Devices)
 				// because the dongle vendor:product is captured at the time of
@@ -72,13 +71,13 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		//   `host_cdrom` block driver requires a file name
 		// FileId "none" maps to `ide3: none,media=cdrom`, the same
 		// empty-but-bootable form TrueNAS uses.
-		Cdrom: &vm.VirtualMachineCdromArgs{
+		Cdrom: &proxmoxve.VmLegacyCdromArgs{
 			FileId: pulumi.String("none"),
 		},
 		BootOrders: pulumi.StringArray{
 			pulumi.String("scsi0"),
 		},
-		Agent: &vm.VirtualMachineAgentArgs{
+		Agent: &proxmoxve.VmLegacyAgentArgs{
 			// HAOS doesn't ship qemu-guest-agent by default; we set the static
 			// IP via the HAOS UI on first boot rather than waiting for an
 			// agent-reported lease. Skipping WaitForIp keeps `pulumi up` fast.
@@ -86,17 +85,20 @@ func createHomeAssistantVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider)
 		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
-		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
+		OperatingSystem: &proxmoxve.VmLegacyOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
-		Startup: &vm.VirtualMachineStartupArgs{
+		Startup: &proxmoxve.VmLegacyStartupArgs{
 			Order: pulumi.Int(6),
 		},
-		Vga: &vm.VirtualMachineVgaArgs{
+		Vga: &proxmoxve.VmLegacyVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
 	},
 		pulumi.Provider(pveProvider),
+		// SDK v8 renamed the resource token — alias the old type so
+		// state maps in place (same pattern as truenas-scale).
+		pulumi.Aliases([]pulumi.Alias{{Type: pulumi.String("proxmoxve:VM/virtualMachine:VirtualMachine")}}),
 		// IgnoreChanges["disks"]: pulumi-proxmoxve doesn't model
 		// Proxmox's disk sub-fields (aio, backup, cache, discard,
 		// iothread, replicate, ssd). Without this ignore, every apply

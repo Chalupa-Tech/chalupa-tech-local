@@ -5,8 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve/vm"
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v8/go/proxmoxve"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/client"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/cluster"
@@ -120,7 +119,7 @@ func main() {
 				Agent:    pulumi.Bool(true),
 				Username: pulumi.String(sshUsername),
 			},
-		}, pulumi.Version("7.13.0"))
+		}, pulumi.Version("8.6.0"))
 		if err != nil {
 			return err
 		}
@@ -167,13 +166,16 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 	// went NotReady simultaneously for ~60s while applying a new machine
 	// config). The two pools chain independently so worker reboots don't
 	// wait on CPs (or vice versa) — they just stagger within their own pool.
-	var prevCPVM *vm.VirtualMachine
-	var prevWorkerVM *vm.VirtualMachine
+	var prevCPVM *proxmoxve.VmLegacy
+	var prevWorkerVM *proxmoxve.VmLegacy
 
 	for _, node := range nodes {
 		vmOpts := []pulumi.ResourceOption{
 			pulumi.Provider(pveProvider),
 			pulumi.IgnoreChanges([]string{"started", "cdrom"}),
+			// SDK v8 renamed the resource token — alias the old type so
+			// state maps in place instead of planning a destroy/recreate.
+			pulumi.Aliases([]pulumi.Alias{{Type: pulumi.String("proxmoxve:VM/virtualMachine:VirtualMachine")}}),
 		}
 		if node.machineType == "controlplane" && prevCPVM != nil {
 			vmOpts = append(vmOpts, pulumi.DependsOn([]pulumi.Resource{prevCPVM}))
@@ -183,7 +185,7 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		}
 
 		// Create Proxmox VM
-		talosVM, err := vm.NewVirtualMachine(ctx, node.name, &vm.VirtualMachineArgs{
+		talosVM, err := proxmoxve.NewVmLegacy(ctx, node.name, &proxmoxve.VmLegacyArgs{
 			VmId:        pulumi.Int(node.vmid),
 			NodeName:    pulumi.String("proxmox"),
 			Name:        pulumi.String(node.name),
@@ -207,17 +209,17 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 				pulumi.String("net0"),
 			},
 
-			Cpu: &vm.VirtualMachineCpuArgs{
+			Cpu: &proxmoxve.VmLegacyCpuArgs{
 				Cores: pulumi.Int(node.cores),
 				Type:  pulumi.String("host"),
 			},
-			Memory: &vm.VirtualMachineMemoryArgs{
+			Memory: &proxmoxve.VmLegacyMemoryArgs{
 				Dedicated: pulumi.Int(node.memoryMB),
 			},
-			NetworkDevices: func() vm.VirtualMachineNetworkDeviceArray {
-				devs := vm.VirtualMachineNetworkDeviceArray{
+			NetworkDevices: func() proxmoxve.VmLegacyNetworkDeviceArray {
+				devs := proxmoxve.VmLegacyNetworkDeviceArray{
 					// net0: management + WAN egress, default MTU 1500.
-					&vm.VirtualMachineNetworkDeviceArgs{
+					&proxmoxve.VmLegacyNetworkDeviceArgs{
 						Bridge: pulumi.String("vmbr0"),
 					},
 				}
@@ -226,40 +228,40 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 				// since CPs don't mount NFS. The matching machine-config
 				// patch configures eth1 with the static IP and MTU 9000.
 				if node.storageIP != "" {
-					devs = append(devs, &vm.VirtualMachineNetworkDeviceArgs{
+					devs = append(devs, &proxmoxve.VmLegacyNetworkDeviceArgs{
 						Bridge: pulumi.String("vmbr1"),
 						Mtu:    pulumi.Int(9000),
 					})
 				}
 				return devs
 			}(),
-			Disks: vm.VirtualMachineDiskArray{
-				&vm.VirtualMachineDiskArgs{
+			Disks: proxmoxve.VmLegacyDiskArray{
+				&proxmoxve.VmLegacyDiskArgs{
 					DatastoreId: pulumi.String("local-lvm"),
 					Interface:   pulumi.String("scsi0"),
 					Size:        pulumi.Int(node.diskGB),
 					FileFormat:  pulumi.String("raw"),
 				},
 			},
-			Cdrom: &vm.VirtualMachineCdromArgs{
+			Cdrom: &proxmoxve.VmLegacyCdromArgs{
 				FileId: pulumi.String(fmt.Sprintf("local:iso/talos-nocloud-amd64-%s.iso", talosVersion)),
 			},
-			Agent: &vm.VirtualMachineAgentArgs{
+			Agent: &proxmoxve.VmLegacyAgentArgs{
 				Enabled: pulumi.Bool(true),
 				Timeout: pulumi.String("10m"),
-				WaitForIp: &vm.VirtualMachineAgentWaitForIpArgs{
+				WaitForIp: &proxmoxve.VmLegacyAgentWaitForIpArgs{
 					Ipv4: pulumi.Bool(true),
 				},
 			},
 			Started: pulumi.Bool(true),
 			OnBoot:  pulumi.Bool(true),
-			OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
+			OperatingSystem: &proxmoxve.VmLegacyOperatingSystemArgs{
 				Type: pulumi.String("l26"),
 			},
-			Startup: &vm.VirtualMachineStartupArgs{
+			Startup: &proxmoxve.VmLegacyStartupArgs{
 				Order: pulumi.Int(node.bootOrder),
 			},
-			Vga: &vm.VirtualMachineVgaArgs{
+			Vga: &proxmoxve.VmLegacyVgaArgs{
 				Type: pulumi.String("vmware"),
 			},
 		}, vmOpts...)
