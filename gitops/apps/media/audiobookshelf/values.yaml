@@ -20,7 +20,7 @@ app-template:
         main:
           image:
             repository: ghcr.io/advplyr/audiobookshelf
-            tag: 2.35.1
+            tag: 2.36.0
           env:
             TZ: America/Los_Angeles
             PORT: "80"

@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: lscr.io/linuxserver/prowlarr
-            tag: 2.4.0.5397-ls150
+            tag: 2.5.2.5491-ls158
           env:
             TZ: America/Los_Angeles
             PUID: "1000"
