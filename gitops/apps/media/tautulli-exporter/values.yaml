@@ -8,11 +8,11 @@ app-template:
         main:
           image:
             repository: mm404/tautulli-exporter
-            # 0.2.7 is the current stable release on Docker Hub
+            # 1.0.2 is the current stable release on Docker Hub
             # (pushed ~6 days before 2026-05-18). Avoid the dev-* /
             # renovate-branch tags — those are CI builds. Verify with:
             #   curl -s https://hub.docker.com/v2/repositories/mm404/tautulli-exporter/tags | jq '.results[].name'
-            tag: "0.2.7"
+            tag: "1.0.2"
           env:
             # In-cluster DNS to the Tautulli Service (sibling wrapper).
             TAUTULLI_URL: http://tautulli.media.svc.cluster.local:8181
