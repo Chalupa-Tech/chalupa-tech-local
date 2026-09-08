@@ -1,6 +1,6 @@
 dependencies:
 - name: local-path-provisioner
   repository: https://charts.containeroo.ch
-  version: 0.0.36
-digest: sha256:ac212733a0ba2046767ad1718ca740d5aad3d1bfc49c5e7a5056c8414c1d65d4
-generated: "2026-05-03T20:03:29.852146-06:00"
+  version: 0.0.38
+digest: sha256:213e2b062f2fc6b2086d8a713d04e4baa69eac2f35e6109f2b9a20a51a8f66c1
+generated: "2026-09-08T01:19:19.087794338Z"
