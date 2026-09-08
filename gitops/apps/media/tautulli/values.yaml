@@ -14,10 +14,10 @@ app-template:
         main:
           image:
             repository: lscr.io/linuxserver/tautulli
-            # v2.17.1-ls230 — current LSIO release.
+            # v2.18.1-ls243 — current LSIO release.
             # LSIO advised that <=2.16.1 has CVEs, so pin to 2.17.x and
             # avoid :latest here even though sibling wrappers use :latest.
-            tag: v2.17.1-ls230
+            tag: v2.18.1-ls243
           env:
             TZ: America/Los_Angeles
             PUID: "1000"
