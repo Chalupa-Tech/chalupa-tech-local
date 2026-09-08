@@ -19,8 +19,8 @@ jobs:
     outputs:
       gitops: ${{ steps.filter.outputs.gitops }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -36,10 +36,10 @@ jobs:
       !cancelled() && (github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.gitops == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -47,7 +47,7 @@ jobs:
         run: pip install yamllint==1.35.1
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Install kubeconform
         run: |

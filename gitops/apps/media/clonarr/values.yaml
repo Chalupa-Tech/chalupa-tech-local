@@ -25,7 +25,7 @@ app-template:
         ensure-sparse-checkout:
           image:
             repository: ghcr.io/prophetse7en/clonarr
-            tag: v2.5.9
+            tag: v3.4.0
           env:
             # Same git safe.directory bypass as the main container —
             # see comment there.
@@ -54,7 +54,7 @@ app-template:
         main:
           image:
             repository: ghcr.io/prophetse7en/clonarr
-            tag: v2.5.9
+            tag: v3.4.0
           env:
             TZ: America/Los_Angeles
             PUID: "1000"

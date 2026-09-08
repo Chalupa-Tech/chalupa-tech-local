@@ -12,8 +12,8 @@ jobs:
     outputs:
       ansible: ${{ steps.filter.outputs.ansible }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -28,10 +28,10 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.ansible == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -52,10 +52,10 @@ jobs:
       pull-requests: write
     if: github.event_name == 'pull_request' && needs.lint.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -80,7 +80,7 @@ jobs:
         continue-on-error: true
 
       - name: Comment PR with output
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ANSIBLE_OUTPUT: ${{ steps.ansible_check.outputs.output }}
         with:

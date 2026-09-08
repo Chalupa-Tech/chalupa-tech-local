@@ -27,10 +27,10 @@ jobs:
       lxc_configure: ${{ steps.filter.outputs.lxc_configure }}
       argocd_bootstrap: ${{ steps.filter.outputs.argocd_bootstrap }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -82,10 +82,10 @@ jobs:
       needs.detect-changes.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.proxmox_prep == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -126,11 +126,11 @@ jobs:
         needs.detect-changes.outputs.lxc_configure == 'true'
       )
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.1'
 
       - name: Connect to Proxmox
         uses: ./.github/actions/connect-proxmox
@@ -140,7 +140,7 @@ jobs:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
       - name: Pulumi Up
-        uses: pulumi/actions@v3
+        uses: pulumi/actions@v7
         with:
           command: up
           stack-name: tayvenb13/chalupa-infra/proxmox
@@ -176,7 +176,7 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
       - name: Upload VM inventory artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: inventory-vms
           path: pulumi/inventory-vms.yml
@@ -197,11 +197,11 @@ jobs:
       needs.deploy-proxmox-prep.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.pulumi_talos == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.1'
 
       - name: Connect to Proxmox
         uses: ./.github/actions/connect-proxmox
@@ -211,7 +211,7 @@ jobs:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
       - name: Pulumi Up (Talos Cluster)
-        uses: pulumi/actions@v3
+        uses: pulumi/actions@v7
         with:
           command: up
           stack-name: tayvenb13/chalupa-talos/proxmox
@@ -240,10 +240,10 @@ jobs:
       needs.deploy-pulumi.result == 'success' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.lxc_configure == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -253,13 +253,13 @@ jobs:
           ansible-galaxy collection install ansible.posix community.general
 
       - name: Download VM inventory artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: inventory-vms
           path: ansible/
 
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -267,7 +267,7 @@ jobs:
 
       # Same SSH key — authenticates as 'root' on the Plex LXC
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
@@ -299,14 +299,14 @@ jobs:
       needs.deploy-talos.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.argocd_bootstrap == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
-          go-version: '1.25.6'
+          go-version: '1.27.1'
 
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -318,7 +318,7 @@ jobs:
           chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Install Pulumi CLI
         run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> $GITHUB_PATH
