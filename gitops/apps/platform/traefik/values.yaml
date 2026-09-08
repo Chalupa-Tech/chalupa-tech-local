@@ -46,8 +46,9 @@ traefik:
         enabled: true
       serviceMonitor:
         enabled: true
-  logs:
-    general:
-      level: INFO
-    access:
-      enabled: true
+  # Chart v41 split the old `logs.general` / `logs.access` block into
+  # top-level `log` and `accessLog` (schema rejects the old key).
+  log:
+    level: INFO
+  accessLog:
+    enabled: true
