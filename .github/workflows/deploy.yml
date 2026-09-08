@@ -267,7 +267,7 @@ jobs:
 
       # Same SSH key — authenticates as 'root' on the Plex LXC
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
 
