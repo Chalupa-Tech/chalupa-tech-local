@@ -1,29 +1,28 @@
 package main
 
 import (
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve"
-	"github.com/muhlba91/pulumi-proxmoxve/sdk/v7/go/proxmoxve/vm"
+	"github.com/muhlba91/pulumi-proxmoxve/sdk/v8/go/proxmoxve"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error {
-	_, err := vm.NewVirtualMachine(ctx, "truenas-scale", &vm.VirtualMachineArgs{
+	_, err := proxmoxve.NewVmLegacy(ctx, "truenas-scale", &proxmoxve.VmLegacyArgs{
 		NodeName:    pulumi.String("proxmox"),
 		Name:        pulumi.String("truenas-scale"),
 		Description: pulumi.String("TrueNAS SCALE VM (Managed by Pulumi)"),
 		Bios:        pulumi.String("ovmf"),
 		Machine:     pulumi.String("q35"),
 
-		Cpu: &vm.VirtualMachineCpuArgs{
+		Cpu: &proxmoxve.VmLegacyCpuArgs{
 			Cores: pulumi.Int(4),
 			Type:  pulumi.String("host"),
 		},
-		Memory: &vm.VirtualMachineMemoryArgs{
+		Memory: &proxmoxve.VmLegacyMemoryArgs{
 			Dedicated: pulumi.Int(32768),
 		},
-		NetworkDevices: vm.VirtualMachineNetworkDeviceArray{
+		NetworkDevices: proxmoxve.VmLegacyNetworkDeviceArray{
 			// net0: management + WAN egress (default MTU 1500).
-			&vm.VirtualMachineNetworkDeviceArgs{
+			&proxmoxve.VmLegacyNetworkDeviceArgs{
 				Bridge: pulumi.String("vmbr0"),
 			},
 			// net1: storage-only subnet on vmbr1 (jumbo frames, no
@@ -33,49 +32,53 @@ func createTrueNASVM(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) error
 			// NFS throughput. TrueNAS-side IP (10.10.10.40/24) is
 			// configured manually in the TrueNAS UI — pulumi only
 			// adds the virtual NIC; the OS owns IP assignment.
-			&vm.VirtualMachineNetworkDeviceArgs{
+			&proxmoxve.VmLegacyNetworkDeviceArgs{
 				Bridge: pulumi.String("vmbr1"),
 				Mtu:    pulumi.Int(9000),
 			},
 		},
-		Hostpcis: vm.VirtualMachineHostpciArray{
-			&vm.VirtualMachineHostpciArgs{
+		Hostpcis: proxmoxve.VmLegacyHostpciArray{
+			&proxmoxve.VmLegacyHostpciArgs{
 				Device:  pulumi.String("hostpci0"),
 				Mapping: pulumi.String("hba_part_1"),
 				Pcie:    pulumi.Bool(true),
 				Rombar:  pulumi.Bool(true),
 			},
-			&vm.VirtualMachineHostpciArgs{
+			&proxmoxve.VmLegacyHostpciArgs{
 				Device:  pulumi.String("hostpci1"),
 				Mapping: pulumi.String("hba_part_2"),
 				Pcie:    pulumi.Bool(true),
 				Rombar:  pulumi.Bool(true),
 			},
 		},
-		Disks: vm.VirtualMachineDiskArray{
-			&vm.VirtualMachineDiskArgs{
+		Disks: proxmoxve.VmLegacyDiskArray{
+			&proxmoxve.VmLegacyDiskArgs{
 				DatastoreId: pulumi.String("local-lvm"),
 				Interface:   pulumi.String("scsi0"),
 				Size:        pulumi.Int(32),
 				FileFormat:  pulumi.String("raw"),
 			},
 		},
-		Cdrom: &vm.VirtualMachineCdromArgs{
+		Cdrom: &proxmoxve.VmLegacyCdromArgs{
 			FileId: pulumi.String("none"),
 		},
 		Started: pulumi.Bool(true),
 		OnBoot:  pulumi.Bool(true),
-		OperatingSystem: &vm.VirtualMachineOperatingSystemArgs{
+		OperatingSystem: &proxmoxve.VmLegacyOperatingSystemArgs{
 			Type: pulumi.String("l26"),
 		},
-		Startup: &vm.VirtualMachineStartupArgs{
+		Startup: &proxmoxve.VmLegacyStartupArgs{
 			Order: pulumi.Int(1),
 		},
-		Vga: &vm.VirtualMachineVgaArgs{
+		Vga: &proxmoxve.VmLegacyVgaArgs{
 			Type: pulumi.String("vmware"),
 		},
 	},
 		pulumi.Provider(pveProvider),
+		// SDK v8 renamed the resource token (VM/virtualMachine ->
+		// index/vmLegacy). Alias the old type so existing state maps
+		// in place instead of planning a destroy/recreate.
+		pulumi.Aliases([]pulumi.Alias{{Type: pulumi.String("proxmoxve:VM/virtualMachine:VirtualMachine")}}),
 		// IgnoreChanges["disks"]: Proxmox sets unmanaged sub-fields
 		// (aio, backup, cache, discard, iothread, replicate, ssd) that
 		// pulumi-proxmoxve reads back as drift, triggering a no-op

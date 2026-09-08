@@ -101,6 +101,14 @@
       "pinDigests": true
     },
     {
+      "description": "proxmoxve Go SDK + provider plugin pin must bump together (split PRs can never pass CI)",
+      "matchPackageNames": [
+        "github.com/muhlba91/pulumi-proxmoxve/sdk/v8",
+        "muhlba91/pulumi-proxmoxve"
+      ],
+      "groupName": "pulumi-proxmoxve"
+    },
+    {
       "description": "Group the shared bjw-s app-template chart bump into one PR",
       "matchManagers": ["helmv3"],
       "matchDepNames": ["app-template"],
