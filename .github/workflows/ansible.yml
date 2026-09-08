@@ -12,7 +12,7 @@ jobs:
     outputs:
       ansible: ${{ steps.filter.outputs.ansible }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -28,7 +28,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.ansible == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,7 +52,7 @@ jobs:
       pull-requests: write
     if: github.event_name == 'pull_request' && needs.lint.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5

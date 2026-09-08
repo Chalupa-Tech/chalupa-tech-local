@@ -13,7 +13,7 @@ jobs:
       pulumi_infra: ${{ steps.filter.outputs.pulumi_infra }}
       pulumi_talos: ${{ steps.filter.outputs.pulumi_talos }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -33,7 +33,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.pulumi_infra == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -52,7 +52,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.pulumi_talos == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -73,7 +73,7 @@ jobs:
       pull-requests: write
     if: github.event_name == 'pull_request' && needs.lint-infra.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -108,7 +108,7 @@ jobs:
       pull-requests: write
     if: github.event_name == 'pull_request' && needs.lint-talos.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:

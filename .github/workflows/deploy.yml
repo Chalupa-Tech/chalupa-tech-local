@@ -27,7 +27,7 @@ jobs:
       lxc_configure: ${{ steps.filter.outputs.lxc_configure }}
       argocd_bootstrap: ${{ steps.filter.outputs.argocd_bootstrap }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: dorny/paths-filter@v3
@@ -82,7 +82,7 @@ jobs:
       needs.detect-changes.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.proxmox_prep == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -126,7 +126,7 @@ jobs:
         needs.detect-changes.outputs.lxc_configure == 'true'
       )
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -197,7 +197,7 @@ jobs:
       needs.deploy-proxmox-prep.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.pulumi_talos == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
@@ -240,7 +240,7 @@ jobs:
       needs.deploy-pulumi.result == 'success' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.lxc_configure == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -299,7 +299,7 @@ jobs:
       needs.deploy-talos.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.argocd_bootstrap == 'true')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-go@v7
         with:
