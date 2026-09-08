@@ -1,7 +1,7 @@
 # Fix: self-hosted Renovate never ran (sealed OpenBao + missing policy)
 
 **Date:** 2026-09-07
-**PR:** _link added on open_
+**PR:** https://github.com/Chalupa-Tech/chalupa-tech-local/pull/246
 
 ## Symptom
 
