@@ -14,7 +14,7 @@ app-template:
         main:
           image:
             repository: lscr.io/linuxserver/nzbget
-            tag: v26.1-ls241
+            tag: v26.3-ls262
           env:
             TZ: America/Los_Angeles
             PUID: "1000"
