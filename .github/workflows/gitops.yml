@@ -4,22 +4,44 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'gitops/**'
-      - '.github/workflows/gitops.yml'
   workflow_dispatch:
 
 jobs:
+  # "Lint and dry-render gitops/" is a required status check on main. A
+  # workflow-level `paths:` filter would leave that check unreported on PRs
+  # that don't touch gitops/, blocking auto-merge forever. Instead the
+  # workflow runs on every PR and the job itself skips (skipped required
+  # checks count as satisfied) — same pattern as ansible.yml / pulumi.yml.
+  detect-changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      gitops: ${{ steps.filter.outputs.gitops }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gitops:
+              - 'gitops/**'
+              - '.github/workflows/gitops.yml'
+
   lint-and-render:
     name: Lint and dry-render gitops/
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: >-
+      !cancelled() && (github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.gitops == 'true')
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.14'
 
       - name: Install yamllint
         run: pip install yamllint==1.35.1
