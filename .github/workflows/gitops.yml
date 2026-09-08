@@ -47,7 +47,7 @@ jobs:
         run: pip install yamllint==1.35.1
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Install kubeconform
         run: |
