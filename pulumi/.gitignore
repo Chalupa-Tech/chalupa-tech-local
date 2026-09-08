@@ -1,3 +1,4 @@
 .go/
 .go_cache/
 .go_mod_cache/
+pulumi_temp
