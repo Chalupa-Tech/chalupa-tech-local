@@ -1,0 +1,30 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlert
+metadata:
+  name: chalupa
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  replicaCount: 1
+  evaluationInterval: 30s
+  # Evaluate every VMRule in the cluster (rules live in this
+  # namespace; new rule files under templates/rules/ are picked up
+  # with no further wiring).
+  selectAllByDefault: true
+  datasource:
+    url: http://vmsingle-vmsingle-chalupa.vm-system.svc.cluster.local:8429
+  # remoteWrite persists ALERTS/ALERTS_FOR_STATE series; remoteRead
+  # restores `for:` timers across vmalert restarts.
+  remoteWrite:
+    url: http://vmsingle-vmsingle-chalupa.vm-system.svc.cluster.local:8429
+  remoteRead:
+    url: http://vmsingle-vmsingle-chalupa.vm-system.svc.cluster.local:8429
+  notifiers:
+    - url: http://vmalertmanager-chalupa.vm-system.svc.cluster.local:9093
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi

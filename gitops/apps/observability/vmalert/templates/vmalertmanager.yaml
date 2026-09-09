@@ -1,0 +1,26 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlertmanager
+metadata:
+  name: chalupa
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  replicaCount: 1
+  # Pick up every VMAlertmanagerConfig in the cluster (there is exactly
+  # one, in this namespace).
+  selectAllByDefault: true
+  # CRITICAL: without this, the operator adds a `namespace="vm-system"`
+  # matcher to the route generated from our VMAlertmanagerConfig, and
+  # alerts on metrics from other namespaces (plex_up is in `media`)
+  # would never reach the Discord receiver.
+  disableNamespaceMatcher: true
+  # No persistent storage: silences and notification-log state are
+  # lost on pod restart. Accepted for homelab (worst case: one
+  # duplicate notification after a restart).
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 128Mi

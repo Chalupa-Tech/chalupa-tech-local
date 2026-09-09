@@ -1,0 +1,27 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlertmanagerConfig
+metadata:
+  name: discord
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  # Field names here are Alertmanager-config snake_case — that is what
+  # the VMAlertmanagerConfig CRD uses (unlike the camelCase VM CRs).
+  route:
+    receiver: discord
+    group_by: [alertname]
+    group_wait: 30s
+    group_interval: 5m
+    # A stuck alert re-pings ~2x/day instead of spamming.
+    repeat_interval: 12h
+  receivers:
+    - name: discord
+      webhook_configs:
+        # url_secret keeps the webhook ID (the shared secret) out of
+        # Git — the Secret is synced from OpenBao by the
+        # ExternalSecret in this chart.
+        - url_secret:
+            name: vmalert-ha-webhook
+            key: url
+          send_resolved: true
