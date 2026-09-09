@@ -85,3 +85,23 @@ def test_garbage_payloads_return_empty_list():
     assert format_alerts({}) == []
     assert format_alerts({"alerts": "nope"}) == []
     assert format_alerts({"alerts": [42]}) == []
+
+
+def test_non_dict_labels_and_annotations_do_not_raise():
+    payload = {"alerts": [
+        {"status": "firing", "labels": "bad", "annotations": 7},
+    ]}
+    msgs = format_alerts(payload)
+    assert len(msgs) == 1
+    assert "**UnknownAlert**" in msgs[0]
+
+
+def test_non_string_annotation_values_do_not_raise():
+    payload = {"alerts": [{
+        "status": "firing",
+        "labels": {"alertname": "Weird", "severity": "warning"},
+        "annotations": {"summary": 123, "description": None},
+    }]}
+    msgs = format_alerts(payload)
+    assert len(msgs) == 1
+    assert "123" in msgs[0]

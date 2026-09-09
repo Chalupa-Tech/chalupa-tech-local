@@ -16,8 +16,12 @@ _SEVERITY_EMOJI = {
 
 
 def _format_one(alert):
-    labels = alert.get("labels") or {}
-    annotations = alert.get("annotations") or {}
+    labels = alert.get("labels")
+    if not isinstance(labels, dict):
+        labels = {}
+    annotations = alert.get("annotations")
+    if not isinstance(annotations, dict):
+        annotations = {}
     name = labels.get("alertname", "UnknownAlert")
 
     if alert.get("status") == "resolved":
@@ -30,10 +34,10 @@ def _format_one(alert):
     lines = [head]
     summary = annotations.get("summary")
     if summary:
-        lines.append(summary)
+        lines.append(str(summary))
     description = annotations.get("description")
     if description and description != summary:
-        lines.append(description)
+        lines.append(str(description))
     if len(lines) == 1:
         # No annotations at all — show the labels so the message still
         # identifies what fired.
