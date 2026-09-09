@@ -106,6 +106,10 @@ rather than copying locally.
 - `/config/pyscript/modules/*.py` — **importable libraries**. Trigger scripts
   can `from foo import bar` only if `foo.py` lives here; top-level `pyscript/`
   is NOT on `sys.path` for imports.
+- `/config/pyscript/apps/*.py` — **apps**: like trigger scripts, but only
+  loaded when `configuration.yaml` has a matching `pyscript: apps: <name>:`
+  entry; that config is exposed to the app as `pyscript.app_config`. Used
+  to keep secrets (webhook IDs) in HAOS `secrets.yaml` instead of Git.
 - `/config/packages/*.yaml` — packaged YAML (input_boolean, input_number,
   input_datetime helpers). Requires:
   ```yaml
@@ -176,6 +180,8 @@ deploy is healthy.
 | `pyscript/modules/cooler_chart.py` | Phillips chart + nearest-cell lookup | yes → `/config/pyscript/modules/` |
 | `pyscript/modules/fan_speed.py` | Headroom → fan speed mapping | yes → `/config/pyscript/modules/` |
 | `pyscript/modules/decision_engine.py` | All 6 rules + asymmetric hysteresis | yes → `/config/pyscript/modules/` |
+| `pyscript/apps/vmalert_discord.py` | Alertmanager→Discord webhook bridge (config via `pyscript.app_config`) | yes → `/config/pyscript/apps/` |
+| `pyscript/modules/vmalert_format.py` | Alert → Discord message formatting | yes → `/config/pyscript/modules/` |
 | `packages/climate_balance.yaml` | HA helpers | yes → `/config/packages/` |
 | `scripts/backtest.py` | Historical replay tool (matplotlib chart) | **no** — local dev only |
 | `tests/` | pytest unit tests for pure-logic modules | **no** — never copy to HAOS |

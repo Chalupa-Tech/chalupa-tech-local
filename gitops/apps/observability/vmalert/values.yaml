@@ -1,0 +1,3 @@
+# Templates-only chart — resources are defined directly in templates/
+# (same style as the vm-system CRs). Nothing is parameterized yet.
+{}

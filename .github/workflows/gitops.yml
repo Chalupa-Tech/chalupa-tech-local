@@ -88,7 +88,7 @@ jobs:
           # are valid in the actual operator's CRDs but missing from the
           # catalog's v1beta1 snapshot). vm-operator validates these at runtime;
           # skip them in catalog-based static validation to avoid false negatives.
-          SKIP_KINDS='VMSingle,VMAgent,VMServiceScrape,VMPodScrape,VMNodeScrape,VMRule,VMUser,VMAlertmanager,VMAlert,VMCluster,VMAuth'
+          SKIP_KINDS='VMSingle,VMAgent,VMServiceScrape,VMPodScrape,VMNodeScrape,VMRule,VMUser,VMAlertmanager,VMAlertmanagerConfig,VMAlert,VMCluster,VMAuth'
 
           for chart_dir in gitops/apps/*/*/; do
             if [ -f "${chart_dir}Chart.yaml" ]; then

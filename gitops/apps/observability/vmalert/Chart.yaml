@@ -1,0 +1,23 @@
+apiVersion: v2
+name: vmalert-wrapper
+description: |
+  Alerting core: vmalert (rule evaluation) + Alertmanager (routing) as
+  VictoriaMetrics-operator CRs, plus the VMRule alert definitions under
+  templates/rules/.
+
+  Everything deploys into the existing vm-system namespace (explicit
+  metadata.namespace on every resource — the ApplicationSet's default
+  destination would be a new `vmalert` namespace, which we don't want).
+  The operator + CRDs come from the vm-system app; this chart has no
+  Helm dependencies.
+
+  Delivery path: vmalert -> Alertmanager -> HA webhook (URL from OpenBao
+  via ExternalSecret; the webhook ID is the shared secret and never
+  lands in Git) -> pyscript app vmalert_discord -> Discord alerts
+  channel. See RUNBOOK.md for the one-time manual steps.
+
+  Adding a future monitor = adding one file (or one more `- alert:`
+  block) under templates/rules/ and merging a PR.
+type: application
+version: 0.1.0
+appVersion: "v0.69.0"
