@@ -140,9 +140,16 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 		{"talos-cp", 300, controlPlaneIP, "controlplane", 4, 2, 4096, 50, ""},
 		{"talos-cp-2", 304, "192.168.1.228", "controlplane", 4, 2, 4096, 50, ""},
 		{"talos-cp-3", 305, "192.168.1.229", "controlplane", 4, 2, 4096, 50, ""},
-		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 20480, 100, "10.10.10.226"},
-		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 20480, 100, "10.10.10.227"},
-		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 20480, 100, "10.10.10.232"},
+		// Worker memory is 12GB, not more: every VM runs with balloon:0,
+		// so once a guest touches a page the host can never reclaim it.
+		// At 20GB each the fleet totalled 112GB provisioned on a 94GB
+		// host, and on 2026-09-07 guest page cache grew until the OOM
+		// killer shot the TrueNAS VM (which VFIO-pins its full 32GB).
+		// Active pod usage per worker is ~3-4GB; 12GB keeps ~3x headroom
+		// while the whole fleet (88GB) fits under physical RAM.
+		{"talos-worker-1", 301, "192.168.1.226", "worker", 5, 4, 12288, 100, "10.10.10.226"},
+		{"talos-worker-2", 302, "192.168.1.227", "worker", 5, 4, 12288, 100, "10.10.10.227"},
+		{"talos-worker-3", 303, "192.168.1.232", "worker", 5, 4, 12288, 100, "10.10.10.232"},
 	}
 
 	// Step 1: Generate cluster secrets (stored in Pulumi state for reproducibility)
