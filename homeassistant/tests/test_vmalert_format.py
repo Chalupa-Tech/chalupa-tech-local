@@ -105,3 +105,29 @@ def test_non_string_annotation_values_do_not_raise():
     msgs = format_alerts(payload)
     assert len(msgs) == 1
     assert "123" in msgs[0]
+
+
+def test_unhashable_severity_does_not_raise():
+    payload = {"alerts": [{
+        "status": "firing",
+        "labels": {"alertname": "Odd", "severity": ["oops"]},
+        "annotations": {"summary": "odd severity"},
+    }]}
+    msgs = format_alerts(payload)
+    assert len(msgs) == 1
+    assert "**Odd**" in msgs[0]
+
+
+def test_pathological_alert_yields_fallback_not_exception():
+    class Boom:
+        def __str__(self):
+            raise RuntimeError("boom")
+
+    payload = {"alerts": [{
+        "status": "firing",
+        "labels": {"alertname": Boom(), "severity": "warning"},
+        "annotations": {},
+    }]}
+    msgs = format_alerts(payload)
+    assert len(msgs) == 1
+    assert "unformattable" in msgs[0]

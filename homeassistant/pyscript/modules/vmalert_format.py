@@ -28,7 +28,10 @@ def _format_one(alert):
         head = f"✅ **{name}** resolved"
     else:
         severity = labels.get("severity", "unknown")
-        emoji = _SEVERITY_EMOJI.get(severity, "ℹ️")
+        if isinstance(severity, str):
+            emoji = _SEVERITY_EMOJI.get(severity, "ℹ️")
+        else:
+            emoji = "ℹ️"
         head = f"🔥 {emoji} **{name}** ({severity})"
 
     lines = [head]
@@ -69,5 +72,8 @@ def format_alerts(payload):
     messages = []
     for alert in alerts:
         if isinstance(alert, dict):
-            messages.append(_format_one(alert))
+            try:
+                messages.append(_format_one(alert))
+            except Exception:  # noqa: BLE001 — contract: never raise
+                messages.append("ℹ️ **UnknownAlert** (unformattable alert payload)")
     return messages
