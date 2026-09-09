@@ -1,7 +1,7 @@
 # Add cluster alerting: vmalert + Alertmanager + Discord delivery
 
 **Date:** 2026-09-08
-**PR:** #TBD <!-- fill in at PR time -->
+**PR:** [#300](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/300)
 **Design:** docs/superpowers/specs/2026-09-08-cluster-monitoring-design.md (PR 1 of 3)
 
 ## What
