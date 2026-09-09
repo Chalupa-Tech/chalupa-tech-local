@@ -4,7 +4,13 @@ metadata:
   name: discord
   namespace: vm-system
   annotations:
-    argocd.argoproj.io/sync-wave: "5"
+    # Wave 15 — AFTER the VMAlertmanager (wave 10). The operator only
+    # reconciles a VMAlertmanagerConfig (and sets the status ArgoCD's
+    # health check gates on) once an alertmanager selects it; at an
+    # earlier wave the sync deadlocks "waiting for healthy state"
+    # while the alertmanager it needs sits unapplied in a later wave.
+    # Observed live on the first sync of this app (2026-09-09).
+    argocd.argoproj.io/sync-wave: "15"
 spec:
   # Field names here are Alertmanager-config snake_case — that is what
   # the VMAlertmanagerConfig CRD uses (unlike the camelCase VM CRs).
