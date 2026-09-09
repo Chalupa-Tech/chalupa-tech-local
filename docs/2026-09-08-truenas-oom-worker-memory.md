@@ -1,6 +1,6 @@
 # 2026-09-08 — TrueNAS OOM-killed; Talos workers cut from 20GB to 12GB
 
-**PR:** #298 (fix applied out-of-band first, then codified here)
+**PR:** #299 (fix applied out-of-band first, then codified here)
 
 ## What happened
 
