@@ -1,0 +1,27 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: arrs
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: arrs
+      rules:
+        - alert: ArrServiceDown
+          expr: 'scraparr_services_up == 0'
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: '{{ "{{ $labels.alias }}" }} is down'
+            description: 'scraparr reports {{ "{{ $labels.alias }}" }} unreachable for 5+ minutes.'
+        - alert: ScraparrAbsent
+          expr: 'absent(scraparr_services_up)'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: scraparr metrics are missing
+            description: No scraparr_services_up series for 10+ minutes — the *arr stack is unmonitored.

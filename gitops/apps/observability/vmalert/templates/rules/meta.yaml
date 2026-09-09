@@ -1,0 +1,21 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: meta
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: meta
+      rules:
+        # Safety net: catches ANY current or future scrape target dying
+        # without needing a dedicated rule.
+        - alert: TargetDown
+          expr: 'up == 0'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Scrape target {{ "{{ $labels.job }}" }} is down'
+            description: 'Target {{ "{{ $labels.instance }}" }} of job {{ "{{ $labels.job }}" }} has been unreachable for 10+ minutes.'
