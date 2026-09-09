@@ -20,7 +20,11 @@ _CHANNEL_ID = str(pyscript.app_config["channel_id"])
 
 @webhook_trigger(_WEBHOOK_ID, methods=["POST"])
 def vmalert_webhook(**kwargs):
-    payload = kwargs.get("webhook_data") or {}
+    # Pyscript 2.x passes the request body as `payload` (verified live:
+    # kwargs are payload/trigger_type/webhook_id); older docs called it
+    # `webhook_data`. Accept either so a pyscript upgrade can't silently
+    # zero the bridge.
+    payload = kwargs.get("payload") or kwargs.get("webhook_data") or {}
     messages = format_alerts(payload)
     log.info(f"vmalert webhook received {len(messages)} alert(s)")
     for message in messages:
