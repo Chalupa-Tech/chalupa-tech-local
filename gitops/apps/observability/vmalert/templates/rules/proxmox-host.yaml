@@ -1,0 +1,68 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: proxmox-host
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: proxmox-host
+      rules:
+        - alert: ProxmoxHostDown
+          expr: 'up{job="proxmox-host"} == 0'
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Proxmox host pve1 is down
+            description: node-exporter on 192.168.1.223:9100 has been unreachable for 5+ minutes — host or exporter is down.
+        # Safety net for the safety net: if the proxmox-host series
+        # vanish entirely (scrape object pruned, operator regression),
+        # `up` has no series and neither ProxmoxHostDown nor the meta
+        # TargetDown rule can fire. Same precedent as
+        # PlexExporterAbsent/ScraparrAbsent.
+        - alert: ProxmoxMetricsAbsent
+          expr: 'absent(up{job="proxmox-host"})'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: proxmox-host metrics are missing
+            description: No up{job="proxmox-host"} series for 10+ minutes — the scrape config itself is gone and pve1 is unmonitored.
+        - alert: ProxmoxHighCPU
+          expr: '(1 - avg by (instance, job) (rate(node_cpu_seconds_total{job="proxmox-host",mode="idle"}[5m]))) * 100 > 90'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Proxmox host CPU above 90%
+            description: 'pve1 CPU usage is {{ "{{ $value | printf \"%.0f\" }}" }}% averaged over 5m, sustained 15m.'
+        - alert: ProxmoxHighMemory
+          expr: '(1 - node_memory_MemAvailable_bytes{job="proxmox-host"} / node_memory_MemTotal_bytes{job="proxmox-host"}) * 100 > 92'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Proxmox host memory above 92%
+            description: 'pve1 memory usage is {{ "{{ $value | printf \"%.0f\" }}" }}% — VMs + LXC + host overhead are close to the physical limit.'
+        # k10temp readings: the chip label on node_hwmon_temp_celsius is a
+        # bus path; the human-readable chip name lives in the companion
+        # node_hwmon_chip_names series — hence the join. Verified against
+        # live labels post-merge (plan Task 6).
+        - alert: ProxmoxHighTemp
+          expr: 'max by (instance, job) (node_hwmon_temp_celsius{job="proxmox-host"} * on(instance, chip) group_left(chip_name) node_hwmon_chip_names{job="proxmox-host",chip_name="k10temp"}) > 85'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Proxmox host CPU temperature above 85°C
+            description: 'pve1 k10temp reads {{ "{{ $value | printf \"%.0f\" }}" }}°C for 10+ minutes — check airflow/load.'
+        - alert: ProxmoxCriticalTemp
+          expr: 'max by (instance, job) (node_hwmon_temp_celsius{job="proxmox-host"} * on(instance, chip) group_left(chip_name) node_hwmon_chip_names{job="proxmox-host",chip_name="k10temp"}) > 95'
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Proxmox host CPU temperature above 95°C
+            description: 'pve1 k10temp reads {{ "{{ $value | printf \"%.0f\" }}" }}°C — thermal throttling/shutdown territory.'

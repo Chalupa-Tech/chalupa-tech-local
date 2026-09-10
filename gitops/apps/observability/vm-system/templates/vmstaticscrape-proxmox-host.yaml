@@ -1,0 +1,20 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: proxmox-host
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  # jobName becomes the `job` label — the proxmox-host.yaml VMRules and
+  # the TargetDown safety net both match on it.
+  jobName: proxmox-host
+  targetEndpoints:
+    - targets:
+        - 192.168.1.223:9100
+      scrapeInterval: 30s
+      relabelConfigs:
+        # `instance` would default to the raw address; pve1 reads better
+        # in alerts and dashboards.
+        - targetLabel: instance
+          replacement: pve1

@@ -47,10 +47,11 @@ HA=http://192.168.1.234:8123
 # Read a single entity state
 curl -s -H "Authorization: Bearer $TOK" "$HA/api/states/sensor.climate_balance_mode"
 
-# Tail the live error log (this is the ONLY way to see current HA logs —
-# /config/home-assistant.log is rotated; the active log lives inside the
-# supervisor container, not on disk)
-curl -s -H "Authorization: Bearer $TOK" "$HA/api/error_log" | tail -50
+# NOTE (2026-09): /api/error_log and /api/error/all now return 404 on
+# this HA build, and the live log is not on disk either. To debug
+# pyscript, write progress to a state entity from the script
+# (state.set("pyscript.<name>", value)) and read it back:
+curl -s -H "Authorization: Bearer $TOK" "$HA/api/states/pyscript.vmalert_debug"
 
 # Reload Pyscript (rarely needed; auto-reload handles .py file changes)
 curl -s -X POST -H "Authorization: Bearer $TOK" -d '{}' "$HA/api/services/pyscript/reload"
@@ -161,15 +162,13 @@ ssh tayvenbigelow@192.168.1.234 "
 
 # 3. Verify via API (no user round-trip needed)
 TOK="${HOMEASSISTANT_TOKEN:-$(cat ~/.config/ha/llat)}"
-curl -s -H "Authorization: Bearer $TOK" http://192.168.1.234:8123/api/error_log \
-  | grep -i climate_balance | tail -10
+# (error_log API removed — see REST API section; verify via entity state)
 curl -s -H "Authorization: Bearer $TOK" \
   http://192.168.1.234:8123/api/states/sensor.climate_balance_mode \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['state'])"
 ```
 
-If `/api/error_log` is clean and `sensor.climate_balance_mode` updated, the
-deploy is healthy.
+If `sensor.climate_balance_mode` updated (and any debug state entities look right), the deploy is healthy.
 
 ## What lives in this directory
 

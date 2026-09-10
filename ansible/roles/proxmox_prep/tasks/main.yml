@@ -173,3 +173,25 @@
     path: /etc/network/interfaces
     line: "source /etc/network/interfaces.d/*"
     state: present
+
+# --- node-exporter (host CPU/mem/temp metrics for the vmalert stack) ---
+# Scraped by vmagent via the VMStaticScrape in
+# gitops/apps/observability/vm-system/ (job proxmox-host). Listens on
+# :9100; LAN-only host, no auth needed. Debian's package ships a
+# systemd unit that is enabled+started on install; the explicit state
+# task below makes the desired state idempotent and self-healing.
+- name: Install prometheus-node-exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Ensure prometheus-node-exporter is enabled and running
+  ansible.builtin.systemd_service:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+  # In --check runs (the CI "Check & Diff (PR)" job) the apt task above
+  # doesn't actually install, so this unit doesn't exist yet and the
+  # module would hard-fail. Standard guard: tolerate errors only in
+  # check mode; real runs still fail loudly.
+  ignore_errors: "{{ ansible_check_mode }}"
