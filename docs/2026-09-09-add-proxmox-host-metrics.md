@@ -1,7 +1,7 @@
 # Add Proxmox host metrics + alerts (node-exporter on pve1)
 
 **Date:** 2026-09-09
-**PR:** #TBD <!-- fill in at PR time -->
+**PR:** [#303](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/303)
 **Design:** docs/superpowers/specs/2026-09-08-cluster-monitoring-design.md (PR 2 of 3)
 
 ## What
