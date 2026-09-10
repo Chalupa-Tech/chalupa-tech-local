@@ -68,7 +68,7 @@ The easiest way to get these matched up is an [r2modman](https://github.com/ebkr
 - **Confirm BepInEx/mods loaded:** `journalctl -u valheim | grep -i 'Loading \['`
 - **Restart the server:** `sudo systemctl restart valheim`
 - **Backups:** a systemd timer (`valheim-backup.timer`) runs daily, archiving the world save (`worlds_local`) to `/opt/valheim/backups`, keeping the newest 14 archives.
-- **Mod/BepInEx upgrades:** bump the relevant version pin in `roles/valheim/defaults/main.yml` (`bepinex_version`, or the entry under `valheim_mods`) via a normal PR — the role removes the old versioned plugin directory and installs the new one, and restarts the `valheim` service.
+- **Mod/BepInEx upgrades:** bump the relevant version pin in `ansible/roles/valheim/defaults/main.yml` (`bepinex_version`, or the entry under `valheim_mods`) via a normal PR — the role removes the old versioned plugin directory and installs the new one, and restarts the `valheim` service.
 
 ## Troubleshooting
 
