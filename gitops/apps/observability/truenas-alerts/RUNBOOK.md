@@ -18,12 +18,12 @@ argocd.argoproj.io/refresh=hard --overwrite`.
 
 ```bash
 curl -sk -H "Authorization: Bearer $API_KEY" \
-  https://192.168.1.40/api/v2.0/alert/list | jq 'length, .[0] | {level, klass, dismissed}'
+  https://192.168.1.40/api/v2.0/alert/list | jq '{count: length, first: .[0]}'
 ```
 
-Expected: a number (may be 0) and, if any alert exists, an object with
-`level`/`klass`/`dismissed` fields. A 401 means the key is wrong; an
-empty array `[]` is fine (no active alerts).
+Expected: an object like `{"count": 2, "first": {...}}` — `count` may be
+0 and `first` null (no active alerts), which is fine. A 401 or a jq
+parse error means the key is wrong.
 
 ## 2. Seed OpenBao
 
@@ -43,6 +43,11 @@ export OPENBAO_TOKEN
 # single key, so that's fine:
 ./scripts/openbao/kv-put.sh truenas-alerts/api-key key="$API_KEY"
 ```
+
+> Note: both the API-key Secret and config.yml are subPath mounts —
+> updates do NOT reach a running pod. After rotating the key or
+> changing the json_exporter config, run
+> `kubectl -n truenas-alerts rollout restart deploy/truenas-alerts`.
 
 ## 3. Verify after the PR merges
 

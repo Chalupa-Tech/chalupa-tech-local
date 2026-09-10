@@ -53,3 +53,7 @@
   rule is a one-file PR.
 - Dead-man's-switch for the alerting pipeline itself (HA-side
   heartbeat timer) — deliberately out of scope in the design.
+- TrueNAS is deprecating the REST `/api/v2.0` surface in favor of the
+  WebSocket JSON-RPC API; works today, and its removal would page via
+  TargetDown/TrueNASAlertsExporterAbsent — revisit the json_exporter
+  target on the next TrueNAS major upgrade.
