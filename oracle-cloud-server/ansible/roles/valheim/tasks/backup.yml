@@ -1,0 +1,26 @@
+---
+- name: Install backup script
+  ansible.builtin.template:
+    src: valheim-backup.sh.j2
+    dest: "{{ valheim_home }}/valheim-backup.sh"
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0755"
+
+- name: Install backup service and timer
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: valheim-backup.service.j2, dest: valheim-backup.service }
+    - { src: valheim-backup.timer.j2, dest: valheim-backup.timer }
+
+- name: Enable backup timer
+  ansible.builtin.systemd_service:
+    name: valheim-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true

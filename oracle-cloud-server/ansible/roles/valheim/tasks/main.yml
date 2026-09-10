@@ -13,3 +13,6 @@
 
 - name: Configure and start valheim service
   ansible.builtin.import_tasks: service.yml
+
+- name: Configure world backups
+  ansible.builtin.import_tasks: backup.yml

@@ -1,0 +1,7 @@
+[Unit]
+Description=Back up Valheim worlds
+
+[Service]
+Type=oneshot
+User={{ valheim_user }}
+ExecStart={{ valheim_home }}/valheim-backup.sh

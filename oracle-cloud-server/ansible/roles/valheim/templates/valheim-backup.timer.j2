@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Valheim world backup
+
+[Timer]
+OnCalendar=*-*-* 09:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
