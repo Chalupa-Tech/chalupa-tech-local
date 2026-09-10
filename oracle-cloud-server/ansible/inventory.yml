@@ -1,0 +1,9 @@
+all:
+  children:
+    oracle:
+      hosts:
+        oracle-server:
+          # CI injects ORACLE_SERVER_IP (resolved from `tailscale status`).
+          # Locally, the MagicDNS name works if this machine is on the tailnet.
+          ansible_host: "{{ lookup('env', 'ORACLE_SERVER_IP') | default('oracle-server', true) }}"
+          ansible_user: ubuntu

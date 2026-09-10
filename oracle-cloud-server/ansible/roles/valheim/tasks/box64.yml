@@ -1,0 +1,27 @@
+---
+- name: Add box64 apt source list
+  ansible.builtin.get_url:
+    url: "{{ box64_list_url }}"
+    dest: /etc/apt/sources.list.d/box64.list
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Add box64 apt signing key
+  ansible.builtin.shell:
+    cmd: >
+      set -o pipefail &&
+      curl -fsSL {{ box64_key_url }}
+      | gpg --dearmor -o /etc/apt/trusted.gpg.d/box64-debs-archive-keyring.gpg
+    creates: /etc/apt/trusted.gpg.d/box64-debs-archive-keyring.gpg
+    executable: /bin/bash
+
+- name: Install box64
+  ansible.builtin.apt:
+    name: box64
+    state: present
+    update_cache: true
+
+- name: Verify box64 executes x86_64 binaries via binfmt
+  ansible.builtin.command: box64 --version
+  changed_when: false

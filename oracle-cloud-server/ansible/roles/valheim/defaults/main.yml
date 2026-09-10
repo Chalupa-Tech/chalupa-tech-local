@@ -1,0 +1,28 @@
+---
+valheim_user: valheim
+valheim_home: /opt/valheim
+valheim_server_dir: /opt/valheim/server
+valheim_data_dir: /opt/valheim/data
+valheim_dist_dir: /opt/valheim/dist
+valheim_port: 2456
+valheim_steam_app_id: "896660"
+
+depotdownloader_version: "3.4.0"
+depotdownloader_url: "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_{{ depotdownloader_version }}/DepotDownloader-linux-arm64.zip"
+
+box64_list_url: "https://ryanfortner.github.io/box64-debs/box64.list"
+box64_key_url: "https://ryanfortner.github.io/box64-debs/KEY.gpg"
+
+bepinex_version: "5.4.2350"
+bepinex_url: "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/{{ bepinex_version }}/"
+
+valheim_mods:
+  - name: AzuCraftyBoxes
+    team: Azumatt
+    version: "1.8.15"
+  - name: AAA_Crafting
+    team: Azumatt
+    version: "2.1.6"
+  - name: AzuAutoStore
+    team: Azumatt
+    version: "3.0.14"

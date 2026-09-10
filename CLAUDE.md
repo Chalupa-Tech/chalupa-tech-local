@@ -40,6 +40,15 @@ CI runners connect to the local network via **Tailscale** (OAuth, tag:github-run
 
 **Talos K8s Cluster** (VMIDs 300, 304, 305 + 301, 302, 303): Talos Linux v1.12.6, 6 nodes (3 CP + 3 workers — HA control plane). All CPs (.225, .228, .229): 2 cores / 4 GB / 50 GB disk each. Workers (.226, .227, .232): 4 cores / 12 GB / 100 GB disk each (12 GB is a hard ceiling — see `docs/2026-09-08-truenas-oom-worker-memory.md` before raising). Boot order 4 (CP) / 5 (worker). Cluster endpoint: https://192.168.1.231:6443 (Talos shared VIP). Fully destroyable and recreatable via pipeline.
 
+**Oracle Cloud Server** (`oracle-cloud-server/`): Always-free OCI Ampere A1
+instance (4 OCPU / 24 GB, Ubuntu 24.04 ARM) running a modded Valheim dedicated
+server (x86_64 via Box64, BepInEx, DepotDownloader) — Terraform provisions
+(state in OCI Object Storage via S3-compat backend), Ansible configures over
+Tailscale (host `oracle-server`, SSH never exposed publicly; only UDP
+2456-2457 open). CI: `.github/workflows/oracle.yml` (PR plan/lint) and
+`oracle-deploy.yml` (apply on merge). See `oracle-cloud-server/README.md`
+for bootstrap + operations.
+
 ## Network
 
 | Device | IP |
@@ -93,6 +102,13 @@ and Pyscript notes when working on the climate-balance automation.
 ```bash
 cd ansible && ansible-lint           # Lint
 ansible-playbook -i inventory.yml site.yml --check --diff   # Dry-run host prep
+```
+
+### Oracle Cloud Server (from `oracle-cloud-server/`)
+```bash
+cd terraform && terraform fmt -check -recursive && terraform validate  # after init -backend=false
+cd ansible && ansible-lint            # Lint
+ssh ubuntu@oracle-server              # Over Tailscale
 ```
 
 ## Critical Rules

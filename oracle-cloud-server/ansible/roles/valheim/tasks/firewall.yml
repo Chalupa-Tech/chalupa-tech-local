@@ -1,0 +1,12 @@
+---
+- name: Allow Valheim UDP {{ valheim_port }}-{{ valheim_port + 1 }} on host firewall
+  ansible.builtin.iptables:
+    chain: INPUT
+    action: insert
+    rule_num: "1"
+    protocol: udp
+    destination_ports:
+      - "{{ valheim_port }}:{{ valheim_port + 1 }}"
+    jump: ACCEPT
+    comment: valheim
+  notify: Persist iptables

@@ -1,0 +1,24 @@
+[Unit]
+Description=Valheim Dedicated Server (BepInEx via Box64)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ valheim_user }}
+WorkingDirectory={{ valheim_server_dir }}
+Environment=SteamAppId=892970
+Environment=DOORSTOP_ENABLE=TRUE
+Environment=DOORSTOP_INVOKE_DLL_PATH={{ valheim_server_dir }}/BepInEx/core/BepInEx.Preloader.dll
+Environment=DOORSTOP_CORLIB_OVERRIDE_PATH={{ valheim_server_dir }}/unstripped_corlib
+Environment=LD_LIBRARY_PATH={{ valheim_server_dir }}/doorstop_libs:{{ valheim_server_dir }}/linux64
+Environment=LD_PRELOAD=libdoorstop_x64.so
+ExecStart={{ valheim_server_dir }}/valheim_server.x86_64 -nographics -batchmode -name "{{ valheim_server_name }}" -port {{ valheim_port }} -world "{{ valheim_world_name }}" -password "{{ valheim_password }}" -public 1 -savedir {{ valheim_data_dir }}
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

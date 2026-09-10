@@ -17,3 +17,10 @@ pulumi-talos/chalupa-talos
 
 # Vendored Helm chart tarballs (lock files are committed, tarballs are not)
 gitops/apps/*/*/charts/
+
+# Terraform (oracle-cloud-server)
+**/.terraform/
+oracle-cloud-server/terraform/backend.hcl
+*.tfstate
+*.tfstate.backup
+crash.log

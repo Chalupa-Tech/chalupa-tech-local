@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+backup_dir="{{ valheim_home }}/backups"
+worlds_dir="{{ valheim_data_dir }}/worlds_local"
+
+if [ ! -d "$worlds_dir" ]; then
+  echo "No worlds directory yet ($worlds_dir); nothing to back up."
+  exit 0
+fi
+
+mkdir -p "$backup_dir"
+tar -czf "$backup_dir/worlds-$(date +%F-%H%M).tar.gz" -C "{{ valheim_data_dir }}" worlds_local
+
+# Keep the newest 14 archives
+ls -1t "$backup_dir"/worlds-*.tar.gz | tail -n +15 | xargs -r rm --
