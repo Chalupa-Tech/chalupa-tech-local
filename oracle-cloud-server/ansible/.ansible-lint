@@ -1,0 +1,9 @@
+---
+skip_list:
+  # Vars deliberately named for the external tools they pin (depotdownloader_*, box64_*, bepinex_*);
+  # these names are consumed by later tasks and the README.
+  - var-naming[no-role-prefix]
+  # Firewall task name interpolates port range mid-name by design.
+  - name[template]
+  # Pinned DepotDownloader URL is 161 characters.
+  - yaml[line-length]
