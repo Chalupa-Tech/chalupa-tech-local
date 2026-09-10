@@ -33,9 +33,9 @@ GitHub Actions (merge to main)
   ├── terraform apply ──► OCI: VCN, subnet, IGW, NSG, A1 instance
   │                          └── cloud-init: install Tailscale, join tailnet
   └── ansible-playbook ─(runner joins tailnet, SSH over Tailscale)─► instance
-        ├── role: base     (updates, host firewall, unattended-upgrades)
+        ├── role: base     (updates, unattended-upgrades, iptables-persistent)
         └── role: valheim  (Box64, DepotDownloader, Valheim, BepInEx, mods,
-                            systemd unit, backup timer)
+                            systemd unit, host firewall, backup timer)
 ```
 
 ## Directory layout
