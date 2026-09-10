@@ -1,0 +1,141 @@
+name: Oracle Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      terraform: ${{ steps.filter.outputs.terraform }}
+      ansible: ${{ steps.filter.outputs.ansible }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            terraform:
+              - 'oracle-cloud-server/terraform/**'
+              - '.github/workflows/oracle-deploy.yml'
+            ansible:
+              - 'oracle-cloud-server/ansible/**'
+              - '.github/workflows/oracle-deploy.yml'
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      always() &&
+      needs.detect-changes.result != 'failure' &&
+      needs.detect-changes.result != 'cancelled' &&
+      (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.terraform == 'true')
+    defaults:
+      run:
+        working-directory: oracle-cloud-server/terraform
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.OCI_S3_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.OCI_S3_SECRET_KEY }}
+      TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
+      TF_VAR_user_ocid: ${{ secrets.OCI_USER_OCID }}
+      TF_VAR_api_key_fingerprint: ${{ secrets.OCI_KEY_FINGERPRINT }}
+      TF_VAR_api_private_key: ${{ secrets.OCI_PRIVATE_KEY }}
+      TF_VAR_region: ${{ secrets.OCI_REGION }}
+      TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
+      TF_VAR_ssh_public_key: ${{ secrets.ORACLE_SSH_PUBLIC_KEY }}
+      TF_VAR_tailscale_auth_key: ${{ secrets.ORACLE_TAILSCALE_AUTH_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Write backend config
+        run: |
+          cat > backend.hcl <<EOF
+          region    = "${{ secrets.OCI_REGION }}"
+          endpoints = { s3 = "https://${{ secrets.OCI_NAMESPACE }}.compat.objectstorage.${{ secrets.OCI_REGION }}.oraclecloud.com" }
+          EOF
+
+      - name: Terraform init
+        run: terraform init -backend-config=backend.hcl
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve -input=false
+
+  ansible-configure:
+    name: Ansible Configure
+    runs-on: ubuntu-latest
+    needs: [detect-changes, terraform-apply]
+    if: |
+      always() &&
+      needs.terraform-apply.result != 'failure' &&
+      needs.terraform-apply.result != 'cancelled' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        needs.detect-changes.outputs.ansible == 'true' ||
+        needs.detect-changes.outputs.terraform == 'true'
+      )
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Install Ansible + collections
+        run: |
+          pip install ansible
+          ansible-galaxy collection install ansible.posix community.general
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-runner
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+
+      - name: Resolve oracle-server Tailscale IP
+        run: |
+          for attempt in $(seq 1 18); do
+            ORACLE_IP=$(tailscale status --json \
+              | jq -r '.Peer[] | select(.HostName == "oracle-server") | .TailscaleIPs[0]')
+            if [ -n "$ORACLE_IP" ] && [ "$ORACLE_IP" != "null" ]; then
+              echo "ORACLE_SERVER_IP=$ORACLE_IP" >> "$GITHUB_ENV"
+              mkdir -p ~/.ssh
+              for scan in 1 2 3; do
+                if ssh-keyscan -H "$ORACLE_IP" >> ~/.ssh/known_hosts; then
+                  exit 0
+                fi
+                echo "ssh-keyscan attempt $scan failed, retrying in 10s..." >&2
+                sleep 10
+              done
+              echo "ERROR: ssh-keyscan failed" >&2
+              exit 1
+            fi
+            echo "oracle-server not on tailnet yet (attempt $attempt/18), retrying in 10s..."
+            sleep 10
+          done
+          echo "ERROR: oracle-server never appeared on the tailnet" >&2
+          exit 1
+
+      - name: Run Ansible Playbook
+        run: ansible-playbook -i inventory.yml site.yml
+        working-directory: oracle-cloud-server/ansible/
+        env:
+          VALHEIM_PASSWORD: ${{ secrets.VALHEIM_PASSWORD }}
