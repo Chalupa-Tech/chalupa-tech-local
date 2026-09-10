@@ -1,0 +1,6 @@
+dependencies:
+- name: app-template
+  repository: https://bjw-s-labs.github.io/helm-charts/
+  version: 5.1.0
+digest: sha256:4ddd1c02984373942eed603a70710cdf65a2d6887aa498a690f2e46b3e96f029
+generated: "2026-09-09T23:13:44.273303-06:00"
