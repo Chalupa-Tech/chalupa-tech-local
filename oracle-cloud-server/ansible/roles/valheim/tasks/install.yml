@@ -26,14 +26,22 @@
     owner: "{{ valheim_user }}"
     mode: "0644"
 
+- name: Create versioned DepotDownloader staging directory
+  ansible.builtin.file:
+    path: "{{ valheim_dist_dir }}/depotdownloader-{{ depotdownloader_version }}"
+    state: directory
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0755"
+
 - name: Extract DepotDownloader
   ansible.builtin.unarchive:
     src: "{{ valheim_dist_dir }}/DepotDownloader-{{ depotdownloader_version }}.zip"
-    dest: "{{ valheim_home }}"
+    dest: "{{ valheim_dist_dir }}/depotdownloader-{{ depotdownloader_version }}"
     remote_src: true
     owner: "{{ valheim_user }}"
     group: "{{ valheim_user }}"
-    creates: "{{ valheim_home }}/DepotDownloader"
+    creates: "{{ valheim_dist_dir }}/depotdownloader-{{ depotdownloader_version }}/DepotDownloader"
 
 - name: Stat server binary before update
   ansible.builtin.stat:
@@ -44,7 +52,7 @@
 - name: Download / update Valheim dedicated server (app {{ valheim_steam_app_id }})
   ansible.builtin.command:
     cmd: >
-      {{ valheim_home }}/DepotDownloader
+      {{ valheim_dist_dir }}/depotdownloader-{{ depotdownloader_version }}/DepotDownloader
       -app {{ valheim_steam_app_id }}
       -dir {{ valheim_server_dir }}
   become: true

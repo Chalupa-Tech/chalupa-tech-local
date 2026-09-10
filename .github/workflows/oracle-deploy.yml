@@ -114,7 +114,7 @@ jobs:
         run: |
           for attempt in $(seq 1 18); do
             ORACLE_IP=$(tailscale status --json \
-              | jq -r '.Peer[] | select(.HostName == "oracle-server") | .TailscaleIPs[0]')
+              | jq -r '.Peer[]? | select(.HostName == "oracle-server") | .TailscaleIPs[0]')
             if [ -n "$ORACLE_IP" ] && [ "$ORACLE_IP" != "null" ]; then
               echo "ORACLE_SERVER_IP=$ORACLE_IP" >> "$GITHUB_ENV"
               mkdir -p ~/.ssh

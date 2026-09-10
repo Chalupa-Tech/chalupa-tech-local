@@ -6,18 +6,26 @@
     owner: "{{ valheim_user }}"
     mode: "0644"
 
+- name: Create versioned BepInExPack staging directory
+  ansible.builtin.file:
+    path: "{{ valheim_dist_dir }}/bepinex-{{ bepinex_version }}"
+    state: directory
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0755"
+
 - name: Unpack BepInExPack to staging
   ansible.builtin.unarchive:
     src: "{{ valheim_dist_dir }}/BepInExPack_Valheim-{{ bepinex_version }}.zip"
-    dest: "{{ valheim_dist_dir }}"
+    dest: "{{ valheim_dist_dir }}/bepinex-{{ bepinex_version }}"
     remote_src: true
     owner: "{{ valheim_user }}"
     group: "{{ valheim_user }}"
-    creates: "{{ valheim_dist_dir }}/BepInExPack_Valheim"
+    creates: "{{ valheim_dist_dir }}/bepinex-{{ bepinex_version }}/BepInExPack_Valheim"
 
 - name: Install BepInExPack into server dir
   ansible.builtin.copy:
-    src: "{{ valheim_dist_dir }}/BepInExPack_Valheim/"
+    src: "{{ valheim_dist_dir }}/bepinex-{{ bepinex_version }}/BepInExPack_Valheim/"
     dest: "{{ valheim_server_dir }}/"
     remote_src: true
     owner: "{{ valheim_user }}"

@@ -2,7 +2,7 @@
 
 ## What this is
 
-An always-free Oracle Cloud Infrastructure (OCI) Ampere A1 instance — `VM.Standard.A1.Flex`, 4 OCPU / 24 GB RAM / 150 GB boot volume, Ubuntu 24.04 ARM — running a modded [Valheim](https://www.valheimgame.com/) dedicated server. The Valheim server binary is x86_64-only, so it runs under [Box64](https://github.com/ryanfortner/box64-debs) on the ARM host. This is the first of several workloads planned for this box; see the [design spec](../docs/superpowers/specs/2026-09-09-oracle-valheim-design.md) for the full rationale (why Box64 over Docker/qemu, why DepotDownloader over steamcmd, etc).
+An always-free Oracle Cloud Infrastructure (OCI) Ampere A1 instance — `VM.Standard.A1.Flex`, 4 OCPU / 24 GB RAM / 150 GB boot volume, Ubuntu 24.04 ARM — running a modded [Valheim](https://www.valheimgame.com/) dedicated server. The Valheim server binary is x86_64-only, so it runs under [Box64](https://github.com/ryanfortner/box64-debs) on the ARM host. This is the first of several workloads planned for this box; see the [design spec](../docs/superpowers/specs/2026-09-09-oracle-valheim-design.md) for the full rationale (why Box64 over Docker/qemu, why DepotDownloader (pinned at 3.4.0) over steamcmd, etc).
 
 Provisioning is Terraform (`terraform/`), configuration is Ansible (`ansible/`), and both are applied exclusively by GitHub Actions on merge to `main` — matching the rest of this repo's PR-only convention. There are no local applies.
 

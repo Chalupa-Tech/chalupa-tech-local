@@ -101,9 +101,11 @@ Mirrors existing repo conventions (`pulumi.yml` / `deploy.yml`):
    - `Azumatt-AzuAutoStore`
 
    Upgrading a mod = bump a version var in a PR.
-5. **systemd unit:** `box64 ./valheim_server.x86_64 -name … -world … -password …
-   -public 1` with crossplay **off** (Steam-only). Password flows from GitHub
-   secret → Ansible var; never committed.
+5. **systemd unit:** execs `./valheim_server.x86_64 -name … -world … -password …
+   -public 1` directly — Box64's binfmt_misc registration transparently runs
+   the x86_64 binary, no explicit `box64` prefix needed — with crossplay
+   **off** (Steam-only). Password flows from GitHub secret → Ansible var;
+   never committed.
 6. **Host firewall:** OCI Ubuntu images ship default-REJECT iptables rules baked
    into the image. The role must explicitly open UDP 2456–2457 on the host and
    persist the rules — the NSG alone is not sufficient.
