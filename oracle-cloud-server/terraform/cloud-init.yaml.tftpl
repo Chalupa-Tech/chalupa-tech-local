@@ -1,0 +1,5 @@
+#cloud-config
+package_update: true
+runcmd:
+  - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']
+  - ['tailscale', 'up', '--authkey=${tailscale_auth_key}', '--hostname=oracle-server']
