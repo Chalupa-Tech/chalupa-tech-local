@@ -1,0 +1,72 @@
+---
+- name: Download BepInExPack_Valheim {{ bepinex_version }}
+  ansible.builtin.get_url:
+    url: "{{ bepinex_url }}"
+    dest: "{{ valheim_dist_dir }}/BepInExPack_Valheim-{{ bepinex_version }}.zip"
+    owner: "{{ valheim_user }}"
+    mode: "0644"
+
+- name: Unpack BepInExPack to staging
+  ansible.builtin.unarchive:
+    src: "{{ valheim_dist_dir }}/BepInExPack_Valheim-{{ bepinex_version }}.zip"
+    dest: "{{ valheim_dist_dir }}"
+    remote_src: true
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    creates: "{{ valheim_dist_dir }}/BepInExPack_Valheim"
+
+- name: Install BepInExPack into server dir
+  ansible.builtin.copy:
+    src: "{{ valheim_dist_dir }}/BepInExPack_Valheim/"
+    dest: "{{ valheim_server_dir }}/"
+    remote_src: true
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: preserve
+  notify: Restart valheim
+
+- name: Download mods
+  ansible.builtin.get_url:
+    url: "https://thunderstore.io/package/download/{{ item.team }}/{{ item.name }}/{{ item.version }}/"
+    dest: "{{ valheim_dist_dir }}/{{ item.name }}-{{ item.version }}.zip"
+    owner: "{{ valheim_user }}"
+    mode: "0644"
+  loop: "{{ valheim_mods }}"
+
+- name: Create versioned mod directories
+  ansible.builtin.file:
+    path: "{{ valheim_server_dir }}/BepInEx/plugins/{{ item.name }}-{{ item.version }}"
+    state: directory
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0755"
+  loop: "{{ valheim_mods }}"
+
+- name: Install mods into BepInEx plugins dir
+  ansible.builtin.unarchive:
+    src: "{{ valheim_dist_dir }}/{{ item.name }}-{{ item.version }}.zip"
+    dest: "{{ valheim_server_dir }}/BepInEx/plugins/{{ item.name }}-{{ item.version }}"
+    remote_src: true
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    creates: "{{ valheim_server_dir }}/BepInEx/plugins/{{ item.name }}-{{ item.version }}/manifest.json"
+  loop: "{{ valheim_mods }}"
+  notify: Restart valheim
+
+- name: Find outdated managed-mod directories
+  ansible.builtin.find:
+    paths: "{{ valheim_server_dir }}/BepInEx/plugins"
+    file_type: directory
+    patterns: "{{ item.name }}-*"
+    excludes: "{{ item.name }}-{{ item.version }}"
+  loop: "{{ valheim_mods }}"
+  register: valheim_stale_mods
+
+- name: Remove outdated managed-mod directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ valheim_stale_mods.results | map(attribute='files') | flatten }}"
+  loop_control:
+    label: "{{ item.path }}"
+  notify: Restart valheim

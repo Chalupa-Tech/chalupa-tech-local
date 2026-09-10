@@ -7,3 +7,9 @@
 
 - name: Open host firewall for Valheim
   ansible.builtin.import_tasks: firewall.yml
+
+- name: Install BepInEx and mods
+  ansible.builtin.import_tasks: bepinex.yml
+
+- name: Configure and start valheim service
+  ansible.builtin.import_tasks: service.yml
