@@ -45,3 +45,11 @@ valheim_mods:
     team: Azumatt
     version: "1.4.4"
     url: "https://cdn.hexium.gg/upload/226/1.4.4.zip"
+  # Server-side only (clients join fine without them). Jotunn is the
+  # library Eternal_Fire depends on.
+  - name: Jotunn
+    team: ValheimModding
+    version: "2.30.0"
+  - name: Eternal_Fire
+    team: Digitalroot
+    version: "1.0.19"

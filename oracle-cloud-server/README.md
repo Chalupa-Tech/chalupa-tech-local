@@ -65,6 +65,8 @@ Crossplay is **off** — Steam only.
 
 The Valheim-1.0-compatible Azumatt builds are published on [Hexium](https://valheim.hexium.gg/) (Thunderstore still carries pre-1.0 versions), so install those manually into your BepInEx `plugins` folder — or via an [r2modman](https://github.com/ebkr/r2modmanPlus) profile once they land on Thunderstore. Versions must match the server's pins exactly.
 
+Server-side only (do **not** need to be on clients): `ValheimModding-Jotunn` 2.30.0 and `Digitalroot-Eternal_Fire` 1.0.19 (fires burn without fuel). Optional client-side extra that needs nothing on the server: [MassFarming v1.13](https://github.com/Xeio/MassFarming/releases/download/v1.13/MassFarming.zip) (hotkey mass harvest/plant).
+
 ## Operations
 
 - **SSH:** `ssh ubuntu@oracle-server` (over Tailscale; the host has no public SSH ingress at all).
