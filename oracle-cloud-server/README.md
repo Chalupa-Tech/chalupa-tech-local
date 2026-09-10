@@ -53,14 +53,17 @@ Crossplay is **off** — Steam only.
 
 **Required client mods** (must match the server's pinned versions or you will fail to connect / desync):
 
-| Mod | Version |
-|---|---|
-| `denikson-BepInExPack_Valheim` | 5.4.2350 |
-| `Azumatt-AzuCraftyBoxes` | 1.8.15 |
-| `Azumatt-AAA_Crafting` | 2.1.6 |
-| `Azumatt-AzuAutoStore` | 3.0.14 |
+| Mod | Version | Source |
+|---|---|---|
+| `denikson-BepInExPack_Valheim` | 5.4.2350 | Thunderstore |
+| `Azumatt-AzuCraftyBoxes` | 1.8.18 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuCraftyBoxes) |
+| `Azumatt-AAA_Crafting` | 2.1.8 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AAA_Crafting) |
+| `Azumatt-AzuAutoStore` | 3.1.2 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuAutoStore) |
+| `Azumatt-AzuClock` | 1.1.0 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuClock) |
+| `Azumatt-Unshamed` | 1.0.1 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Unshamed) |
+| `Azumatt-Recycle_N_Reclaim` | 1.4.4 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Recycle_N_Reclaim) |
 
-The easiest way to get these matched up is an [r2modman](https://github.com/ebkr/r2modmanPlus) profile with exactly these four mods at exactly these versions.
+The Valheim-1.0-compatible Azumatt builds are published on [Hexium](https://valheim.hexium.gg/) (Thunderstore still carries pre-1.0 versions), so install those manually into your BepInEx `plugins` folder — or via an [r2modman](https://github.com/ebkr/r2modmanPlus) profile once they land on Thunderstore. Versions must match the server's pins exactly.
 
 ## Operations
 

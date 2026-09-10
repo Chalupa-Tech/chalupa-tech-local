@@ -16,13 +16,32 @@ box64_key_url: "https://ryanfortner.github.io/box64-debs/KEY.gpg"
 bepinex_version: "5.4.2350"
 bepinex_url: "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/{{ bepinex_version }}/"
 
+# Mods without `url` download from Thunderstore by team/name/version.
+# The Valheim-1.0-compatible Azumatt builds are currently published on
+# Hexium (valheim.hexium.gg), whose CDN uses per-mod numeric ids, so
+# those entries carry explicit urls. Client mods must match these pins.
 valheim_mods:
   - name: AzuCraftyBoxes
     team: Azumatt
-    version: "1.8.15"
+    version: "1.8.18"
+    url: "https://cdn.hexium.gg/upload/48/1.8.18.zip"
   - name: AAA_Crafting
     team: Azumatt
-    version: "2.1.6"
+    version: "2.1.8"
+    url: "https://cdn.hexium.gg/upload/218/2.1.8.zip"
   - name: AzuAutoStore
     team: Azumatt
-    version: "3.0.14"
+    version: "3.1.2"
+    url: "https://cdn.hexium.gg/upload/12/3.1.2.zip"
+  - name: AzuClock
+    team: Azumatt
+    version: "1.1.0"
+    url: "https://cdn.hexium.gg/upload/248/1.1.0.zip"
+  - name: Unshamed
+    team: Azumatt
+    version: "1.0.1"
+    url: "https://cdn.hexium.gg/upload/850/1.0.1.zip"
+  - name: Recycle_N_Reclaim
+    team: Azumatt
+    version: "1.4.4"
+    url: "https://cdn.hexium.gg/upload/226/1.4.4.zip"

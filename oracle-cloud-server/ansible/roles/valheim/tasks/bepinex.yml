@@ -35,7 +35,7 @@
 
 - name: Download mods
   ansible.builtin.get_url:
-    url: "https://thunderstore.io/package/download/{{ item.team }}/{{ item.name }}/{{ item.version }}/"
+    url: "{{ item.url | default('https://thunderstore.io/package/download/' ~ item.team ~ '/' ~ item.name ~ '/' ~ item.version ~ '/') }}"
     dest: "{{ valheim_dist_dir }}/{{ item.name }}-{{ item.version }}.zip"
     owner: "{{ valheim_user }}"
     mode: "0644"
