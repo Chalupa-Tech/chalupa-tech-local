@@ -1,0 +1,5 @@
+---
+valheim_server_name: "Chalupa Valheim"
+valheim_world_name: "chalupa"
+# Never committed: provided by CI env (GitHub secret VALHEIM_PASSWORD).
+valheim_password: "{{ lookup('env', 'VALHEIM_PASSWORD') }}"

@@ -1,0 +1,7 @@
+---
+- name: Configure oracle-cloud-server
+  hosts: oracle
+  become: true
+  roles:
+    - base
+    - valheim
