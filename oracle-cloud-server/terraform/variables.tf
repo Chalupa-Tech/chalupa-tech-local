@@ -54,3 +54,14 @@ variable "boot_volume_gb" {
   type    = number
   default = 150
 }
+
+variable "budget_amount" {
+  description = "Monthly budget (USD) whose alert rules act as a spend tripwire; expected spend is $0"
+  type        = number
+  default     = 5
+}
+
+variable "budget_alert_email" {
+  description = "Recipient for budget alert emails (GitHub secret OCI_BUDGET_ALERT_EMAIL)"
+  type        = string
+}

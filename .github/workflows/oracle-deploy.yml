@@ -57,6 +57,7 @@ jobs:
       TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
       TF_VAR_ssh_public_key: ${{ secrets.ORACLE_SSH_PUBLIC_KEY }}
       TF_VAR_tailscale_auth_key: ${{ secrets.ORACLE_TAILSCALE_AUTH_KEY }}
+      TF_VAR_budget_alert_email: ${{ secrets.OCI_BUDGET_ALERT_EMAIL }}
     steps:
       - uses: actions/checkout@v7
 
