@@ -1,0 +1,73 @@
+---
+- name: Create valheim system user
+  ansible.builtin.user:
+    name: "{{ valheim_user }}"
+    system: true
+    home: "{{ valheim_home }}"
+    create_home: true
+    shell: /usr/sbin/nologin
+
+- name: Create valheim directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0755"
+  loop:
+    - "{{ valheim_server_dir }}"
+    - "{{ valheim_data_dir }}"
+    - "{{ valheim_dist_dir }}"
+
+- name: Download DepotDownloader {{ depotdownloader_version }}
+  ansible.builtin.get_url:
+    url: "{{ depotdownloader_url }}"
+    dest: "{{ valheim_dist_dir }}/DepotDownloader-{{ depotdownloader_version }}.zip"
+    owner: "{{ valheim_user }}"
+    mode: "0644"
+
+- name: Extract DepotDownloader
+  ansible.builtin.unarchive:
+    src: "{{ valheim_dist_dir }}/DepotDownloader-{{ depotdownloader_version }}.zip"
+    dest: "{{ valheim_home }}"
+    remote_src: true
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    creates: "{{ valheim_home }}/DepotDownloader"
+
+- name: Stat server binary before update
+  ansible.builtin.stat:
+    path: "{{ valheim_server_dir }}/valheim_server.x86_64"
+    checksum_algorithm: sha256
+  register: valheim_bin_before
+
+- name: Download / update Valheim dedicated server (app {{ valheim_steam_app_id }})
+  ansible.builtin.command:
+    cmd: >
+      {{ valheim_home }}/DepotDownloader
+      -app {{ valheim_steam_app_id }}
+      -dir {{ valheim_server_dir }}
+  become: true
+  become_user: "{{ valheim_user }}"
+  changed_when: false
+  # Change is detected by comparing the binary checksum below, because
+  # DepotDownloader always revalidates and its exit output isn't a
+  # reliable changed signal.
+
+- name: Stat server binary after update
+  ansible.builtin.stat:
+    path: "{{ valheim_server_dir }}/valheim_server.x86_64"
+    checksum_algorithm: sha256
+  register: valheim_bin_after
+
+- name: Detect server update
+  ansible.builtin.command: /bin/true
+  changed_when: >-
+    (valheim_bin_before.stat.checksum | default(''))
+    != (valheim_bin_after.stat.checksum | default(''))
+  notify: Restart valheim
+
+- name: Ensure server binary is executable
+  ansible.builtin.file:
+    path: "{{ valheim_server_dir }}/valheim_server.x86_64"
+    mode: "0755"

@@ -1,2 +1,9 @@
 ---
-[]
+- name: Install Box64
+  ansible.builtin.import_tasks: box64.yml
+
+- name: Install Valheim dedicated server
+  ansible.builtin.import_tasks: install.yml
+
+- name: Open host firewall for Valheim
+  ansible.builtin.import_tasks: firewall.yml
