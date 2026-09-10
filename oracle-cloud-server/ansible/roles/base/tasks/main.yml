@@ -12,6 +12,9 @@
       - iptables-persistent
       - unzip
       - jq
+      # Required for Ansible's become_user handoff to unprivileged users
+      # (setfacl on remote temp files); Ubuntu minimal images omit it.
+      - acl
     state: present
 
 - name: Enable unattended security upgrades
