@@ -72,12 +72,15 @@ jobs:
       - name: Terraform plan
         id: plan
         run: |
+          set +e
           output=$(terraform plan -no-color -input=false 2>&1)
           status=$?
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$output" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          exit $status
+          {
+            echo "output<<EOF"
+            echo "$output"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit "$status"
         continue-on-error: true
 
       - name: Comment PR with plan
