@@ -31,6 +31,13 @@ spec:
           annotations:
             summary: 'TrueNAS {{ "{{ $labels.level }}" }} alert: {{ "{{ $labels.klass }}" }}'
             description: 'TrueNAS reports an active {{ "{{ $labels.level }}" }}-level {{ "{{ $labels.klass }}" }} alert — details in the TrueNAS UI at https://192.168.1.40 (Alerts bell). Dismissing it there resolves this alert.'
+        # NOTE: the design spec also listed TrueNASDiskTempHigh
+        # (disk_temperature > 45). Deliberately absent: the
+        # netdata→graphite path has never shipped a disk_temperature
+        # metric (live-verified 2026-09-09). Disk overheating instead
+        # surfaces through TrueNASAlert once smartd temperature
+        # thresholds are set in the TrueNAS UI — see the truenas-alerts
+        # RUNBOOK §4 and docs/2026-09-09-add-truenas-health.md.
         # The netdata→graphite push path (truenas-exporter app) has no
         # `up` series, so TargetDown can't see it stalling. absent()
         # fires once samples go stale (~5m) and latches until data
