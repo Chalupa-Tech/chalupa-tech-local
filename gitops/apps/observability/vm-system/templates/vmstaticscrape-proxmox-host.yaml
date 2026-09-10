@@ -12,7 +12,10 @@ spec:
   targetEndpoints:
     - targets:
         - 192.168.1.223:9100
-      scrapeInterval: 30s
+      # No per-endpoint interval: vmagent's global 30s default applies.
+      # (The endpoint-level field is `interval`, not `scrapeInterval` —
+      # the operator's admission webhook rejected the latter and blocked
+      # the whole vm-system sync; observed live 2026-09-09.)
       relabelConfigs:
         # `instance` would default to the raw address; pve1 reads better
         # in alerts and dashboards.
