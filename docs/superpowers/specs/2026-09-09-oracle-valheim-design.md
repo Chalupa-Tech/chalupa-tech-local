@@ -17,8 +17,11 @@ repo's PR-only convention.
 The Valheim dedicated server binary is x86_64-only. OCI's always-free x86 shape
 (VM.Standard.E2.1.Micro, 1 GB RAM) cannot run it; the always-free Ampere A1
 allowance (4 OCPU / 24 GB) can, via the Box64 x86_64-on-ARM translation layer.
-Box64 runs both steamcmd and `valheim_server.x86_64`, and BepInEx works under it
-(it is a preloader on the same x86 binary). This is the settled approach —
+Box64 runs `valheim_server.x86_64`, and BepInEx works under it (it is a
+preloader on the same x86 binary). Game files are fetched with DepotDownloader
+(native linux-arm64 build, anonymous Steam login) rather than steamcmd — the
+steamcmd executable is 32-bit x86, which Box64 does not handle (that would need
+Box86 plus armhf multiarch). This is the settled approach —
 Docker was rejected because Valheim images are x86-only (qemu binfmt is far too
 slow) and ARM-native community images are less maintained than a native Box64
 install.
@@ -31,7 +34,7 @@ GitHub Actions (merge to main)
   │                          └── cloud-init: install Tailscale, join tailnet
   └── ansible-playbook ─(runner joins tailnet, SSH over Tailscale)─► instance
         ├── role: base     (updates, host firewall, unattended-upgrades)
-        └── role: valheim  (Box64, steamcmd, Valheim, BepInEx, mods,
+        └── role: valheim  (Box64, DepotDownloader, Valheim, BepInEx, mods,
                             systemd unit, backup timer)
 ```
 
@@ -83,10 +86,11 @@ Mirrors existing repo conventions (`pulumi.yml` / `deploy.yml`):
 
 ## Ansible — `valheim` role
 
-1. **Box64** installed from its arm64 APT repository.
-2. **steamcmd** as the x86_64 tarball (not apt), run under Box64, installs
-   Valheim Dedicated Server (Steam app `896660`) to `/opt/valheim` owned by a
-   dedicated `valheim` system user.
+1. **Box64** installed from its arm64 APT repository (registers a binfmt_misc
+   handler, so x86_64 binaries execute transparently).
+2. **DepotDownloader** (SteamRE, pinned release, linux-arm64 build) downloads
+   Valheim Dedicated Server (Steam app `896660`, anonymous login) to
+   `/opt/valheim/server` owned by a dedicated `valheim` system user.
 3. **BepInExPack_Valheim** (denikson pack) unpacked over the server directory;
    the systemd unit sets the Doorstop environment variables BepInEx requires.
 4. **Mods**, pinned by exact version in role vars, downloaded from Thunderstore
@@ -117,9 +121,9 @@ sharing an r2modman profile code.
 - **A1 out-of-capacity:** apply fails cleanly; README documents the PAYG fix.
 - **Tailscale join failure:** instance is unreachable by Ansible; auth-key
   expiry/tagging is the first thing the README troubleshooting section covers.
-- **Box64/steamcmd flakiness:** steamcmd under Box64 occasionally segfaults on
-  exit after a successful install; the install task treats a verified app
-  manifest as success, not steamcmd's exit code alone.
+- **Game download:** DepotDownloader is ARM-native so there is no emulation in
+  the download path; a failed/partial download is retried by re-running the
+  role (DepotDownloader resumes from its manifest state).
 - **Server crash:** systemd `Restart=on-failure` with a rate limit.
 
 ## Testing / verification
