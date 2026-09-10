@@ -1,0 +1,60 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: truenas
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: truenas
+      rules:
+        # TrueNAS's own alert system (SMART results, pool degradation,
+        # failed scrubs, ...) mirrored into Discord. One series per
+        # active undismissed alert; dismissing in the TrueNAS UI is the
+        # ack that resolves the Discord side too. No `for:` — TrueNAS
+        # has already debounced before an alert reaches its list.
+        # TrueNAS levels rank INFO < NOTICE < WARNING < ERROR <
+        # CRITICAL < ALERT < EMERGENCY; CRITICAL-and-above page as
+        # critical, the rest as warning.
+        - alert: TrueNASCriticalAlert
+          expr: 'truenas_alert_active{level=~"CRITICAL|ALERT|EMERGENCY"} > 0'
+          labels:
+            severity: critical
+          annotations:
+            summary: 'TrueNAS {{ "{{ $labels.level }}" }} alert: {{ "{{ $labels.klass }}" }}'
+            description: 'TrueNAS reports an active {{ "{{ $labels.level }}" }}-level {{ "{{ $labels.klass }}" }} alert — details in the TrueNAS UI at https://192.168.1.40 (Alerts bell). Dismissing it there resolves this alert.'
+        - alert: TrueNASAlert
+          expr: 'truenas_alert_active{level!~"CRITICAL|ALERT|EMERGENCY"} > 0'
+          labels:
+            severity: warning
+          annotations:
+            summary: 'TrueNAS {{ "{{ $labels.level }}" }} alert: {{ "{{ $labels.klass }}" }}'
+            description: 'TrueNAS reports an active {{ "{{ $labels.level }}" }}-level {{ "{{ $labels.klass }}" }} alert — details in the TrueNAS UI at https://192.168.1.40 (Alerts bell). Dismissing it there resolves this alert.'
+        # The netdata→graphite push path (truenas-exporter app) has no
+        # `up` series, so TargetDown can't see it stalling. absent()
+        # fires once samples go stale (~5m) and latches until data
+        # returns. (The design spec sketched a timestamp()-based expr;
+        # that returns no data — and so never fires — once the series
+        # ages out of the instant-query lookbehind, which happens at
+        # the same ~5m mark. absent() is the working form.)
+        - alert: TrueNASMetricsStale
+          expr: 'absent(cpu_temperature{job="truenas"})'
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: TrueNAS netdata metrics are stale
+            description: No fresh cpu_temperature samples from job truenas for 10+ minutes — the netdata→graphite push from TrueNAS has stalled (TrueNAS reporting exporter, netdata service, or the graphite LoadBalancer path). Dashboards and temperature history are blind.
+        # Safety net for the new scrape job itself: if the
+        # VMServiceScrape or Service vanishes, `up` has no series and
+        # neither TargetDown nor the rules above can fire. Same
+        # precedent as PlexExporterAbsent / ProxmoxMetricsAbsent.
+        - alert: TrueNASAlertsExporterAbsent
+          expr: 'absent(up{job="truenas-alerts"})'
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: truenas-alerts scrape job is missing
+            description: No up{job="truenas-alerts"} series for 10+ minutes — the json_exporter scrape config itself is gone and TrueNAS health alerts are unmonitored.
