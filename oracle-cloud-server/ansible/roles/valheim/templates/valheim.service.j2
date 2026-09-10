@@ -8,11 +8,13 @@ Type=simple
 User={{ valheim_user }}
 WorkingDirectory={{ valheim_server_dir }}
 Environment=SteamAppId=892970
-Environment=DOORSTOP_ENABLE=TRUE
-Environment=DOORSTOP_INVOKE_DLL_PATH={{ valheim_server_dir }}/BepInEx/core/BepInEx.Preloader.dll
-Environment=DOORSTOP_CORLIB_OVERRIDE_PATH={{ valheim_server_dir }}/unstripped_corlib
-Environment=LD_LIBRARY_PATH={{ valheim_server_dir }}/doorstop_libs:{{ valheim_server_dir }}/linux64
-Environment=LD_PRELOAD=libdoorstop_x64.so
+# UnityDoorstop 4.x names (per the pack's own start_server_bepinex.sh);
+# the preload must go through Box64's BOX64_* vars — plain LD_PRELOAD hands
+# this x86_64 library to the ARM loader, which ignores it and boots vanilla.
+Environment=DOORSTOP_ENABLED=1
+Environment=DOORSTOP_TARGET_ASSEMBLY={{ valheim_server_dir }}/BepInEx/core/BepInEx.Preloader.dll
+Environment=BOX64_LD_LIBRARY_PATH={{ valheim_server_dir }}/doorstop_libs:{{ valheim_server_dir }}/linux64
+Environment=BOX64_LD_PRELOAD=libdoorstop_x64.so
 ExecStart={{ valheim_server_dir }}/valheim_server.x86_64 -nographics -batchmode -name "{{ valheim_server_name }}" -port {{ valheim_port }} -world "{{ valheim_world_name }}" -password "{{ valheim_password }}" -public 1 -savedir {{ valheim_data_dir }}
 Restart=on-failure
 RestartSec=10
