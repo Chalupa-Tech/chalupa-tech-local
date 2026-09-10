@@ -12,7 +12,7 @@ Work through these in order before the first PR against this directory can merge
 
 1. **OCI API key.** OCI console → Identity & Security → Users → your user → API keys → Add API Key → generate a key pair. Record the **tenancy OCID**, **user OCID**, **key fingerprint**, and your **region** (e.g. `us-ashburn-1`).
 2. **Object Storage state backend.** OCI console → Storage → Object Storage & Archive Storage → Buckets → create a bucket named `terraform-state` (Standard tier). Then Identity & Security → Users → your user → Customer Secret Keys → Generate Secret Key — this yields the S3-compatible access key / secret key pair used by Terraform's `s3` backend. Also record the Object Storage **namespace** shown at the top of the bucket details page.
-3. **If capacity errors happen.** Always-free A1 shapes intermittently return "Out of host capacity" on `terraform apply`. If that happens, upgrade the account to Pay-As-You-Go (Billing & Cost Management → Upgrade and Manage Payment). Always-free A1 usage remains $0 after upgrading — it just unlocks capacity that free-tier-only accounts are denied.
+3. **If capacity errors happen.** Always-free A1 shapes intermittently return "Out of host capacity" on `terraform apply`. If that happens, upgrade the account to Pay-As-You-Go (Billing & Cost Management → Upgrade and Manage Payment). Always-free A1 usage remains $0 after upgrading — it just unlocks capacity that free-tier-only accounts are denied. As a spend tripwire, the Terraform stack creates a $5/month OCI budget with actual + forecast alert emails to `OCI_BUDGET_ALERT_EMAIL` (see step 6). Note OCI budgets alert only — PAYG has no hard spend cap — but everything this stack provisions is always-free-eligible and should bill $0.
 4. **Tailscale.** In the Tailscale admin console: add ACL tag `tag:oracle-server` (owner `autogroup:admin`), add an ACL rule allowing `tag:github-runner` → `tag:oracle-server:22` (so the CI runner can SSH over the tailnet), then Keys → Generate auth key: reusable, pre-approved, tagged `tag:oracle-server`. Auth keys expire after at most 90 days — regenerating and updating the `ORACLE_TAILSCALE_AUTH_KEY` secret is only needed if the instance is destroyed and recreated (cloud-init only runs the join on first boot).
 5. **Dedicated SSH keypair.** Generate a keypair used only for CI → instance access (never exposed publicly by the security list, but still worth isolating):
    ```bash
@@ -35,8 +35,9 @@ Work through these in order before the first PR against this directory can merge
    | `ORACLE_SSH_PRIVATE_KEY` | Private half of the keypair from step 5 — used by CI's SSH agent for Ansible |
    | `ORACLE_TAILSCALE_AUTH_KEY` | Tailscale auth key from step 4 |
    | `VALHEIM_PASSWORD` | Server join password (must be 5+ characters and must not be a substring of the server name `Chalupa Valheim`, or the dedicated server refuses to start) |
+   | `OCI_BUDGET_ALERT_EMAIL` | Email address that receives the $5/month budget tripwire alerts (see step 3) |
 
-   Note: `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` already exist in this repo (used to bring CI runners onto the tailnet as `tag:github-runner`) and are reused here — they are not part of the 13 secrets above.
+   Note: `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` already exist in this repo (used to bring CI runners onto the tailnet as `tag:github-runner`) and are reused here — they are not part of the 14 secrets above.
 
 ## How deploys work
 
