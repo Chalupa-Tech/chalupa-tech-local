@@ -1,7 +1,7 @@
 # Add TrueNAS health alerts (json_exporter → TrueNAS alert list)
 
 **Date:** 2026-09-09
-**PR:** [#TBD](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/TBD)
+**PR:** [#309](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/309)
 **Design:** docs/superpowers/specs/2026-09-08-cluster-monitoring-design.md (PR 3 of 3)
 
 ## What
