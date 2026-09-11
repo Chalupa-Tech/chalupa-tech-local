@@ -84,12 +84,12 @@ valheim_mod_settings:
   - file: ArgusMagnus.ServersideQoL.ContainerSigns.cfg
     section: ContainerSigns
     option: WoodChestSigns
-    value: Front
+    value: Left
   - file: ArgusMagnus.ServersideQoL.ContainerSigns.cfg
     section: ContainerSigns
     option: ReinforcedChestSigns
-    value: Front
+    value: Left
   - file: ArgusMagnus.ServersideQoL.ContainerSigns.cfg
     section: ContainerSigns
     option: BlackmetalChestSigns
-    value: Front
+    value: Left
