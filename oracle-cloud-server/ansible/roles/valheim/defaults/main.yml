@@ -72,3 +72,24 @@ valheim_mods:
 # (their plugin dirs would otherwise be orphaned by a list removal).
 valheim_mods_absent:
   - AzuAutoStore
+
+# Managed BepInEx config values (files under BepInEx/config). ServersideQoL
+# modules ship with their features individually disabled; these turn on the
+# behavior we run them for. Other keys in the files stay server-managed.
+valheim_mod_settings:
+  - file: ArgusMagnus.ServersideQoL.AutoStore.cfg
+    section: AutoStore
+    option: AutoPickup
+    value: "true"
+  - file: ArgusMagnus.ServersideQoL.ContainerSigns.cfg
+    section: ContainerSigns
+    option: WoodChestSigns
+    value: Front
+  - file: ArgusMagnus.ServersideQoL.ContainerSigns.cfg
+    section: ContainerSigns
+    option: ReinforcedChestSigns
+    value: Front
+  - file: ArgusMagnus.ServersideQoL.ContainerSigns.cfg
+    section: ContainerSigns
+    option: BlackmetalChestSigns
+    value: Front
