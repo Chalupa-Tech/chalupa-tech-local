@@ -3,7 +3,7 @@ module chalupa-talos
 go 1.26.6
 
 require (
-	github.com/pulumi/pulumi/sdk/v3 v3.261.0
+	github.com/pulumi/pulumi/sdk/v3 v3.262.0
 	github.com/pulumiverse/pulumi-talos/sdk v0.8.1
 )
 
