@@ -79,6 +79,37 @@
     label: "{{ item.path }}"
   notify: Restart valheim
 
+# Some mods (e.g. ServersideQoL) ship a preloader patcher in a patchers/
+# subfolder of their zip. BepInEx only loads patchers from BepInEx/patchers,
+# never from inside plugins/, so copy them out after install.
+- name: Ensure BepInEx patchers directory exists
+  ansible.builtin.file:
+    path: "{{ valheim_server_dir }}/BepInEx/patchers"
+    state: directory
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0755"
+
+- name: Find patcher DLLs staged inside installed mod directories
+  ansible.builtin.find:
+    paths: "{{ valheim_server_dir }}/BepInEx/plugins"
+    recurse: true
+    patterns: "*.dll"
+  register: valheim_mod_dlls
+
+- name: Install staged patcher DLLs into BepInEx/patchers
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ valheim_server_dir }}/BepInEx/patchers/{{ item.path | basename }}"
+    remote_src: true
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0644"
+  loop: "{{ valheim_mod_dlls.files | selectattr('path', 'search', '/patchers/') | list }}"
+  loop_control:
+    label: "{{ item.path }}"
+  notify: Restart valheim
+
 - name: Find retired managed-mod directories
   ansible.builtin.find:
     paths: "{{ valheim_server_dir }}/BepInEx/plugins"
