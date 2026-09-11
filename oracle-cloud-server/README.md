@@ -58,12 +58,13 @@ Crossplay is **off** — Steam only.
 | `denikson-BepInExPack_Valheim` | 5.4.2350 | Thunderstore |
 | `Azumatt-AzuCraftyBoxes` | 1.8.18 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuCraftyBoxes) |
 | `Azumatt-AAA_Crafting` | 2.1.8 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AAA_Crafting) |
-| `Azumatt-AzuAutoStore` | 3.1.2 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuAutoStore) |
 | `Azumatt-AzuClock` | 1.1.0 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuClock) |
 | `Azumatt-Unshamed` | 1.0.1 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Unshamed) |
 | `Azumatt-Recycle_N_Reclaim` | 1.4.4 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Recycle_N_Reclaim) |
 
 The Valheim-1.0-compatible Azumatt builds are published on [Hexium](https://valheim.hexium.gg/) (Thunderstore still carries pre-1.0 versions), so install those manually into your BepInEx `plugins` folder — or via an [r2modman](https://github.com/ebkr/r2modmanPlus) profile once they land on Thunderstore. Versions must match the server's pins exactly.
+
+Server-side only, nothing to install on clients: the `ArgusMagnus-ServersideQoL` family (core 2.0.6 + `_AutoStore` 2.0.0, `_AutoProcess` 2.0.0, `_ContainerSigns` 2.0.4, with the `ValheimModding-YamlDotNet` 16.3.1 library) — it takes ownership of world objects on the server, so it works for every player. `ServersideQoL_AutoStore` replaced `Azumatt-AzuAutoStore` (remove AzuAutoStore from clients that had it).
 
 Also install `ValheimModding-Jotunn` 2.30.0 and `Digitalroot-Eternal_Fire` 1.0.19 (both current on [Thunderstore](https://thunderstore.io/c/valheim/p/Digitalroot/Eternal_Fire/)) on clients: Valheim simulates a fireplace on the nearest player's client (zone owner), so Eternal Fire only takes effect for fires near players whose client has it — the server copy enforces config sync and covers player-less zones. Clients without it can still join; their nearby fires just consume fuel normally. Optional client-side extra that needs nothing on the server: [MassFarming v1.13](https://github.com/Xeio/MassFarming/releases/download/v1.13/MassFarming.zip) (hotkey mass harvest/plant).
 

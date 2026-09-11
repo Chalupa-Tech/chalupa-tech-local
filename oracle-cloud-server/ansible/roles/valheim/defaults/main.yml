@@ -29,10 +29,6 @@ valheim_mods:
     team: Azumatt
     version: "2.1.8"
     url: "https://cdn.hexium.gg/upload/218/2.1.8.zip"
-  - name: AzuAutoStore
-    team: Azumatt
-    version: "3.1.2"
-    url: "https://cdn.hexium.gg/upload/12/3.1.2.zip"
   - name: AzuClock
     team: Azumatt
     version: "1.1.0"
@@ -53,3 +49,26 @@ valheim_mods:
   - name: Eternal_Fire
     team: Digitalroot
     version: "1.0.19"
+  # ServersideQoL family (ArgusMagnus): pure server-side modules — the mod
+  # takes ownership of world objects on the server, so clients need nothing.
+  # Core requires the YamlDotNet library package.
+  - name: YamlDotNet
+    team: ValheimModding
+    version: "16.3.1"
+  - name: ServersideQoL
+    team: ArgusMagnus
+    version: "2.0.6"
+  - name: ServersideQoL_AutoStore
+    team: ArgusMagnus
+    version: "2.0.0"
+  - name: ServersideQoL_AutoProcess
+    team: ArgusMagnus
+    version: "2.0.0"
+  - name: ServersideQoL_ContainerSigns
+    team: ArgusMagnus
+    version: "2.0.4"
+
+# Mods that used to be managed here and must be removed from the server
+# (their plugin dirs would otherwise be orphaned by a list removal).
+valheim_mods_absent:
+  - AzuAutoStore

@@ -78,3 +78,20 @@
   loop_control:
     label: "{{ item.path }}"
   notify: Restart valheim
+
+- name: Find retired managed-mod directories
+  ansible.builtin.find:
+    paths: "{{ valheim_server_dir }}/BepInEx/plugins"
+    file_type: directory
+    patterns: "{{ item }}-*"
+  loop: "{{ valheim_mods_absent }}"
+  register: valheim_retired_mods
+
+- name: Remove retired managed-mod directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ valheim_retired_mods.results | map(attribute='files') | flatten }}"
+  loop_control:
+    label: "{{ item.path }}"
+  notify: Restart valheim
