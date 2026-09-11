@@ -2,7 +2,7 @@ module pulumi_temp
 
 go 1.26.6
 
-require github.com/pulumi/pulumi/sdk/v3 v3.261.0
+require github.com/pulumi/pulumi/sdk/v3 v3.262.0
 
 require (
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
