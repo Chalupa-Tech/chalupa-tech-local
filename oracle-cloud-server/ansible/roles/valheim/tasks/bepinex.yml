@@ -110,6 +110,20 @@
     label: "{{ item.path }}"
   notify: Restart valheim
 
+- name: Apply managed mod config settings
+  community.general.ini_file:
+    path: "{{ valheim_server_dir }}/BepInEx/config/{{ item.file }}"
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0644"
+  loop: "{{ valheim_mod_settings }}"
+  loop_control:
+    label: "{{ item.file }}:{{ item.option }}"
+  notify: Restart valheim
+
 - name: Find retired managed-mod directories
   ansible.builtin.find:
     paths: "{{ valheim_server_dir }}/BepInEx/plugins"
