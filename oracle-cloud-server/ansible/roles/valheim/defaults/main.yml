@@ -67,6 +67,9 @@ valheim_mods:
   - name: ServersideQoL_ContainerSigns
     team: ArgusMagnus
     version: "2.0.4"
+  - name: ServersideQoL_MultiplayerTweaks
+    team: ArgusMagnus
+    version: "2.0.0"
 
 # Mods that used to be managed here and must be removed from the server
 # (their plugin dirs would otherwise be orphaned by a list removal).
