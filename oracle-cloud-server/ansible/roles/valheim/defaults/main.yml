@@ -70,6 +70,12 @@ valheim_mods:
   - name: ServersideQoL_MultiplayerTweaks
     team: ArgusMagnus
     version: "2.0.0"
+  # Our own ServersideQoL module (github.com/tayvenb13/serverside_qol-autofeed):
+  # feeds tamed animals from nearby chests, server-side only.
+  - name: ServersideQoL_AutoFeed
+    team: tayvenb13
+    version: "0.1.0"
+    url: "https://github.com/tayvenb13/serverside_qol-autofeed/releases/download/v0.1.0/ServersideQoL_AutoFeed-0.1.0.zip"
 
 # Mods that used to be managed here and must be removed from the server
 # (their plugin dirs would otherwise be orphaned by a list removal).
@@ -111,4 +117,8 @@ valheim_mod_settings:
   - file: ArgusMagnus.ServersideQoL.MultiplayerTweaks.cfg
     section: MultiplayerTweaks
     option: AssignShipsToCaptain
+    value: "true"
+  - file: tayvenb13.ServersideQoL.AutoFeed.cfg
+    section: AutoFeed
+    option: Enabled
     value: "true"
