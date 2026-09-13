@@ -122,3 +122,7 @@ valheim_mod_settings:
     section: AutoFeed
     option: Enabled
     value: "true"
+  - file: tayvenb13.ServersideQoL.AutoFeed.cfg
+    section: AutoFeed
+    option: ContainerRange
+    value: "2"
