@@ -56,7 +56,30 @@ the new core).
   `journalctl -u valheim`, and check the animal shows fed/happy on a vanilla
   client with chest stock decrementing.
 
+### Verified live (2026-09-13)
+
+Deployed via run 34777338062 after PR #323 merged. BepInEx loaded
+`ServersideQoL.AutoFeed 0.1.0` cleanly on restart and the managed
+`Enabled = true` survived config regeneration. With a vanilla client
+online, the server logged:
+
+```
+AutoFeed: fed Boar at (300.40, 52.40, -646.77) with $item_mushroomcommon
+from container at (303.44, 52.40, -648.25)
+```
+
+and the boar's hungry status cleared on the vanilla client — confirming the
+server-side `tameLastFeeding` ZDO write sticks against a client-owned
+creature (the one behavior no offline review could prove). No exceptions in
+the journal.
+
 ## Follow-ups
 
-- None planned; `ContainerRange` can be tuned later via
-  `valheim_mod_settings` if 10 m proves too small/large in practice.
+- Queued for a v0.1.x mod-repo release (none deployment-blocking, per the
+  final code review): fix the ownership-retry reprocessing delay being
+  overwritten by the no-food retry (up to ~10 s extra feeding latency when
+  the only stocked chest is client-owned), add an explicit
+  `permissions: contents: read` to the mod repo's build workflow, and
+  comment/pin the Steam depot manifest in `fetch-deps.sh`.
+- `ContainerRange` can be tuned later via `valheim_mod_settings` if 10 m
+  proves too small/large in practice.
