@@ -96,3 +96,19 @@ valheim_mod_settings:
     section: ContainerSigns
     option: BlackmetalChestSigns
     value: Left
+  - file: ArgusMagnus.ServersideQoL.MultiplayerTweaks.cfg
+    section: MultiplayerTweaks
+    option: ForcePlayerMapPin
+    value: "true"
+  - file: ArgusMagnus.ServersideQoL.MultiplayerTweaks.cfg
+    section: MultiplayerTweaks
+    option: AssignInteractablesToClosestPlayer
+    value: "true"
+  - file: ArgusMagnus.ServersideQoL.MultiplayerTweaks.cfg
+    section: MultiplayerTweaks
+    option: AssignMobsToClosestPlayer
+    value: "true"
+  - file: ArgusMagnus.ServersideQoL.MultiplayerTweaks.cfg
+    section: MultiplayerTweaks
+    option: AssignShipsToCaptain
+    value: "true"
