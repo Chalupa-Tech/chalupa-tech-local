@@ -1,7 +1,7 @@
 # Add ServersideQoL_AutoFeed: auto-feed tamed animals from chests
 
 **Date:** 2026-09-13
-**PR:** (fill in after opening)
+**PR:** [#323](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/323)
 **Design:** docs/superpowers/specs/2026-09-13-autofeed-serverside-design.md
 
 ## What
