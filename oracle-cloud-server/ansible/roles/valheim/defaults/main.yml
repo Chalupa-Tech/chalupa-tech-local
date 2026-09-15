@@ -53,6 +53,13 @@ valheim_mods:
   - name: Eternal_Fire
     team: Digitalroot
     version: "1.0.19"
+  # Enables `devcommands` (and the admin utility commands) for players in
+  # adminlist.txt. Server side install gates the commands on the admin list
+  # and runs world-affecting ones authoritatively; admins also install it
+  # client side to type them. Non-admin clients need nothing.
+  - name: Server_devcommands
+    team: JereKuusela
+    version: "1.113.0"
   # ServersideQoL family (ArgusMagnus): pure server-side modules — the mod
   # takes ownership of world objects on the server, so clients need nothing.
   # Core requires the YamlDotNet library package.
