@@ -1,7 +1,7 @@
 # Manage the Valheim server admin list in Ansible
 
 **Date:** 2026-09-15
-**PR:** _TBD_
+**PR:** [#334](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/334)
 
 ## What
 
