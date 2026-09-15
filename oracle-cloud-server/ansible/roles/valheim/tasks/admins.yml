@@ -1,0 +1,25 @@
+---
+- name: Assert admin IDs are SteamID64s
+  ansible.builtin.assert:
+    that:
+      - item.id is string
+      - item.id is match('^7656119[0-9]{10}$')
+    fail_msg: >-
+      valheim_admins entries must be a 17-digit SteamID64 quoted as a string
+      (crossplay is off, so Steam IDs are the only accepted form). Got:
+      {{ item.id | default(item) }}
+    quiet: true
+  loop: "{{ valheim_admins }}"
+  loop_control:
+    label: "{{ item.name | default(item.id | default(item)) }}"
+
+- name: Install adminlist.txt
+  ansible.builtin.template:
+    src: adminlist.txt.j2
+    dest: "{{ valheim_data_dir }}/adminlist.txt"
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0644"
+  # No restart handler on purpose: Valheim re-reads the permission lists
+  # (admin/banned/permitted) from the save dir while running, so a change
+  # takes effect without kicking everyone off the server.

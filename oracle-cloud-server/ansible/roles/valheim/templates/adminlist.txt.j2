@@ -1,0 +1,10 @@
+// Managed by Ansible (roles/valheim) - edits here are overwritten on deploy.
+// Add admins to valheim_admins in ansible/group_vars/all.yml instead.
+// One SteamID64 per line; only whole lines starting with // are ignored,
+// so names go on their own comment line above each ID.
+{% for admin in valheim_admins %}
+{% if admin.name is defined %}
+// {{ admin.name }}
+{% endif %}
+{{ admin.id }}
+{% endfor %}
