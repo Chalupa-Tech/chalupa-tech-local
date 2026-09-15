@@ -1,7 +1,7 @@
 # Install Server_devcommands on the Valheim server
 
 **Date:** 2026-09-15
-**PR:** TBD
+**PR:** [#335](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/335)
 
 ## What
 
