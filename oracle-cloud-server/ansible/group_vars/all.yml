@@ -3,3 +3,10 @@ valheim_server_name: "Chalupa Valheim"
 valheim_world_name: "chalupa"
 # Never committed: provided by CI env (GitHub secret VALHEIM_PASSWORD).
 valheim_password: "{{ lookup('env', 'VALHEIM_PASSWORD') }}"
+
+# Valheim server admins -> /opt/valheim/data/adminlist.txt.
+# Must be the 17-digit SteamID64 (crossplay is off, so Steam IDs only);
+# see oracle-cloud-server/README.md for how to find yours.
+valheim_admins:
+  - id: "76561197989755338"
+    name: tayvenb13

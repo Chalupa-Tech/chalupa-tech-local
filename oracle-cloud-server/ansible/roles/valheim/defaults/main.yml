@@ -7,6 +7,10 @@ valheim_dist_dir: /opt/valheim/dist
 valheim_port: 2456
 valheim_steam_app_id: "896660"
 
+# Server admins (adminlist.txt). Real values live in group_vars/all.yml.
+# Each entry: {id: "<17-digit SteamID64>", name: "<optional label>"}.
+valheim_admins: []
+
 depotdownloader_version: "3.4.0"
 depotdownloader_url: "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_{{ depotdownloader_version }}/DepotDownloader-linux-arm64.zip"
 

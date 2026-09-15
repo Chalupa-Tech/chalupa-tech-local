@@ -76,6 +76,7 @@ Also install `ValheimModding-Jotunn` 2.30.0 and `Digitalroot-Eternal_Fire` 1.0.1
 - **Restart the server:** `sudo systemctl restart valheim`
 - **Backups:** a systemd timer (`valheim-backup.timer`) runs daily, archiving the world save (`worlds_local`) to `/opt/valheim/backups`, keeping the newest 14 archives.
 - **Mod/BepInEx upgrades:** bump the relevant version pin in `ansible/roles/valheim/defaults/main.yml` (`bepinex_version`, or the entry under `valheim_mods`) via a normal PR — the role removes the old versioned plugin directory and installs the new one, and restarts the `valheim` service.
+- **Server admins:** add an entry to `valheim_admins` in `ansible/group_vars/all.yml` via a normal PR. The role renders `/opt/valheim/data/adminlist.txt` from that list; Valheim re-reads the permission lists while running, so admin changes apply without a restart (restart the service if one doesn't take). Admins get the in-game admin commands (`F5` console, then e.g. `/kick`, `/ban`, `/save`). Entries must be the **17-digit SteamID64** (crossplay is off, so Steam IDs are the only form the server accepts) — find yours by opening your Steam profile in a browser and reading the `/profiles/7656119XXXXXXXXXX` URL, or by pasting the profile URL into [steamid.io](https://steamid.io/); the server also logs it on connect (`journalctl -u valheim | grep -i 'handshake\|Got connection'`).
 
 ## Troubleshooting
 
