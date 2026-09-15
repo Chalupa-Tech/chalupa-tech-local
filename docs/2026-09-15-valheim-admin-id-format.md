@@ -1,7 +1,7 @@
 # Fix Valheim admin IDs: Platform User ID, not bare SteamID64
 
 **Date:** 2026-09-15
-**PR:** TBD
+**PR:** [#336](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/336)
 
 ## Symptom
 
