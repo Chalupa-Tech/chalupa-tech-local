@@ -1,7 +1,9 @@
 // Managed by Ansible (roles/valheim) - edits here are overwritten on deploy.
 // Add admins to valheim_admins in ansible/group_vars/all.yml instead.
-// One SteamID64 per line; only whole lines starting with // are ignored,
-// so names go on their own comment line above each ID.
+// One Platform User ID per line, case sensitive (<Platform>_<UserID>, e.g.
+// V_76561197989755338) -- a bare SteamID64 is the pre-crossplay form and
+// matches nothing. Only whole lines starting with // are ignored, so names
+// go on their own comment line above each ID, never trailing it.
 {% for admin in valheim_admins %}
 {% if admin.name is defined %}
 // {{ admin.name }}

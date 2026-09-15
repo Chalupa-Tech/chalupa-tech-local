@@ -5,8 +5,9 @@ valheim_world_name: "chalupa"
 valheim_password: "{{ lookup('env', 'VALHEIM_PASSWORD') }}"
 
 # Valheim server admins -> /opt/valheim/data/adminlist.txt.
-# Must be the 17-digit SteamID64 (crossplay is off, so Steam IDs only);
-# see oracle-cloud-server/README.md for how to find yours.
+# Must be the case-sensitive Platform User ID (<Platform>_<UserID>), NOT a
+# bare SteamID64 -- read it from the in-game F2 panel; see
+# oracle-cloud-server/README.md.
 valheim_admins:
-  - id: "76561197989755338"
+  - id: "V_76561197989755338"
     name: tayvenb13

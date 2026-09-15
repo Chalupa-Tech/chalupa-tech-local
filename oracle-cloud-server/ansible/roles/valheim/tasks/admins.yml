@@ -1,13 +1,20 @@
 ---
-- name: Assert admin IDs are SteamID64s
+- name: Assert admin IDs are Platform User IDs
   ansible.builtin.assert:
     that:
       - item.id is string
-      - item.id is match('^7656119[0-9]{10}$')
+      - item.id is match('^[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9]{5,}$')
+      # Shape check above stays platform-agnostic so a future PlayFab/Xbox
+      # entry passes; Steam ids get the stricter 7656119+10-digit check,
+      # because a mistyped digit is otherwise indistinguishable from a valid
+      # id and fails silently at runtime.
+      - item.id is not match('^(V|Steam)_') or item.id is match('^(V|Steam)_7656119[0-9]{10}$')
     fail_msg: >-
-      valheim_admins entries must be a 17-digit SteamID64 quoted as a string
-      (crossplay is off, so Steam IDs are the only accepted form). Got:
-      {{ item.id | default(item) }}
+      valheim_admins entries must be a Platform User ID quoted as a string,
+      in the case-sensitive form <Platform>_<UserID> (e.g. V_76561197989755338
+      for a Steam player). A bare SteamID64 is the pre-crossplay form and no
+      longer matches, so it silently grants nothing. Read yours from the
+      in-game F2 panel or the server log. Got: {{ item.id | default(item) }}
     quiet: true
   loop: "{{ valheim_admins }}"
   loop_control:
