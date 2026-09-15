@@ -40,13 +40,16 @@ everyone mid-session. A restart is only a fallback if a change doesn't take.
 
 ## ID format
 
-Crossplay is off on this server (Steam-only), so entries are the 17-digit
-SteamID64 (`7656119…`) — the form Valheim matches against a Steam peer's
-host name. The `assert` in `admins.yml` rejects anything else, because a
-wrong-format ID fails silently: the server starts fine and the player simply
-has no admin rights. Note the 10-digit "friend code" / Steam3 account ID
-shown in some UIs is *not* accepted; it converts via
-`steamID64 = 76561197960265728 + accountID`.
+> **Corrected 2026-09-15** — this section originally said entries must be the
+> bare 17-digit SteamID64. That is the *pre-crossplay* form and matches
+> nothing on Valheim 1.0, so the admin list shipped here granted no rights.
+> See [2026-09-15-valheim-admin-id-format.md](2026-09-15-valheim-admin-id-format.md).
+
+Entries are the case-sensitive **Platform User ID**, `<Platform>_<UserID>` —
+for a Steam player, `V_` followed by the 17-digit SteamID64
+(`V_76561197989755338`). Read it from the in-game **F2** player panel or the
+server log and copy it verbatim. A wrong-format ID fails silently: the server
+starts fine and the player simply has no admin rights.
 
 ## Verification
 
