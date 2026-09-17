@@ -1,6 +1,6 @@
 dependencies:
 - name: scraparr
   repository: https://imgios.github.io/scraparr
-  version: 1.4.0
-digest: sha256:ad8fec3eca4e880a2359392ddc3a926ec10eb6f5d7fd061aa381bdb336cde469
-generated: "2026-05-18T14:08:30.611516-06:00"
+  version: 1.5.0
+digest: sha256:48cd5fddd545a9a3e98262ac7ee048441d25ceb50e01a81239d463734c675145
+generated: "2026-09-17T12:02:16.136493238Z"
