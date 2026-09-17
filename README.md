@@ -40,7 +40,7 @@ This repository manages the infrastructure and configuration for a local Proxmox
 
 ## Repository Structure
 
-- `ansible/roles/proxmox_prep`: Role for configuring the Proxmox host (IOMMU, GPU/HBA passthrough, kernel 7, LXC template, Talos ISO).
+- `ansible/roles/proxmox_prep`: Role for configuring the Proxmox host (IOMMU, GPU/HBA passthrough, LXC template, Talos ISO).
 - `ansible/roles/plex_lxc`: Role for creating the Plex LXC container on the Proxmox host.
 - `ansible/roles/plex_server`: Role for configuring Plex Media Server & NFS mounts inside the LXC.
 - `pulumi/`: Pulumi (Go) project for TrueNAS VM provisioning.

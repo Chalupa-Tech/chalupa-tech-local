@@ -1,9 +1,6 @@
 ---
 proxmox_prep_cpu_vendor: amd
 
-# Kernel 7 opt-in (pve-test repo)
-proxmox_prep_kernel_7_enabled: true
-
 # LXC container template settings
 proxmox_prep_lxc_template_name: "ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
 proxmox_prep_lxc_template_storage: "local"
