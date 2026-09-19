@@ -323,7 +323,11 @@ func createTalosCluster(ctx *pulumi.Context, pveProvider *proxmoxve.Provider) er
 			MachineConfigurationInput: machineConfig.MachineConfiguration(),
 			Node:                      pulumi.String(node.ip),
 			Endpoint:                  pulumi.String(node.ip),
-			ApplyMode:                 pulumi.String("reboot"),
+			// "auto" applies without a reboot when the diff allows it and
+			// reboots otherwise. Talos 1.14 removed the REBOOT apply mode
+			// ("reboot" here dated from the original maintenance-mode
+			// bootstrap) and rejects it with Unimplemented.
+			ApplyMode: pulumi.String("auto"),
 		}, pulumi.DependsOn([]pulumi.Resource{talosVM}))
 		if err != nil {
 			return err
