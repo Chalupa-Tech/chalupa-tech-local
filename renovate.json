@@ -51,6 +51,17 @@
     },
     {
       "customType": "regex",
+      "description": "Kubernetes version pinned in Pulumi Talos machine-config generation",
+      "managerFilePatterns": ["/pulumi-talos/main\\.go$/"],
+      "matchStrings": [
+        "kubernetesVersion\\s*=\\s*\"(?<currentValue>[0-9.]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubernetes/kubernetes",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
       "description": "Home Assistant OS version (Pulumi config + Ansible var, kept in sync)",
       "managerFilePatterns": [
         "/pulumi/Pulumi\\.proxmox\\.yaml$/",
@@ -162,6 +173,7 @@
       "description": "OVERRIDE — versions that drive the reprovision pipeline: PR + approval only",
       "matchDepNames": [
         "siderolabs/talos",
+        "kubernetes/kubernetes",
         "home-assistant/operating-system",
         "muhlba91/pulumi-proxmoxve",
         "go"
