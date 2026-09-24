@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: truenas-alerts-config
+  namespace: truenas-alerts
+  annotations:
+    # Apply before the Deployment (implicit wave 0) so the volume mount
+    # resolves on first pod start.
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  config.yml: |
+    modules:
+      truenas:
+        metrics:
+          # One series per active (undismissed) TrueNAS alert:
+          #   truenas_alert_active{level="CRITICAL", klass="..."} 1
+          # Dismissed alerts are excluded — dismissing in the TrueNAS UI
+          # is the ack that should also silence Discord.
+          - name: truenas_alert
+            type: object
+            help: Active (undismissed) TrueNAS alert, one series per alert
+            path: '{ [?(@.dismissed == false)] }'
+            labels:
+              level: '{ .level }'
+              klass: '{ .klass }'
+            values:
+              active: 1
+        http_client_config:
+          authorization:
+            type: Bearer
+            # Mounted from Secret truenas-alerts-api-key (OpenBao via
+            # ExternalSecret) — see RUNBOOK.md for seeding.
+            credentials_file: /etc/json-exporter/secrets/api-key
+          tls_config:
+            # 192.168.1.40 serves a self-signed cert (LAN mgmt UI).
+            insecure_skip_verify: true
