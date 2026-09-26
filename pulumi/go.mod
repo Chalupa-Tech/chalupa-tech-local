@@ -2,10 +2,12 @@ module pulumi_temp
 
 go 1.26.6
 
-require github.com/pulumi/pulumi/sdk/v3 v3.263.0
+require github.com/pulumi/pulumi/sdk/v3 v3.265.0
 
 require (
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/pulumi/pulumi-cloud-sdk/go v1.20260918.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.9 // indirect
 )
 
@@ -71,7 +73,6 @@ require (
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pgavlin/fx v0.1.6 // indirect
-	github.com/pgavlin/fx/v2 v2.0.12 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
