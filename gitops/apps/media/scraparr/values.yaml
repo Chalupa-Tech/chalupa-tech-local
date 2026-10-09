@@ -101,6 +101,11 @@ scraparr:
     # `overseerr` is configured above — not in this list. `seerr` is
     # not a scraparr connector at all (despite us using the seerr-team
     # fork) so no override needed for it.
+    #
+    # NOTE: chart upgrades can ADD new `<service>: {}` defaults (1.5.0
+    # added `sportarr`, which crash-looped the pod for weeks — CI
+    # lint/render can't catch it, the failure is runtime-only). After
+    # any chart bump, diff `helm show values` against this list.
     bazarr: []
     jellyfin: []
     jellyseerr: []
@@ -108,6 +113,7 @@ scraparr:
     lidarr: []
     prowlarr: []
     readarr: []
+    sportarr: []
     whisparr: []
 
     # whisparr:
