@@ -71,15 +71,13 @@ scraparr:
               name: scraparr-apikeys
               key: sportarr
 
-    # The seerr-team/seerr fork (ghcr.io/seerr-team/seerr) is Overseerr-
-    # API-compatible (verified: `GET /api/v1/status` returns the same
-    # version/commitTag/updateAvailable JSON shape as Overseerr). The
-    # scraparr binary's ACTIVE_CONNECTORS list (src/scraparr/const.py)
-    # only recognizes `overseerr` and `jellyseerr` — a `seerr:` key is
-    # silently ignored. Using the `overseerr` key with seerr's URL
-    # routes the scrape through scraparr's Overseerr connector which
-    # works against the unified seerr fork.
-    overseerr:
+    # The seerr-team/seerr fork (ghcr.io/seerr-team/seerr) is scraped
+    # via scraparr's native `seerr` connector (added in scraparr 3.2.0;
+    # the old overseerr-key workaround from PR #213 now logs a
+    # deprecation warning). The chart's init-container regex doesn't
+    # match `seerr`, so no wait-for-seerr init container is generated —
+    # scraparr just reports the service down if seerr is unreachable.
+    seerr:
       - url: http://seerr.media.svc.cluster.local:5055
         alias: seerr
         api_version: v1
@@ -112,9 +110,9 @@ scraparr:
     # iterates zero items (no init container), and the binary sees
     # zero instances (no validation error).
     #
-    # `overseerr` is configured above — not in this list. `seerr` is
-    # not a scraparr connector at all (despite us using the seerr-team
-    # fork) so no override needed for it.
+    # `overseerr` is in this list because the chart defaults it to `{}`
+    # and our seerr instance now uses the native `seerr:` key above
+    # (which the chart has no default for, so it needs no override).
     #
     # NOTE: chart upgrades can ADD new `<service>: {}` defaults (1.5.0
     # added `sportarr`, which crash-looped the pod for weeks — CI
@@ -125,6 +123,7 @@ scraparr:
     jellyseerr: []
     kavita: []
     lidarr: []
+    overseerr: []
     prowlarr: []
     readarr: []
     whisparr: []
