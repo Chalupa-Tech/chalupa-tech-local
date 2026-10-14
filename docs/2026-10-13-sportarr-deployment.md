@@ -1,7 +1,7 @@
 # Sportarr deployment (media stack)
 
 **Date:** 2026-10-13
-**PRs:** #<PR1> (app + arrs-pg), #<PR2> (scraparr wiring, follow-up)
+**PRs:** #383 (app + arrs-pg), #<PR2> (scraparr wiring, follow-up)
 **Plan:** docs/superpowers/plans/2026-10-13-sportarr.md
 **Handoff/spec:** docs/superpowers/handoffs/2026-10-08-sportarr-handoff.md
 
