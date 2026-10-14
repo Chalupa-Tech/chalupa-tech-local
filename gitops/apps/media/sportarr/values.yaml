@@ -1,0 +1,121 @@
+app-template:
+  defaultPodOptions:
+    securityContext:
+      runAsNonRoot: false
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    sportarr:
+      type: deployment
+      replicas: 1
+      strategy: Recreate
+      containers:
+        main:
+          image:
+            # Docker Hub (not lscr) — upstream publishes its own image.
+            # Plain semver; Renovate tracks it. Never pin -dev tags.
+            repository: sportarr/sportarr
+            tag: 4.1.9.1119
+          env:
+            TZ: America/Los_Angeles
+            PUID: "1000"
+            PGID: "1000"
+            # Sportarr is an EF Core rewrite: single database, exact
+            # Sportarr__Database__* spelling (read via GetEnvironmentVariable,
+            # not a .NET config builder). Postgres is fresh-install only —
+            # there is NO SQLite->PG migration path, so these must be set
+            # before first boot (they are: shipped with the app).
+            Sportarr__Database__Provider: postgres
+            Sportarr__Database__Host: arrs-pg-rw.media.svc.cluster.local
+            Sportarr__Database__Port: "5432"
+            Sportarr__Database__Name:
+              valueFrom:
+                secretKeyRef:
+                  name: sportarr-pg
+                  key: db
+            Sportarr__Database__Username:
+              valueFrom:
+                secretKeyRef:
+                  name: sportarr-pg
+                  key: username
+            Sportarr__Database__Password:
+              valueFrom:
+                secretKeyRef:
+                  name: sportarr-pg
+                  key: password
+          probes:
+            # GET /ping -> 200 "pong", unauthenticated (verified in
+            # Sportarr src/Program.cs; its own Dockerfile HEALTHCHECK).
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 1867
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 10
+                failureThreshold: 5
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 1867
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 5
+            startup:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /ping
+                  port: 1867
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 60
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+
+  service:
+    sportarr:
+      controller: sportarr
+      ports:
+        http:
+          port: 1867
+
+  persistence:
+    config:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        - path: /config
+          subPath: Configs/sportarr
+    sports:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        # New library folder: kubelet auto-creates subPath dirs; the
+        # TrueNAS export's mapall=root handles ownership.
+        - path: /sports
+          subPath: Sports
+    downloads:
+      enabled: true
+      type: persistentVolumeClaim
+      existingClaim: media-plexmedia
+      globalMounts:
+        # Same mount as NZBGet so imports hardlink instead of copying.
+        - path: /downloads
+          subPath: Downloads
