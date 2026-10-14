@@ -34,6 +34,7 @@ spec:
         - CREATE ROLE seerr WITH LOGIN;
         - CREATE ROLE prowlarr WITH LOGIN;
         - CREATE ROLE readmebook WITH LOGIN;
+        - CREATE ROLE sportarr WITH LOGIN;
         - CREATE DATABASE sonarr_main OWNER sonarr;
         - CREATE DATABASE sonarr_log OWNER sonarr;
         - CREATE DATABASE radarr_main OWNER radarr;
@@ -43,6 +44,7 @@ spec:
         - CREATE DATABASE prowlarr_log OWNER prowlarr;
         - CREATE DATABASE readmebook_main OWNER readmebook;
         - CREATE DATABASE readmebook_log OWNER readmebook;
+        - CREATE DATABASE sportarr OWNER sportarr;
         - GRANT ALL PRIVILEGES ON DATABASE sonarr_main TO sonarr;
         - GRANT ALL PRIVILEGES ON DATABASE sonarr_log TO sonarr;
         - GRANT ALL PRIVILEGES ON DATABASE radarr_main TO radarr;
@@ -52,6 +54,7 @@ spec:
         - GRANT ALL PRIVILEGES ON DATABASE prowlarr_log TO prowlarr;
         - GRANT ALL PRIVILEGES ON DATABASE readmebook_main TO readmebook;
         - GRANT ALL PRIVILEGES ON DATABASE readmebook_log TO readmebook;
+        - GRANT ALL PRIVILEGES ON DATABASE sportarr TO sportarr;
 
   managed:
     roles:
@@ -84,6 +87,12 @@ spec:
         login: true
         passwordSecret:
           name: readmebook-pg
+        connectionLimit: 25
+      - name: sportarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: sportarr-pg
         connectionLimit: 25
 
   monitoring:
