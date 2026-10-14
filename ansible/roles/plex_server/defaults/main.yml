@@ -9,6 +9,8 @@ plex_server_nfs_shares:
     dest: "/mnt/plex/movies"
   - src: "/mnt/PlexMedia/frame/TVShows"
     dest: "/mnt/plex/tvshows"
+  - src: "/mnt/PlexMedia/frame/Sports"
+    dest: "/mnt/plex/sports"
 plex_server_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvR9jYqq/EEuoMyJEloxILC6XfNAGHwoaMP4fMNk7ca"
 plex_server_user: "tbigelow"
 # Official Plex DEB repository (per https://support.plex.tv/articles/235974187)
