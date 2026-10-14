@@ -46,13 +46,13 @@ See the plan's "Manual steps" section (mirrors the handoff): OpenBao
 seeding, Sportarr UI setup, Prowlarr (as Sonarr type), NZBGet client,
 scraparr key, Plex `Sports` library.
 
-## Correction (2026-10-13, PR #<PR3>)
+## Correction (2026-10-13, PR #385)
 
 The handoff/plan claimed the new `Sports/` folder would be visible to
 Plex "as soon as the folder has content" — wrong: the Plex LXC mounts
 individual share subdirectories via fstab (`plex_server_nfs_shares` in
 `ansible/roles/plex_server/defaults/main.yml`), not the share root, so
-every new library needs its own mount entry. PR #<PR3> adds
+every new library needs its own mount entry. PR #385 adds
 `/mnt/PlexMedia/frame/Sports` → `/mnt/plex/sports`; the deploy
 pipeline's Ansible stage applies it to the LXC on merge. The Plex
 library path is `/mnt/plex/sports`.
