@@ -57,6 +57,20 @@ scraparr:
               name: scraparr-apikeys
               key: radarr
 
+    sportarr:
+      - url: http://sportarr.media.svc.cluster.local:1867
+        alias: sportarr
+        api_version: v3
+        interval: 30
+        detailed: true
+        api_key:
+          type: ref
+          name: SCRAPARR_SPORTARR_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: scraparr-apikeys
+              key: sportarr
+
     # The seerr-team/seerr fork (ghcr.io/seerr-team/seerr) is Overseerr-
     # API-compatible (verified: `GET /api/v1/status` returns the same
     # version/commitTag/updateAvailable JSON shape as Overseerr). The
@@ -113,7 +127,6 @@ scraparr:
     lidarr: []
     prowlarr: []
     readarr: []
-    sportarr: []
     whisparr: []
 
     # whisparr:
