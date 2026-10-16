@@ -5,6 +5,22 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to run"
+        type: choice
+        required: false
+        default: ansible
+        options:
+          # Reconfigures the host and pulls whatever Valheim server build
+          # Steam currently serves, restarting the service if the binary
+          # changed. Touches no infrastructure. This is the ad-hoc
+          # game-update path, so it is the default.
+          - ansible
+          # Terraform first, then Ansible — the same thing a merge does.
+          - terraform-and-ansible
+          # Infrastructure only; leaves the running server alone.
+          - terraform
 
 jobs:
   detect-changes:
@@ -37,7 +53,10 @@ jobs:
       always() &&
       needs.detect-changes.result != 'failure' &&
       needs.detect-changes.result != 'cancelled' &&
-      (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.terraform == 'true')
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.scope != 'ansible') ||
+        (github.event_name != 'workflow_dispatch' && needs.detect-changes.outputs.terraform == 'true')
+      )
     defaults:
       run:
         working-directory: oracle-cloud-server/terraform
@@ -87,9 +106,14 @@ jobs:
       needs.terraform-apply.result != 'failure' &&
       needs.terraform-apply.result != 'cancelled' &&
       (
-        github.event_name == 'workflow_dispatch' ||
-        needs.detect-changes.outputs.ansible == 'true' ||
-        needs.detect-changes.outputs.terraform == 'true'
+        (github.event_name == 'workflow_dispatch' && inputs.scope != 'terraform') ||
+        (
+          github.event_name != 'workflow_dispatch' &&
+          (
+            needs.detect-changes.outputs.ansible == 'true' ||
+            needs.detect-changes.outputs.terraform == 'true'
+          )
+        )
       )
     steps:
       - uses: actions/checkout@v7

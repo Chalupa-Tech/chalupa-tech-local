@@ -42,7 +42,21 @@ Work through these in order before the first PR against this directory can merge
 ## How deploys work
 
 - **Pull requests** trigger `.github/workflows/oracle.yml`: `terraform fmt -check -recursive` + `terraform validate` + `terraform plan`, with the plan output posted as a PR comment; and `ansible-lint` against `oracle-cloud-server/ansible/`. Each job only runs if its path (`terraform/` or `ansible/`) changed.
-- **Merges to `main`** trigger `.github/workflows/oracle-deploy.yml`: `terraform apply -auto-approve`, then an Ansible run that joins the CI runner to the tailnet (`tag:github-runner`), resolves the instance's Tailscale IP for host `oracle-server`, and runs `ansible-playbook -i inventory.yml site.yml` over that tailnet connection.
+- **Merges to `main`** trigger `.github/workflows/oracle-deploy.yml`: `terraform apply -auto-approve`, then an Ansible run that joins the CI runner to the tailnet (`tag:github-runner`), resolves the instance's Tailscale IP for host `oracle-server`, and runs `ansible-playbook -i inventory.yml site.yml` over that tailnet connection. Each job only runs if its path changed, same as the PR workflow.
+- **Ad-hoc runs** of the same workflow take a `scope` input, so routine operations (a Valheim patch, re-asserting host config) need no PR at all:
+
+  | `scope` | Terraform | Ansible | Use for |
+  |---|---|---|---|
+  | `ansible` *(default)* | — | ✅ | Pulling the current Valheim build; re-applying host/mod config |
+  | `terraform-and-ansible` | ✅ | ✅ | What a merge does — after manual infra edits, or a full re-assert |
+  | `terraform` | ✅ | — | Infrastructure only; leaves the running server untouched |
+
+  ```bash
+  gh workflow run oracle-deploy.yml                          # scope=ansible
+  gh workflow run oracle-deploy.yml -f scope=terraform-and-ansible
+  ```
+
+  `ansible` is the default because it is the common ad-hoc need and it touches no infrastructure. It also decouples the two: `ansible-configure` has `terraform-apply` as a `needs:` gate, so with the old behaviour an unrelated Terraform failure (OCI capacity, a state lock, expired OCI credentials) blocked the server update. Changes still reach the host **only** through this workflow — ad-hoc dispatch runs committed code from `main`, it is not a local apply.
 - There is no local `terraform apply` or unchecked `ansible-playbook` run — CI is the source of truth, same as the rest of this repo.
 
 ## Players: how to join
@@ -77,14 +91,14 @@ Admins only: `JereKuusela-Server_devcommands` 1.115.0 ([Thunderstore](https://th
 - **Confirm BepInEx/mods loaded:** `journalctl -u valheim | grep -i 'Loading \['`
 - **Restart the server:** `sudo systemctl restart valheim`
 - **Backups:** a systemd timer (`valheim-backup.timer`) runs daily, archiving the world save (`worlds_local`) to `/opt/valheim/backups`, keeping the newest 14 archives.
-- **Game updates:** the server build is **not pinned** — `install.yml` runs DepotDownloader against app `896660` with no manifest, so every Ansible run pulls whatever Steam currently serves and restarts the service if the binary checksum changed. Nothing in the repo records the running build, and the deploy workflow only runs the Ansible job when `oracle-cloud-server/ansible/**` changed. So after an Iron Gate patch, clients cannot join until a deploy happens — if there is no pin or mod change to make, run `gh workflow run oracle-deploy.yml` (the workflow's `workflow_dispatch` trigger runs both jobs unconditionally).
+- **Game updates:** the server build is **not pinned** — `install.yml` runs DepotDownloader against app `896660` with no manifest, so every Ansible run pulls whatever Steam currently serves and restarts the service if the binary checksum changed. Nothing in the repo records the running build, and on a merge the workflow only runs the Ansible job when `oracle-cloud-server/ansible/**` changed. So after an Iron Gate patch, clients cannot join until a deploy happens. There is nothing to commit for a plain game update — run `gh workflow run oracle-deploy.yml` (defaults to `scope=ansible`) and watch it with `gh run watch`.
 - **Mod/BepInEx upgrades:** bump the relevant version pin in `ansible/roles/valheim/defaults/main.yml` (`bepinex_version`, or the entry under `valheim_mods`) via a normal PR — the role removes the old versioned plugin directory and installs the new one, and restarts the `valheim` service.
 - **Server admins:** add an entry to `valheim_admins` in `ansible/group_vars/all.yml` via a normal PR. The role renders `/opt/valheim/data/adminlist.txt` from that list; Valheim re-reads the permission lists while running, so admin changes apply without a restart (restart the service if one doesn't take). Admins get the in-game admin commands (`F5` console, then e.g. `/kick`, `/ban`, `/save`), and — via the `Server_devcommands` mod — the cheat commands behind `devcommands` (`fly`, `spawn`, `tod`, …; see the [command wiki](https://valheim.wiki/Console_Commands)), which vanilla dedicated servers refuse. Entries must be the **Platform User ID** in the case-sensitive form `<Platform>_<UserID>` — for a Steam player on Valheim 1.0 that is `V_` followed by the 17-digit SteamID64, e.g. `V_76561197989755338`. Read it from the in-game **F2** player panel (or the server log on connect) and copy it verbatim; a bare SteamID64 is the pre-crossplay form and silently matches nothing — the server starts fine and the player just has no admin rights.
 
 ## Troubleshooting
 
 - **"Out of host capacity" on apply** — see bootstrap step 3 (upgrade to Pay-As-You-Go; free usage is unaffected).
-- **Nobody can connect right after a game patch** — almost certainly a version mismatch: Valheim refuses clients whose build differs from the server's, and the server build only moves when the Ansible job runs. Check how long it's been (`gh run list --workflow=oracle-deploy.yml` — runs of ~10s are detect-changes-only and did *not* touch the server), then trigger a deploy as described under **Game updates**. Confirm afterwards with `journalctl -u valheim | grep -i 'version'`.
+- **Nobody can connect right after a game patch** — almost certainly a version mismatch: Valheim refuses clients whose build differs from the server's, and the server build only moves when the Ansible job runs. Check how long it's been (`gh run list --workflow=oracle-deploy.yml` — runs of ~10s are detect-changes-only and did *not* touch the server), then run `gh workflow run oracle-deploy.yml`. Confirm afterwards with `journalctl -u valheim | grep -i 'version'`.
 - **Nobody can connect** — check the host firewall first, then the cloud NSG:
   1. `sudo iptables -L INPUT -n | head` on the instance (over SSH/Tailscale) — confirm the UDP 2456:2457 ACCEPT rule from the `valheim` role is present.
   2. Then check the OCI NSG (`valheim-nsg`, in `terraform/network.tf`) actually allows UDP 2456-2457 ingress from `0.0.0.0/0`.
