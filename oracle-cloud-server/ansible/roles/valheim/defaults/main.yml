@@ -4,6 +4,10 @@ valheim_home: /opt/valheim
 valheim_server_dir: /opt/valheim/server
 valheim_data_dir: /opt/valheim/data
 valheim_dist_dir: /opt/valheim/dist
+# Game code lives in this managed assembly, not in valheim_server.x86_64
+# (a ~15 KB Unity stub that does not change between game patches). Update
+# detection checksums this file — see docs/2026-10-16-valheim-deploy-fixes.md.
+valheim_server_assembly: "{{ valheim_server_dir }}/valheim_server_Data/Managed/assembly_valheim.dll"
 valheim_port: 2456
 valheim_steam_app_id: "896660"
 

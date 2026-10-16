@@ -50,15 +50,36 @@
     mode: "0755"
   loop: "{{ valheim_mods }}"
 
-- name: Install mods into BepInEx plugins dir
-  ansible.builtin.unarchive:
-    src: "{{ valheim_dist_dir }}/{{ item.name }}-{{ item.version }}.zip"
-    dest: "{{ valheim_server_dir }}/BepInEx/plugins/{{ item.name }}-{{ item.version }}"
-    remote_src: true
-    owner: "{{ valheim_user }}"
-    group: "{{ valheim_user }}"
-    creates: "{{ valheim_server_dir }}/BepInEx/plugins/{{ item.name }}-{{ item.version }}/manifest.json"
+- name: Check which managed mods are already installed
+  ansible.builtin.stat:
+    path: "{{ valheim_server_dir }}/BepInEx/plugins/{{ item.name }}-{{ item.version }}/manifest.json"
   loop: "{{ valheim_mods }}"
+  loop_control:
+    label: "{{ item.name }}-{{ item.version }}"
+  register: valheim_mod_installed
+
+# unzip is called directly rather than via ansible.builtin.unarchive because
+# some mod zips (Jotunn's, for one) store paths with backslash separators.
+# unzip resolves those correctly but exits 1 to flag the warning, and
+# unarchive treats any non-zero rc as a failure — which broke the deploy in
+# PR #394. rc 1 is "completed with warnings", so only rc > 1 is a real error.
+# The stat above replaces unarchive's `creates:` guard: a `creates:` short
+# circuit still returns rc 0, so a changed_when based on rc would report
+# changed on every run and restart the server each deploy.
+- name: Install mods into BepInEx plugins dir
+  ansible.builtin.command:
+    cmd: >-
+      /usr/bin/unzip -o -q
+      {{ valheim_dist_dir }}/{{ item.item.name }}-{{ item.item.version }}.zip
+      -d {{ valheim_server_dir }}/BepInEx/plugins/{{ item.item.name }}-{{ item.item.version }}
+  become: true
+  become_user: "{{ valheim_user }}"
+  loop: "{{ valheim_mod_installed.results }}"
+  loop_control:
+    label: "{{ item.item.name }}-{{ item.item.version }}"
+  when: not item.stat.exists
+  register: valheim_mod_unzip
+  failed_when: valheim_mod_unzip.rc is defined and valheim_mod_unzip.rc > 1
   notify: Restart valheim
 
 - name: Find outdated managed-mod directories

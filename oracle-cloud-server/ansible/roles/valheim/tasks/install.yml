@@ -49,6 +49,12 @@
     checksum_algorithm: sha256
   register: valheim_bin_before
 
+- name: Stat game assembly before update
+  ansible.builtin.stat:
+    path: "{{ valheim_server_assembly }}"
+    checksum_algorithm: sha256
+  register: valheim_asm_before
+
 - name: Download / update Valheim dedicated server (app {{ valheim_steam_app_id }})
   ansible.builtin.command:
     cmd: >
@@ -68,11 +74,30 @@
     checksum_algorithm: sha256
   register: valheim_bin_after
 
+- name: Stat game assembly after update
+  ansible.builtin.stat:
+    path: "{{ valheim_server_assembly }}"
+    checksum_algorithm: sha256
+  register: valheim_asm_after
+
+# Without this, a wrong/renamed assembly path would make both checksums empty
+# and compare equal, silently never restarting the server again.
+- name: Assert the game assembly was found
+  ansible.builtin.assert:
+    that: valheim_asm_after.stat.exists
+    fail_msg: >-
+      {{ valheim_server_assembly }} does not exist after DepotDownloader ran.
+      Game-update detection depends on it — check whether the layout changed.
+
+# valheim_server.x86_64 is a Unity stub that is unchanged by game patches, so
+# it is checked only as a belt-and-braces signal; the assembly is what moves.
 - name: Detect server update
   ansible.builtin.command: /bin/true
   changed_when: >-
     (valheim_bin_before.stat.checksum | default(''))
     != (valheim_bin_after.stat.checksum | default(''))
+    or (valheim_asm_before.stat.checksum | default(''))
+    != (valheim_asm_after.stat.checksum | default(''))
   notify: Restart valheim
 
 - name: Ensure server binary is executable
