@@ -1,7 +1,7 @@
 # Add PedanticPeaches as a Valheim server admin
 
 **Date:** 2026-10-16
-**PR:** [#PENDING](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/PENDING)
+**PR:** [#396](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/396)
 
 ## What
 
