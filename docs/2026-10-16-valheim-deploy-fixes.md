@@ -1,7 +1,7 @@
 # Two deploy bugs found by the 1.0.20 update: unzip rc=1 and broken update detection
 
 **Date:** 2026-10-16
-**PR:** [#PENDING](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/PENDING)
+**PR:** [#395](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/395)
 **Follows:** [2026-10-16-valheim-1.0.20-server-update.md](2026-10-16-valheim-1.0.20-server-update.md) ([#394](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/394))
 
 ## What happened
