@@ -11,3 +11,5 @@ valheim_password: "{{ lookup('env', 'VALHEIM_PASSWORD') }}"
 valheim_admins:
   - id: "V_76561197989755338"
     name: tayvenb13
+  - id: "V_76561198040838917"
+    name: PedanticPeaches
