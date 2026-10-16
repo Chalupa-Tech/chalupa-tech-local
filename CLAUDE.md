@@ -46,7 +46,11 @@ server (x86_64 via Box64, BepInEx, DepotDownloader) — Terraform provisions
 (state in OCI Object Storage via S3-compat backend), Ansible configures over
 Tailscale (host `oracle-server`, SSH never exposed publicly; only UDP
 2456-2457 open). CI: `.github/workflows/oracle.yml` (PR plan/lint) and
-`oracle-deploy.yml` (apply on merge). See `oracle-cloud-server/README.md`
+`oracle-deploy.yml` (apply on merge, or ad-hoc via `workflow_dispatch` with a
+`scope` input: `ansible` (default) / `terraform-and-ansible` / `terraform`).
+The Valheim server build is **not pinned** — any Ansible run pulls the current
+Steam build — so a game patch needs a dispatch, not a PR:
+`gh workflow run oracle-deploy.yml`. See `oracle-cloud-server/README.md`
 for bootstrap + operations.
 
 ## Network
@@ -109,6 +113,7 @@ ansible-playbook -i inventory.yml site.yml --check --diff   # Dry-run host prep
 cd terraform && terraform fmt -check -recursive && terraform validate  # after init -backend=false
 cd ansible && ansible-lint            # Lint
 ssh ubuntu@oracle-server              # Over Tailscale
+gh workflow run oracle-deploy.yml     # Ad-hoc deploy (scope=ansible); no PR needed
 ```
 
 ## Critical Rules

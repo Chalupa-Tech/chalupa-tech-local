@@ -42,7 +42,21 @@ Work through these in order before the first PR against this directory can merge
 ## How deploys work
 
 - **Pull requests** trigger `.github/workflows/oracle.yml`: `terraform fmt -check -recursive` + `terraform validate` + `terraform plan`, with the plan output posted as a PR comment; and `ansible-lint` against `oracle-cloud-server/ansible/`. Each job only runs if its path (`terraform/` or `ansible/`) changed.
-- **Merges to `main`** trigger `.github/workflows/oracle-deploy.yml`: `terraform apply -auto-approve`, then an Ansible run that joins the CI runner to the tailnet (`tag:github-runner`), resolves the instance's Tailscale IP for host `oracle-server`, and runs `ansible-playbook -i inventory.yml site.yml` over that tailnet connection.
+- **Merges to `main`** trigger `.github/workflows/oracle-deploy.yml`: `terraform apply -auto-approve`, then an Ansible run that joins the CI runner to the tailnet (`tag:github-runner`), resolves the instance's Tailscale IP for host `oracle-server`, and runs `ansible-playbook -i inventory.yml site.yml` over that tailnet connection. Each job only runs if its path changed, same as the PR workflow.
+- **Ad-hoc runs** of the same workflow take a `scope` input, so routine operations (a Valheim patch, re-asserting host config) need no PR at all:
+
+  | `scope` | Terraform | Ansible | Use for |
+  |---|---|---|---|
+  | `ansible` *(default)* | — | ✅ | Pulling the current Valheim build; re-applying host/mod config |
+  | `terraform-and-ansible` | ✅ | ✅ | What a merge does — after manual infra edits, or a full re-assert |
+  | `terraform` | ✅ | — | Infrastructure only; leaves the running server untouched |
+
+  ```bash
+  gh workflow run oracle-deploy.yml                          # scope=ansible
+  gh workflow run oracle-deploy.yml -f scope=terraform-and-ansible
+  ```
+
+  `ansible` is the default because it is the common ad-hoc need and it touches no infrastructure. It also decouples the two: `ansible-configure` has `terraform-apply` as a `needs:` gate, so with the old behaviour an unrelated Terraform failure (OCI capacity, a state lock, expired OCI credentials) blocked the server update. Changes still reach the host **only** through this workflow — ad-hoc dispatch runs committed code from `main`, it is not a local apply.
 - There is no local `terraform apply` or unchecked `ansible-playbook` run — CI is the source of truth, same as the rest of this repo.
 
 ## Players: how to join
@@ -55,20 +69,20 @@ Crossplay is **off** — Steam only.
 
 | Mod | Version | Source |
 |---|---|---|
-| `denikson-BepInExPack_Valheim` | 5.4.2350 | Thunderstore |
-| `Azumatt-AzuCraftyBoxes` | 1.8.18 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuCraftyBoxes) |
-| `Azumatt-AAA_Crafting` | 2.1.8 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AAA_Crafting) |
-| `Azumatt-AzuClock` | 1.1.0 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuClock) |
-| `Azumatt-Unshamed` | 1.0.1 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Unshamed) |
-| `Azumatt-Recycle_N_Reclaim` | 1.4.4 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Recycle_N_Reclaim) |
+| `denikson-BepInExPack_Valheim` | 5.4.2351 | Thunderstore |
+| `Azumatt-AzuCraftyBoxes` | 1.8.28 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuCraftyBoxes) |
+| `Azumatt-AAA_Crafting` | 2.1.11 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AAA_Crafting) |
+| `Azumatt-AzuClock` | 1.1.1 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/AzuClock) |
+| `Azumatt-Unshamed` | 1.0.8 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Unshamed) |
+| `Azumatt-Recycle_N_Reclaim` | 1.4.5 | [Hexium](https://valheim.hexium.gg/mods/Azumatt/Recycle_N_Reclaim) |
 
-The Valheim-1.0-compatible Azumatt builds are published on [Hexium](https://valheim.hexium.gg/) (Thunderstore still carries pre-1.0 versions), so install those manually into your BepInEx `plugins` folder — or via an [r2modman](https://github.com/ebkr/r2modmanPlus) profile once they land on Thunderstore. Versions must match the server's pins exactly.
+Azumatt's current builds are published on [Hexium](https://valheim.hexium.gg/); Thunderstore only gets intermittent mirrors and lags by several releases, so **take these from Hexium, not Thunderstore** — install them manually into your BepInEx `plugins` folder. Versions must match the server's pins exactly.
 
-Server-side only, nothing to install on clients: the `ArgusMagnus-ServersideQoL` family (core 2.0.6 + `_AutoStore` 2.0.0, `_AutoProcess` 2.0.0, `_ContainerSigns` 2.0.4, `_MultiplayerTweaks` 2.0.0, and our own [`_AutoFeed`](https://github.com/tayvenb13/serverside_qol-autofeed) 0.1.0, with the `ValheimModding-YamlDotNet` 16.3.1 library) — it takes ownership of world objects on the server, so it works for every player. `ServersideQoL_AutoStore` replaced `Azumatt-AzuAutoStore` (remove AzuAutoStore from clients that had it).
+Server-side only, nothing to install on clients: the `ArgusMagnus-ServersideQoL` family (core 2.3.3 + `_AutoStore` 2.1.0, `_AutoProcess` 2.3.0, `_ContainerSigns` 2.3.3, `_MultiplayerTweaks` 2.1.0, `_TameAssist` 2.1.0, with the `ValheimModding-YamlDotNet` 16.3.1 library) — it takes ownership of world objects on the server, so it works for every player. `ServersideQoL_AutoStore` replaced `Azumatt-AzuAutoStore` (remove AzuAutoStore from clients that had it). `_TameAssist` (with `FeedFromContainers`, range 2m) replaced our own `_AutoFeed` module, which was built against core 2.0.6 and does not load against 2.3.x — upstream core 2.1.0 added native support for the same feature. TameAssist's other features (`TeleportFollowers`, `TakeIntoDungeons`) are pinned off so the swap changes nothing but the feeding.
 
-Also install `ValheimModding-Jotunn` 2.30.0 and `Digitalroot-Eternal_Fire` 1.0.19 (both current on [Thunderstore](https://thunderstore.io/c/valheim/p/Digitalroot/Eternal_Fire/)) on clients: Valheim simulates a fireplace on the nearest player's client (zone owner), so Eternal Fire only takes effect for fires near players whose client has it — the server copy enforces config sync and covers player-less zones. Clients without it can still join; their nearby fires just consume fuel normally. Optional client-side extra that needs nothing on the server: [MassFarming v1.13](https://github.com/Xeio/MassFarming/releases/download/v1.13/MassFarming.zip) (hotkey mass harvest/plant).
+Also install `ValheimModding-Jotunn` 2.30.2 and `Digitalroot-Eternal_Fire` 1.1.8 (both current on [Thunderstore](https://thunderstore.io/c/valheim/p/Digitalroot/Eternal_Fire/)) on clients: Valheim simulates a fireplace on the nearest player's client (zone owner), so Eternal Fire only takes effect for fires near players whose client has it — the server copy enforces config sync and covers player-less zones. Clients without it can still join; their nearby fires just consume fuel normally. Optional client-side extra that needs nothing on the server: [MassFarming v1.13](https://github.com/Xeio/MassFarming/releases/download/v1.13/MassFarming.zip) (hotkey mass harvest/plant).
 
-Admins only: `JereKuusela-Server_devcommands` 1.113.0 ([Thunderstore](https://thunderstore.io/c/valheim/p/JereKuusela/Server_devcommands/)) re-enables `devcommands` on a dedicated server. The server copy is what gates the commands on `adminlist.txt`, but the typing happens client side, so an admin who wants to use them installs the same version locally. Everyone else needs nothing and joins unaffected.
+Admins only: `JereKuusela-Server_devcommands` 1.115.0 ([Thunderstore](https://thunderstore.io/c/valheim/p/JereKuusela/Server_devcommands/)) re-enables `devcommands` on a dedicated server. The server copy is what gates the commands on `adminlist.txt`, but the typing happens client side, so an admin who wants to use them installs the same version locally. Everyone else needs nothing and joins unaffected.
 
 ## Operations
 
@@ -77,12 +91,14 @@ Admins only: `JereKuusela-Server_devcommands` 1.113.0 ([Thunderstore](https://th
 - **Confirm BepInEx/mods loaded:** `journalctl -u valheim | grep -i 'Loading \['`
 - **Restart the server:** `sudo systemctl restart valheim`
 - **Backups:** a systemd timer (`valheim-backup.timer`) runs daily, archiving the world save (`worlds_local`) to `/opt/valheim/backups`, keeping the newest 14 archives.
+- **Game updates:** the server build is **not pinned** — `install.yml` runs DepotDownloader against app `896660` with no manifest, so every Ansible run pulls whatever Steam currently serves and restarts the service if the binary checksum changed. Nothing in the repo records the running build, and on a merge the workflow only runs the Ansible job when `oracle-cloud-server/ansible/**` changed. So after an Iron Gate patch, clients cannot join until a deploy happens. There is nothing to commit for a plain game update — run `gh workflow run oracle-deploy.yml` (defaults to `scope=ansible`) and watch it with `gh run watch`.
 - **Mod/BepInEx upgrades:** bump the relevant version pin in `ansible/roles/valheim/defaults/main.yml` (`bepinex_version`, or the entry under `valheim_mods`) via a normal PR — the role removes the old versioned plugin directory and installs the new one, and restarts the `valheim` service.
 - **Server admins:** add an entry to `valheim_admins` in `ansible/group_vars/all.yml` via a normal PR. The role renders `/opt/valheim/data/adminlist.txt` from that list; Valheim re-reads the permission lists while running, so admin changes apply without a restart (restart the service if one doesn't take). Admins get the in-game admin commands (`F5` console, then e.g. `/kick`, `/ban`, `/save`), and — via the `Server_devcommands` mod — the cheat commands behind `devcommands` (`fly`, `spawn`, `tod`, …; see the [command wiki](https://valheim.wiki/Console_Commands)), which vanilla dedicated servers refuse. Entries must be the **Platform User ID** in the case-sensitive form `<Platform>_<UserID>` — for a Steam player on Valheim 1.0 that is `V_` followed by the 17-digit SteamID64, e.g. `V_76561197989755338`. Read it from the in-game **F2** player panel (or the server log on connect) and copy it verbatim; a bare SteamID64 is the pre-crossplay form and silently matches nothing — the server starts fine and the player just has no admin rights.
 
 ## Troubleshooting
 
 - **"Out of host capacity" on apply** — see bootstrap step 3 (upgrade to Pay-As-You-Go; free usage is unaffected).
+- **Nobody can connect right after a game patch** — almost certainly a version mismatch: Valheim refuses clients whose build differs from the server's, and the server build only moves when the Ansible job runs. Check how long it's been (`gh run list --workflow=oracle-deploy.yml` — runs of ~10s are detect-changes-only and did *not* touch the server), then run `gh workflow run oracle-deploy.yml`. Confirm afterwards with `journalctl -u valheim | grep -i 'version'`.
 - **Nobody can connect** — check the host firewall first, then the cloud NSG:
   1. `sudo iptables -L INPUT -n | head` on the instance (over SSH/Tailscale) — confirm the UDP 2456:2457 ACCEPT rule from the `valheim` role is present.
   2. Then check the OCI NSG (`valheim-nsg`, in `terraform/network.tf`) actually allows UDP 2456-2457 ingress from `0.0.0.0/0`.
