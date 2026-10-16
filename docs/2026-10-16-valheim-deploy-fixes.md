@@ -28,7 +28,19 @@ directory — but it exits **1** to flag the warning. `unzip` uses 1 for
 `ansible.builtin.unarchive` treats any non-zero rc as failure, so the task
 failed despite having done its job correctly.
 
-Fixed by calling `unzip` directly with `failed_when: rc > 1`.
+Fixed by calling `unzip` directly and accepting exactly the two codes that
+mean success: `failed_when: rc not in [0, 1]`.
+
+Note this is deliberately **not** `failed_when: rc > 1`, which looks
+equivalent and is not. `not (rc > 1)` tolerates everything `<= 1`, and Ansible
+reports a **negative** rc for a signal-killed process (`rc=-9` for SIGKILL,
+confirmed against ansible-core 2.21.5). So `rc > 1` would read an
+OOM-killed or timed-out `unzip` as success and then — via `changed_when:
+true` — notify a restart on a half-extracted mod. Worse, if `manifest.json`
+happened to land before the kill, the `stat` guard would treat that mod as
+installed and never retry it. The two predicates agree on every code `unzip`
+actually emits (0, 1, 2, 9, 50, ...) and diverge only on negatives, which is
+exactly the case that matters.
 
 ### The trap in the obvious version of that fix
 

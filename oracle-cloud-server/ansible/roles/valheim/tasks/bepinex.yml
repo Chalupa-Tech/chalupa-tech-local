@@ -81,7 +81,10 @@
     label: "{{ item.item.name }}-{{ item.item.version }}"
   when: not item.stat.exists
   register: valheim_mod_unzip
-  failed_when: valheim_mod_unzip.rc is defined and valheim_mod_unzip.rc > 1
+  # Tolerate exactly 0 (clean) and 1 (completed with warnings). Not
+  # `rc > 1`: a signal-killed unzip reports a negative rc, which `> 1`
+  # would read as success and then notify a restart on a half-extracted mod.
+  failed_when: valheim_mod_unzip.rc is defined and valheim_mod_unzip.rc not in [0, 1]
   # The `when:` above means this only runs for a mod that is not installed
   # yet, so running it is always a change.
   changed_when: true
