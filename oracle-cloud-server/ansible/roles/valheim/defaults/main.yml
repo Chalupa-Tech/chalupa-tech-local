@@ -17,49 +17,51 @@ depotdownloader_url: "https://github.com/SteamRE/DepotDownloader/releases/downlo
 box64_list_url: "https://ryanfortner.github.io/box64-debs/box64.list"
 box64_key_url: "https://ryanfortner.github.io/box64-debs/KEY.gpg"
 
-bepinex_version: "5.4.2350"
+bepinex_version: "5.4.2351"
 bepinex_url: "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/{{ bepinex_version }}/"
 
 # Mods without `url` download from Thunderstore by team/name/version.
-# The Valheim-1.0-compatible Azumatt builds are currently published on
-# Hexium (valheim.hexium.gg), whose CDN uses per-mod numeric ids, so
-# those entries carry explicit urls. Client mods must match these pins.
+# Azumatt publishes current builds on Hexium (valheim.hexium.gg) and only
+# intermittently mirrors them to Thunderstore, which lags by several
+# releases — so those entries carry explicit Hexium CDN urls (per-mod
+# numeric ids). Always take Azumatt pins from Hexium, not Thunderstore.
+# Client mods must match these pins.
 valheim_mods:
   - name: AzuCraftyBoxes
     team: Azumatt
-    version: "1.8.18"
-    url: "https://cdn.hexium.gg/upload/48/1.8.18.zip"
+    version: "1.8.28"
+    url: "https://cdn.hexium.gg/upload/48/1.8.28.zip"
   - name: AAA_Crafting
     team: Azumatt
-    version: "2.1.8"
-    url: "https://cdn.hexium.gg/upload/218/2.1.8.zip"
+    version: "2.1.11"
+    url: "https://cdn.hexium.gg/upload/218/2.1.11.zip"
   - name: AzuClock
     team: Azumatt
-    version: "1.1.0"
-    url: "https://cdn.hexium.gg/upload/248/1.1.0.zip"
+    version: "1.1.1"
+    url: "https://cdn.hexium.gg/upload/248/1.1.1.zip"
   - name: Unshamed
     team: Azumatt
-    version: "1.0.1"
-    url: "https://cdn.hexium.gg/upload/850/1.0.1.zip"
+    version: "1.0.8"
+    url: "https://cdn.hexium.gg/upload/850/1.0.8.zip"
   - name: Recycle_N_Reclaim
     team: Azumatt
-    version: "1.4.4"
-    url: "https://cdn.hexium.gg/upload/226/1.4.4.zip"
+    version: "1.4.5"
+    url: "https://cdn.hexium.gg/upload/226/1.4.5.zip"
   # Server-side only (clients join fine without them). Jotunn is the
   # library Eternal_Fire depends on.
   - name: Jotunn
     team: ValheimModding
-    version: "2.30.0"
+    version: "2.30.2"
   - name: Eternal_Fire
     team: Digitalroot
-    version: "1.0.19"
+    version: "1.1.8"
   # Enables `devcommands` (and the admin utility commands) for players in
   # adminlist.txt. Server side install gates the commands on the admin list
   # and runs world-affecting ones authoritatively; admins also install it
   # client side to type them. Non-admin clients need nothing.
   - name: Server_devcommands
     team: JereKuusela
-    version: "1.113.0"
+    version: "1.115.0"
   # ServersideQoL family (ArgusMagnus): pure server-side modules — the mod
   # takes ownership of world objects on the server, so clients need nothing.
   # Core requires the YamlDotNet library package.
@@ -68,30 +70,32 @@ valheim_mods:
     version: "16.3.1"
   - name: ServersideQoL
     team: ArgusMagnus
-    version: "2.0.6"
+    version: "2.3.3"
   - name: ServersideQoL_AutoStore
     team: ArgusMagnus
-    version: "2.0.0"
+    version: "2.1.0"
   - name: ServersideQoL_AutoProcess
     team: ArgusMagnus
-    version: "2.0.0"
+    version: "2.3.0"
   - name: ServersideQoL_ContainerSigns
     team: ArgusMagnus
-    version: "2.0.4"
+    version: "2.3.3"
   - name: ServersideQoL_MultiplayerTweaks
     team: ArgusMagnus
-    version: "2.0.0"
-  # Our own ServersideQoL module (github.com/tayvenb13/serverside_qol-autofeed):
-  # feeds tamed animals from nearby chests, server-side only.
-  - name: ServersideQoL_AutoFeed
-    team: tayvenb13
-    version: "0.1.0"
-    url: "https://github.com/tayvenb13/serverside_qol-autofeed/releases/download/v0.1.0/ServersideQoL_AutoFeed-0.1.0.zip"
+    version: "2.1.0"
+  # Feeds tamed animals from nearby chests. Replaces our own
+  # ServersideQoL_AutoFeed module, which was built against core 2.0.6 and
+  # will not load against 2.3.x; upstream core 2.1.0 added native support
+  # for TameAssist's feed-from-containers feature.
+  - name: ServersideQoL_TameAssist
+    team: ArgusMagnus
+    version: "2.1.0"
 
 # Mods that used to be managed here and must be removed from the server
 # (their plugin dirs would otherwise be orphaned by a list removal).
 valheim_mods_absent:
   - AzuAutoStore
+  - ServersideQoL_AutoFeed
 
 # Managed BepInEx config values (files under BepInEx/config). ServersideQoL
 # modules ship with their features individually disabled; these turn on the
@@ -129,11 +133,23 @@ valheim_mod_settings:
     section: MultiplayerTweaks
     option: AssignShipsToCaptain
     value: "true"
-  - file: tayvenb13.ServersideQoL.AutoFeed.cfg
-    section: AutoFeed
-    option: Enabled
+  # Feed-from-containers, carried over from the retired AutoFeed module
+  # (its ContainerRange: 2 becomes FeedFromContainersRange: 2).
+  - file: ArgusMagnus.ServersideQoL.TameAssist.cfg
+    section: TameAssist
+    option: FeedFromContainers
     value: "true"
-  - file: tayvenb13.ServersideQoL.AutoFeed.cfg
-    section: AutoFeed
-    option: ContainerRange
+  - file: ArgusMagnus.ServersideQoL.TameAssist.cfg
+    section: TameAssist
+    option: FeedFromContainersRange
     value: "2"
+  # TameAssist's other movement features default to on. Pinned off so
+  # adopting the mod changes nothing but the feeding we replaced.
+  - file: ArgusMagnus.ServersideQoL.TameAssist.cfg
+    section: TameAssist
+    option: TeleportFollowers
+    value: "false"
+  - file: ArgusMagnus.ServersideQoL.TameAssist.cfg
+    section: TameAssist
+    option: TakeIntoDungeons
+    value: "false"
