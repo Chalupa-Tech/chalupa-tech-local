@@ -1,0 +1,76 @@
+app-template:
+  controllers:
+    truenas-alerts:
+      type: deployment
+      replicas: 1
+      strategy: RollingUpdate
+      containers:
+        main:
+          image:
+            repository: quay.io/prometheuscommunity/json-exporter
+            # Latest tagged release (Aug 2026). Verify with
+            # `curl -s "https://quay.io/api/v1/repository/prometheuscommunity/json-exporter/tag/?onlyActiveTags=true"`.
+            tag: "v0.8.0"
+          args:
+            - --config.file=/etc/json-exporter/config.yml
+          probes:
+            liveness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 7979
+                periodSeconds: 30
+                initialDelaySeconds: 10
+            readiness:
+              enabled: true
+              custom: true
+              spec:
+                httpGet:
+                  path: /metrics
+                  port: 7979
+                periodSeconds: 10
+                initialDelaySeconds: 5
+            startup:
+              enabled: false
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+
+  service:
+    # Single ClusterIP service — vmagent scrapes /probe on :7979 via the
+    # VMServiceScrape in templates/. With one service, app-template names
+    # it after the release (`truenas-alerts`), which becomes the `job`
+    # label the truenas.yaml rules match on.
+    main:
+      controller: truenas-alerts
+      ports:
+        http:
+          port: 7979
+
+  persistence:
+    # json_exporter module config — hand-written ConfigMap in templates/
+    # (sibling pattern: truenas-exporter's mapping ConfigMap).
+    config:
+      enabled: true
+      type: configMap
+      name: truenas-alerts-config
+      globalMounts:
+        - path: /etc/json-exporter/config.yml
+          subPath: config.yml
+          readOnly: true
+    # TrueNAS API key file — Secret synced from OpenBao by the
+    # ExternalSecret in templates/; referenced by credentials_file in
+    # the json_exporter config.
+    api-key:
+      enabled: true
+      type: secret
+      name: truenas-alerts-api-key
+      globalMounts:
+        - path: /etc/json-exporter/secrets/api-key
+          subPath: api-key
+          readOnly: true

@@ -1,0 +1,28 @@
+apiVersion: v2
+name: truenas-alerts
+description: |
+  TrueNAS health/SMART alert mirror for VictoriaMetrics.
+
+  TrueNAS already runs scheduled SMART tests and watches pool health;
+  its alert list is the single source of truth for everything the NAS
+  detects (the HBA is passed through to the VM, so only TrueNAS can see
+  the disks). json_exporter polls the REST API:
+
+    vmagent ──scrape /probe──▶ json_exporter ──GET──▶ https://192.168.1.40
+                                                       /api/v2.0/alert/list
+
+  and exposes truenas_alert_active{level, klass} — one series per
+  active (undismissed) TrueNAS alert. The truenas.yaml VMRule in the
+  vmalert app turns those into Discord notifications.
+
+  Auth: TrueNAS API key as a bearer token, OpenBao → ExternalSecret →
+  Secret → file mount (never in Git). See RUNBOOK.md for the one-time
+  API-key + seeding steps. The image tag is pinned; verify against
+  quay.io tags API before bumping.
+type: application
+version: 0.1.0
+appVersion: "v0.8.0"
+dependencies:
+  - name: app-template
+    version: 5.1.0
+    repository: https://bjw-s-labs.github.io/helm-charts/

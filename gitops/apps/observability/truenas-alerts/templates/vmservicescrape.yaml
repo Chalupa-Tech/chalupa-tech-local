@@ -1,0 +1,25 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: truenas-alerts
+  namespace: truenas-alerts
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: truenas-alerts
+  endpoints:
+    - port: http
+      # Probe endpoint: json_exporter fetches the TrueNAS alert list per
+      # scrape. 60s is plenty for an alert feed and gentle on the NAS API.
+      interval: 60s
+      path: /probe
+      params:
+        module: [truenas]
+        target: ["https://192.168.1.40/api/v2.0/alert/list"]
+      relabelConfigs:
+        # instance would default to the pod IP:port; the NAS name reads
+        # better in alerts (same pattern as pve1 on the proxmox scrape).
+        - targetLabel: instance
+          replacement: truenas
