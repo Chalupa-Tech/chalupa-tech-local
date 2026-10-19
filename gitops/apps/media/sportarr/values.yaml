@@ -16,7 +16,7 @@ app-template:
             # Docker Hub (not lscr) — upstream publishes its own image.
             # Plain semver; Renovate tracks it. Never pin -dev tags.
             repository: sportarr/sportarr
-            tag: 4.1.9.1119
+            tag: 4.1.10.1120
           env:
             TZ: America/Los_Angeles
             PUID: "1000"
