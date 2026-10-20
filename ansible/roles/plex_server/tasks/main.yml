@@ -171,7 +171,7 @@
 - name: Install plexmediaserver
   ansible.builtin.apt:
     name: plexmediaserver
-    state: present
+    state: latest
     update_cache: true
     dpkg_options: "force-confold"
   notify: Restart plexmediaserver
