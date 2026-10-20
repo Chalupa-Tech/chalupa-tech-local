@@ -170,8 +170,8 @@
 # ──────────────────────────────────────────────────────────
 - name: Install plexmediaserver
   ansible.builtin.apt:
-    name: plexmediaserver
-    state: latest
+    name: plexmediaserver=v.1.43.5.11029-6bf8af3f0
+    state: present
     update_cache: true
     dpkg_options: "force-confold"
   notify: Restart plexmediaserver
