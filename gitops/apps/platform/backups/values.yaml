@@ -1,0 +1,33 @@
+# NFS export on TrueNAS holding every cluster backup (restic repos, pg dumps,
+# OpenBao raft snapshots). Owner creates dataset Backups/k8s and exports it to
+# 10.10.10.0/24 (maproot root); `nfsPath` must then match the pool name.
+backups:
+  nfsServer: 10.10.10.40
+  nfsPath: /mnt/CHANGEME/Backups/k8s
+  size: 2Ti
+
+# restic REST server — VolSync movers push to rest:http://restic-rest.backups.svc.cluster.local:8000/<repo>.
+# --append-only: a compromised mover can add but never delete/overwrite data;
+# pruning runs through VolSync's own prune with the repository password.
+resticRest:
+  image:
+    repository: restic/rest-server
+    tag: "0.14.0"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 512Mi
+
+# Upstream VolSync chart values (dependency name is the key).
+volsync:
+  manageCRDs: true
+  metrics:
+    disableAuth: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
