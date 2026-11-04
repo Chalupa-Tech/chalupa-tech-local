@@ -1,8 +1,12 @@
 # Tasks for preparing the Proxmox host (e.g., IOMMU, passthrough)
-- name: Ensure Proxmox system is up to date
-  ansible.builtin.apt:
-    update_cache: true
-    upgrade: dist
+#
+# Host package upgrades are deliberately NOT done here. unattended-upgrades
+# (PR 3 of the auto-patching series) owns day-to-day security patches and the
+# monthly maintenance-window workflow owns full upgrades + reboots, both
+# gated on a fresh vzdump. A Stage 1 run must never be the thing that
+# patches the host (docs/superpowers/specs/2026-11-04-auto-patching-design.md).
+- name: Manage apt repositories
+  ansible.builtin.import_tasks: repos.yml
 
 - name: Check if GRUB is used
   ansible.builtin.stat:

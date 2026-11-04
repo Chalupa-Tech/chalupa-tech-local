@@ -18,3 +18,7 @@ proxmox_prep_talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f27
 proxmox_prep_talos_iso_name: "talos-nocloud-amd64-{{ proxmox_prep_talos_version }}.iso"
 proxmox_prep_talos_iso_url: >-
   https://factory.talos.dev/image/{{ proxmox_prep_talos_schematic_id }}/{{ proxmox_prep_talos_version }}/nocloud-amd64.iso
+
+# Apt repositories. pve-test was an opt-in for kernel 7 (now the 9.2 default)
+# and must not stay enabled on a production host.
+proxmox_prep_remove_pve_test_repo: true
