@@ -6,7 +6,9 @@
     ":semanticCommits"
   ],
   "timezone": "America/Denver",
-  "schedule": ["after 5am and before 9am every weekday"],
+  "schedule": [
+    "after 5am and before 9am every weekday"
+  ],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
   "ignorePaths": [
@@ -14,13 +16,24 @@
     "pulumi/.go_cache/**",
     "pulumi/.go_mod_cache/**"
   ],
-  "enabledManagers": ["gomod", "github-actions", "helmv3", "custom.regex"],
-  "postUpdateOptions": ["helmUpdateSubChartArchives", "gomodTidy"],
+  "enabledManagers": [
+    "gomod",
+    "github-actions",
+    "helmv3",
+    "terraform",
+    "custom.regex"
+  ],
+  "postUpdateOptions": [
+    "helmUpdateSubChartArchives",
+    "gomodTidy"
+  ],
   "customManagers": [
     {
       "customType": "regex",
       "description": "Container images in Helm values (repository/tag pairs, tolerating comment lines between them)",
-      "managerFilePatterns": ["/gitops/apps/.+/values\\.ya?ml$/"],
+      "managerFilePatterns": [
+        "/gitops/apps/.+/values\\.ya?ml$/"
+      ],
       "matchStrings": [
         "repository:\\s+(?<depName>[^\\s\"'#]+)[^\\n]*\\n(?:\\s*#[^\\n]*\\n)*\\s*tag:\\s*[\"']?(?<currentValue>[^\\s\"']+)[\"']?"
       ],
@@ -29,7 +42,9 @@
     {
       "customType": "regex",
       "description": "CloudNativePG postgres image (single-line imageName: repo:tag)",
-      "managerFilePatterns": ["/gitops/apps/media/arrs-pg/values\\.yaml$/"],
+      "managerFilePatterns": [
+        "/gitops/apps/media/arrs-pg/values\\.yaml$/"
+      ],
       "matchStrings": [
         "imageName:\\s+[\"']?(?<depName>[^:\\s\"']+):(?<currentValue>[^\\s\"']+)"
       ],
@@ -52,7 +67,9 @@
     {
       "customType": "regex",
       "description": "Kubernetes version pinned in Pulumi Talos machine-config generation",
-      "managerFilePatterns": ["/pulumi-talos/main\\.go$/"],
+      "managerFilePatterns": [
+        "/pulumi-talos/main\\.go$/"
+      ],
       "matchStrings": [
         "kubernetesVersion\\s*=\\s*\"(?<currentValue>[0-9.]+)\""
       ],
@@ -78,8 +95,13 @@
     {
       "customType": "regex",
       "description": "Proxmox provider version pinned in Pulumi provider setup",
-      "managerFilePatterns": ["/pulumi/main\\.go$/", "/pulumi-talos/main\\.go$/"],
-      "matchStrings": ["pulumi\\.Version\\(\"(?<currentValue>[0-9.]+)\"\\)"],
+      "managerFilePatterns": [
+        "/pulumi/main\\.go$/",
+        "/pulumi-talos/main\\.go$/"
+      ],
+      "matchStrings": [
+        "pulumi\\.Version\\(\"(?<currentValue>[0-9.]+)\"\\)"
+      ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "muhlba91/pulumi-proxmoxve",
       "extractVersionTemplate": "^v(?<version>.+)$"
@@ -87,28 +109,103 @@
     {
       "customType": "regex",
       "description": "Go toolchain version in workflows (keep in sync with go.mod)",
-      "managerFilePatterns": ["/\\.github/workflows/.+\\.ya?ml$/"],
-      "matchStrings": ["go-version:\\s*[\"']?(?<currentValue>[0-9.]+)[\"']?"],
+      "managerFilePatterns": [
+        "/\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "go-version:\\s*[\"']?(?<currentValue>[0-9.]+)[\"']?"
+      ],
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "go"
+    },
+    {
+      "customType": "regex",
+      "description": "ArgoCD bootstrap chart version in deploy.yml Stage 4 (helm upgrade --install argocd argo/argo-cd --version X)",
+      "managerFilePatterns": [
+        "/\\.github/workflows/deploy\\.yml$/"
+      ],
+      "matchStrings": [
+        "helm upgrade --install argocd argo/argo-cd \\\\\\n\\s+--namespace argocd --create-namespace \\\\\\n\\s+--version (?<currentValue>[0-9.]+)"
+      ],
+      "datasourceTemplate": "helm",
+      "depNameTemplate": "argo-cd",
+      "registryUrlTemplate": "https://argoproj.github.io/argo-helm"
+    },
+    {
+      "customType": "regex",
+      "description": "kubeconform release used by the gitops lint workflow",
+      "managerFilePatterns": [
+        "/\\.github/workflows/gitops\\.yml$/"
+      ],
+      "matchStrings": [
+        "yannh/kubeconform/releases/download/(?<currentValue>v[0-9.]+)/"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "yannh/kubeconform"
+    },
+    {
+      "customType": "regex",
+      "description": "yamllint pip pin in the gitops lint workflow",
+      "managerFilePatterns": [
+        "/\\.github/workflows/gitops\\.yml$/"
+      ],
+      "matchStrings": [
+        "pip install yamllint==(?<currentValue>[0-9.]+)"
+      ],
+      "datasourceTemplate": "pypi",
+      "depNameTemplate": "yamllint"
+    },
+    {
+      "customType": "regex",
+      "description": "DepotDownloader release pinned for the Valheim server (tag DepotDownloader_X.Y.Z)",
+      "managerFilePatterns": [
+        "/oracle-cloud-server/ansible/roles/valheim/defaults/main\\.yml$/"
+      ],
+      "matchStrings": [
+        "depotdownloader_version:\\s*\"(?<currentValue>[0-9.]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "SteamRE/DepotDownloader",
+      "extractVersionTemplate": "^DepotDownloader_(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Single-line container images in Helm values (image: repo:tag), e.g. init containers",
+      "managerFilePatterns": [
+        "/gitops/apps/.+/values\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "\\bimage:[ \\t]+[\"']?(?<depName>[a-z0-9][a-z0-9./-]*[a-z0-9]):(?<currentValue>v?[0-9][A-Za-z0-9._-]*)[\"']?[ \\t]*(?:#[^\\n]*)?\\n"
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
     {
       "description": "All major updates require manual approval via the Dependency Dashboard",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "linuxserver.io composite versioning (<upstream>-ls<build>)",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["/^lscr\\.io\\/linuxserver\\//"],
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "/^lscr\\.io\\/linuxserver\\//"
+      ],
       "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
     },
     {
-      "description": "Images that only publish :latest — track by digest instead",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["ghcr.io/frebib/nzbget-exporter"],
+      "description": "Images that only publish :latest \u2014 track by digest instead",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/frebib/nzbget-exporter"
+      ],
       "pinDigests": true
     },
     {
@@ -121,65 +218,201 @@
     },
     {
       "description": "Group the shared bjw-s app-template chart bump into one PR",
-      "matchManagers": ["helmv3"],
-      "matchDepNames": ["app-template"],
+      "matchManagers": [
+        "helmv3"
+      ],
+      "matchDepNames": [
+        "app-template"
+      ],
       "groupName": "media app-template"
     },
     {
-      "description": "Platform-critical charts: open PRs (no auto-merge), grouped weekly",
-      "matchManagers": ["helmv3"],
-      "matchFileNames": ["gitops/apps/platform/**"],
+      "description": "Platform-critical charts (incl. Renovate's own): minor = grouped Monday PR, no auto-merge",
+      "matchManagers": [
+        "helmv3"
+      ],
+      "matchFileNames": [
+        "gitops/apps/platform/**",
+        "gitops/apps/infra-tools/renovate/**"
+      ],
       "groupName": "platform charts",
-      "schedule": ["before 9am on monday"],
-      "automerge": false
+      "schedule": [
+        "before 9am on monday"
+      ],
+      "automerge": false,
+      "matchUpdateTypes": [
+        "minor"
+      ]
+    },
+    {
+      "description": "Platform-critical charts: patch releases auto-merge (ArgoCD selfHeal applies; security fixes ship as patches)",
+      "matchManagers": [
+        "helmv3"
+      ],
+      "matchFileNames": [
+        "gitops/apps/platform/**",
+        "gitops/apps/infra-tools/renovate/**"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "platformAutomerge": true
     },
     {
       "description": "Auto-merge low-risk media/observability leaf images",
-      "matchDatasources": ["docker"],
-      "matchFileNames": ["gitops/apps/media/**", "gitops/apps/observability/**"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchFileNames": [
+        "gitops/apps/media/**",
+        "gitops/apps/observability/**"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
       "automerge": true,
       "platformAutomerge": true
     },
     {
       "description": "Auto-merge media/observability leaf chart minor + patch",
-      "matchManagers": ["helmv3"],
-      "matchFileNames": ["gitops/apps/media/**", "gitops/apps/observability/**"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "helmv3"
+      ],
+      "matchFileNames": [
+        "gitops/apps/media/**",
+        "gitops/apps/observability/**"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
       "platformAutomerge": true
     },
     {
       "description": "Auto-merge GitHub Actions minor + patch + digest",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
       "automerge": true,
       "platformAutomerge": true
     },
     {
       "description": "Auto-merge Go module minor + patch",
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
       "platformAutomerge": true
     },
     {
-      "description": "OVERRIDE — Pulumi Go SDKs are infra-critical: PR only",
-      "matchManagers": ["gomod"],
-      "matchPackageNames": ["/pulumi/"],
+      "description": "OVERRIDE \u2014 Pulumi Go SDKs are infra-critical: PR only",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "/pulumi/"
+      ],
       "automerge": false
     },
     {
-      "description": "OVERRIDE — versions that drive the reprovision pipeline: PR + approval only",
+      "description": "Talos: patch auto-merges (Stage 2c rolls the nodes), minor = PR (manual merge), major needs approval",
       "matchDepNames": [
-        "siderolabs/talos",
-        "kubernetes/kubernetes",
-        "home-assistant/operating-system",
+        "siderolabs/talos"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "platformAutomerge": true,
+      "dependencyDashboardApproval": false
+    },
+    {
+      "matchDepNames": [
+        "siderolabs/talos"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "dependencyDashboardApproval": false
+    },
+    {
+      "matchDepNames": [
+        "siderolabs/talos"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Kubernetes: patch auto-merges (Stage 2c runs upgrade-k8s); minor/major need approval (Talos support matrix)",
+      "matchDepNames": [
+        "kubernetes/kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "platformAutomerge": true,
+      "dependencyDashboardApproval": false
+    },
+    {
+      "matchDepNames": [
+        "kubernetes/kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "HAOS pin only affects fresh provisioning (the VM self-updates): minor/patch auto-merge",
+      "matchDepNames": [
+        "home-assistant/operating-system"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true,
+      "platformAutomerge": true,
+      "dependencyDashboardApproval": false
+    },
+    {
+      "description": "Go toolchain and the Proxmox provider drive the reprovision pipeline: PR + approval only",
+      "matchDepNames": [
         "muhlba91/pulumi-proxmoxve",
         "go"
       ],
       "automerge": false,
       "dependencyDashboardApproval": true
     }
-  ]
+  ],
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": [
+      "security"
+    ],
+    "automerge": false,
+    "schedule": [
+      "at any time"
+    ]
+  }
 }
