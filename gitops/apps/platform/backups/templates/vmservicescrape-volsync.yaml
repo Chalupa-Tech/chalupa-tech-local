@@ -1,0 +1,21 @@
+# VolSync operator metrics (volsync_volume_out_of_sync, volsync_missed_intervals_total)
+# for the VolSyncOutOfSync rule. The chart serves them over HTTPS with a
+# self-signed cert (auth disabled via values: volsync.metrics.disableAuth).
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: volsync
+  namespace: backups
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: volsync
+  endpoints:
+    - port: https
+      scheme: https
+      interval: 60s
+      path: /metrics
+      tlsConfig:
+        insecureSkipVerify: true
