@@ -106,7 +106,16 @@ only_scratch_ids_destroyed() {
   [ -z "$bad" ] || fail "only_scratch_ids_destroyed: $bad"
 }
 
-for t in restores_newest_and_destroys fails_when_no_archive refuses_existing_scratch cleans_up_on_failure verify_only_runs_zstd writes_metric_on_success only_scratch_ids_destroyed; do
+scratch_guests_made_inert() {
+  reset; all_archives
+  bash "$script" >/dev/null || fail "scratch_guests_made_inert: exit"
+  grep -q '^qm set 9250 --onboot 0 --delete startup,net0$' "$DRILL_LOG" || fail "scratch_guests_made_inert: qm set missing: $(grep '^qm set' "$DRILL_LOG" || true)"
+  grep -q '^pct set 9200 --onboot 0 --delete startup,net0,net1$' "$DRILL_LOG" || fail "scratch_guests_made_inert: pct set missing: $(grep '^pct set' "$DRILL_LOG" || true)"
+  # inert before verification/destroy, i.e. set comes right after restore
+  [ "$(grep -nE '^(qmrestore|qm set 9250|qm config 9250|qm destroy 9250)' "$DRILL_LOG" | cut -d: -f2- | cut -d' ' -f1-2 | paste -sd'|' -)" = "qmrestore truenas-backups:backup/vzdump-qemu-250-2026_11_01-01_00_05.vma.zst|qm set|qm config|qm destroy" ] || fail "scratch_guests_made_inert: order: $(grep -E '^(qmrestore|qm )' "$DRILL_LOG" | paste -sd'|' -)"
+}
+
+for t in scratch_guests_made_inert restores_newest_and_destroys fails_when_no_archive refuses_existing_scratch cleans_up_on_failure verify_only_runs_zstd writes_metric_on_success only_scratch_ids_destroyed; do
   "$t"; echo "ok $t"
 done
 echo PASS

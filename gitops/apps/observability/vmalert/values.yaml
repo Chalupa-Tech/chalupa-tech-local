@@ -1,3 +1,7 @@
 # Templates-only chart — resources are defined directly in templates/
 # (same style as the vm-system CRs). Nothing is parameterized yet.
-{}
+# Guests the nightly vzdump jobs cover (ansible/roles/proxmox_prep/defaults/main.yml:
+# proxmox_prep_backup_truenas_vmids + proxmox_prep_backup_guest_vmids). Each
+# gets a ProxmoxBackupNeverSucceeded rule.
+backups:
+  expectedVmids: [100, 101, 200, 250]

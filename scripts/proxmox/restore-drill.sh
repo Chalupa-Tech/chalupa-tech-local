@@ -69,6 +69,10 @@ for pair in "${vm_pairs[@]}"; do
   log "VM $src: restoring $volid to scratch $scratch"
   if ! qmrestore "$volid" "$scratch" --storage local-lvm --unique 1; then err "qmrestore of $volid failed"; created_vms+=("$scratch"); continue; fi
   created_vms+=("$scratch")
+  # Make the clone inert immediately: no autostart, no startup order, no NIC.
+  # If a later destroy fails, a lingering scratch guest must never boot with
+  # the source's IP/hostname on the next host reboot.
+  qm set "$scratch" --onboot 0 --delete startup,net0 || err "VM $src: could not neutralise scratch $scratch"
   if qm config "$scratch" | grep -qE '^(scsi|virtio|sata|ide)[0-9]+: .*(local-lvm|vm-)'; then
     log "VM $src: restored config has a disk — OK"
   else
@@ -84,6 +88,9 @@ for pair in "${ct_pairs[@]}"; do
   log "CT $src: restoring $volid to scratch $scratch"
   if ! pct restore "$scratch" "$volid" --storage local-lvm --unique 1; then err "pct restore of $volid failed"; created_cts+=("$scratch"); continue; fi
   created_cts+=("$scratch")
+  # Same neutralisation as for VMs; the Plex LXC has eth0 (static .224) and
+  # the storage-subnet eth1.
+  pct set "$scratch" --onboot 0 --delete startup,net0,net1 || err "CT $src: could not neutralise scratch $scratch"
   if pct config "$scratch" | grep -qE '^rootfs: '; then
     log "CT $src: restored config has rootfs — OK"
   else

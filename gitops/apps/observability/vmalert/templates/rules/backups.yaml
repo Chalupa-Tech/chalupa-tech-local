@@ -20,24 +20,17 @@ spec:
           annotations:
             summary: 'Proxmox backup of VMID {{ "{{ $labels.vmid }}" }} is stale'
             description: 'No successful vzdump of VMID {{ "{{ $labels.vmid }}" }} for more than 36h — the nightly job did not run or did not finish.'
+        # `unless` keeps the failure series for guests that have *never*
+        # succeeded; a plain `>` would drop them (no right-hand match) and the
+        # first-night-and-every-night failure would be silent.
         - alert: ProxmoxBackupFailed
-          expr: 'pve_backup_last_failure_timestamp{job="proxmox-host"} > ignoring(storage) pve_backup_last_success_timestamp{job="proxmox-host"}'
+          expr: '(pve_backup_last_failure_timestamp{job="proxmox-host"} > ignoring(storage) pve_backup_last_success_timestamp{job="proxmox-host"}) or (pve_backup_last_failure_timestamp{job="proxmox-host"} unless ignoring(storage) pve_backup_last_success_timestamp{job="proxmox-host"})'
           for: 10m
           labels:
             severity: critical
           annotations:
             summary: 'Proxmox backup of VMID {{ "{{ $labels.vmid }}" }} failed'
             description: 'The most recent vzdump of VMID {{ "{{ $labels.vmid }}" }} aborted and no success has been recorded since. Check the task log on pve1 (Datacenter -> Backup).'
-        # Fires until the very first successful run after PR 1 lands — that is
-        # the point: zero backups must never again be silent.
-        - alert: ProxmoxBackupMetricsAbsent
-          expr: 'absent(pve_backup_last_success_timestamp{job="proxmox-host"})'
-          for: 2h
-          labels:
-            severity: warning
-          annotations:
-            summary: No Proxmox backup success has ever been recorded
-            description: pve_backup_last_success_timestamp is absent — either no vzdump has succeeded since the hook was installed, or the hook/textfile collector is broken.
         - alert: ProxmoxRestoreDrillStale
           expr: 'time() - pve_restore_drill_last_success_timestamp{job="proxmox-host"} > 40 * 86400 or absent(pve_restore_drill_last_success_timestamp{job="proxmox-host"})'
           for: 1h

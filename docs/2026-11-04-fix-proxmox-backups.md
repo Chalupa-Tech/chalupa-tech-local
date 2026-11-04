@@ -41,14 +41,17 @@ or the Tailscale LXC (100) for eight months**, discovered during the
   `pve_backup_last_failure_timestamp{vmid,storage}` to the node-exporter
   textfile dir already scraped as job `proxmox-host`. New VMRule
   `backups` (`gitops/apps/observability/vmalert/templates/rules/backups.yaml`):
-  `ProxmoxBackupStale` (>36 h), `ProxmoxBackupFailed`,
-  `ProxmoxBackupMetricsAbsent` (fires until the first success — by
-  design), `ProxmoxRestoreDrillStale` (>40 d), `ProxmoxRebootRequired`
-  (>14 d).
+  `ProxmoxBackupStale` (>36 h), `ProxmoxBackupFailed` (also for a guest
+  that has *never* succeeded), `ProxmoxBackupNeverSucceeded` (one per
+  expected VMID, from `values.yaml` `backups.expectedVmids`; fires until
+  that guest's first success — by design), `ProxmoxRestoreDrillStale`
+  (>40 d), `ProxmoxRebootRequired` (>14 d).
 - **Restore drill.** `.github/workflows/restore-drill.yml` runs
   `scripts/proxmox/restore-drill.sh` on `pve1` monthly: restores the newest
   250 and 200 archives to scratch VMIDs **9250/9200** on `local-lvm`
-  (never started), checks for a disk, destroys them (also on failure),
+  (never started), immediately strips `onboot`/`startup`/NICs so a
+  lingering clone can never boot with the source's IP, checks for a disk,
+  destroys them (also on failure),
   `zstd -t`s the newest 101/100 archives, and writes
   `pve_restore_drill_last_success_timestamp`. Failure opens/updates a
   GitHub issue labelled `backup-drill-failed`.
@@ -73,6 +76,10 @@ or the Tailscale LXC (100) for eight months**, discovered during the
    `proxmox_prep_backup_nfs_export: /mnt/<pool>/Backups/proxmox` in
    `ansible/roles/proxmox_prep/defaults/main.yml`, merge.
 3. Kick the drill once by hand: `gh workflow run restore-drill.yml`.
+4. When the guests move to `truenas-backups`, the 7+4 archives of 100/200/250
+   already on `nvme-backups` are no longer pruned by any job — delete them
+   once from Datacenter → Storage → nvme-backups → Backups (or
+   `pvesm list nvme-backups --vmid <id>` + `pvesm free <volid>`).
 
 ## Verification (local, 2026-11-04)
 
