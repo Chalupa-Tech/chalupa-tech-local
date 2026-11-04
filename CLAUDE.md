@@ -123,4 +123,6 @@ gh workflow run oracle-deploy.yml     # Ad-hoc deploy (scope=ansible); no PR nee
 - **No destructive operations** on TrueNAS or other data-bearing systems
 - **TrueNAS VM is protected** — the TrueNAS VM (`truenas-scale`) uses `pulumi.Protect(true)` and MUST NEVER be deleted or have its protection removed. This VM manages data-bearing storage.
 - **Document changes** in `docs/` with rationale and PR link
+- **Scratch VMIDs 9250/9200** (restore drill) are the only VMIDs any automation may ever `qm destroy`/`pct destroy`
+- **Stage 1 never patches the host** — `proxmox_prep` must not run `apt upgrade`; unattended-upgrades + the maintenance-window workflow own that, gated on backups
 - Pulumi uses `pulumi.IgnoreChanges([]string{"started"})` on VMs to avoid restart drift

@@ -56,6 +56,19 @@ Deployment and provisioning are handled entirely through Pull Requests and GitHu
 
 ## Operational notes
 
+### Backups
+
+Nightly vzdump at 01:00: the TrueNAS VM (101) goes to the `nvme-backups`
+dir storage on the spare NVMe; Home Assistant (250), Plex (200) and the
+Tailscale LXC (100) go to `truenas-backups` (TrueNAS NFS) once
+`proxmox_prep_backup_nfs_export` is set, otherwise also to `nvme-backups`.
+Retention 7 daily + 4 weekly. Talos VMs are not backed up (recreatable).
+Freshness/failure alerts come from the vzdump hook metrics (VMRule
+`backups`). A monthly restore drill proves the archives restore
+(`gh workflow run restore-drill.yml` to run it by hand; it only ever
+touches scratch VMIDs 9250/9200). Details:
+`docs/2026-11-04-fix-proxmox-backups.md`.
+
 ### Adding a new VM: DHCP reservation is required
 
 The Unifi gateway only issues a LAN IP to a MAC address that has a DHCP reservation. When `pulumi up` creates a new VM, Proxmox assigns it a freshly generated MAC, so DHCP fails and Talos boots without a LAN IP. The Pulumi run then errors with `no valid IP found for <node> via qemu-guest-agent` because `Ipv4Addresses` from the guest agent contains only loopback.
