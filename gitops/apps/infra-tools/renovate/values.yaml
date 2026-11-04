@@ -2,11 +2,10 @@
 # Secrets/runtime wiring live here; the actual update policy (managers,
 # packageRules) lives in the repo-root renovate.json that Renovate reads.
 renovate:
-  image:
-    # Pinned so deploys are deterministic. Renovate keeps itself current by
-    # bumping the chart `version` in Chart.yaml (helmv3 manager), which pulls a
-    # newer appVersion/image with it.
-    tag: "43.231.4"
+  # No image tag override: the chart's appVersion drives the running Renovate
+  # version, and the chart bump (helmv3 manager, platform patch auto-merge)
+  # keeps it current. The old explicit pin left Renovate on 43.231.4 for
+  # months while the chart moved to 44.x (2026-11-04 audit).
 
   cronjob:
     schedule: "0 6 * * *"
@@ -20,7 +19,7 @@ renovate:
     # /auth volume that config.js reads at startup.
     initContainers:
       - name: mint-github-token
-        image: node:22-alpine
+        image: node:22.23.4-alpine
         command: ["node", "/scripts/mint-token.js"]
         volumeMounts:
           - name: github-app
@@ -50,10 +49,18 @@ renovate:
     configIsJavaScript: true
     config: |
       const fs = require('fs');
+      const token = fs.readFileSync('/auth/token', 'utf8').trim();
       module.exports = {
         platform: 'github',
         endpoint: 'https://api.github.com/',
-        token: fs.readFileSync('/auth/token', 'utf8').trim(),
+        token,
+        // ghcr.io rate-limits anonymous tag listings (429 on lscr.io, which is a
+        // CNAME to ghcr.io): authenticate container lookups with the same App
+        // installation token. The App needs the `packages: read` permission.
+        hostRules: [
+          { matchHost: 'ghcr.io', hostType: 'docker', username: 'x-access-token', password: token },
+          { matchHost: 'lscr.io', hostType: 'docker', username: 'x-access-token', password: token },
+        ],
         autodiscover: false,
         repositories: ['Chalupa-Tech/chalupa-tech-local'],
         onboarding: false,
