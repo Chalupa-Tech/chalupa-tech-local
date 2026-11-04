@@ -170,6 +170,13 @@ jobs:
                     ansible_host: ${PLEX_IP}
                     ansible_user: root
                     ansible_ssh_common_args: '-o StrictHostKeyChecking=accept-new'
+              tailscale_lxc:
+                hosts:
+                  tailscale:
+                    ansible_host: 192.168.1.223
+                    ansible_user: root
+                    ansible_connection: community.proxmox.proxmox_pct_remote
+                    proxmox_vmid: 100
           EOF
         working-directory: pulumi/
         env:
@@ -249,8 +256,9 @@ jobs:
 
       - name: Install Ansible + collections
         run: |
-          pip install ansible
-          ansible-galaxy collection install ansible.posix community.general
+          # paramiko: the proxmox_pct_remote connection (Tailscale LXC) uses it
+          pip install ansible paramiko
+          ansible-galaxy collection install ansible.posix community.general community.proxmox
 
       - name: Download VM inventory artifact
         uses: actions/download-artifact@v8

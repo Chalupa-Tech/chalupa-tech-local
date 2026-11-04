@@ -1,0 +1,13 @@
+---
+# Baseline for the Ubuntu LXCs on pve1: unattended-upgrades with a nightly
+# reboot when one is required. The nightly vzdump (01:00) always precedes the
+# reboot window, so a bad update is recoverable from last night's archive.
+lxc_baseline_origins:
+  - "origin=Ubuntu,codename=${distro_codename}-security,label=Ubuntu"
+  - "origin=Ubuntu,codename=${distro_codename}-updates"
+# Per-container vendor repos (Plex, Tailscale) — set in the play.
+lxc_baseline_extra_origins: []
+lxc_baseline_reboot_time: "04:30"
+# `tailscale set --auto-update=true` lets tailscaled upgrade itself on the
+# containers that run it (the subnet router and, if ever installed, Plex).
+lxc_baseline_tailscale_auto_update: false
