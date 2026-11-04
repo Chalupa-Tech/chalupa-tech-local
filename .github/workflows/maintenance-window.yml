@@ -26,7 +26,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: maintenance-window
+  # Shared with restore-drill.yml: never reboot pve1 while a drill restores.
+  group: pve1-host-ops
   cancel-in-progress: false
 
 jobs:
@@ -143,6 +144,8 @@ jobs:
     needs: maintenance
     if: needs.maintenance.outputs.skipped == 'false'
     uses: ./.github/workflows/health-check.yml
+    with:
+      attempts: 10
     secrets: inherit
 
   report:

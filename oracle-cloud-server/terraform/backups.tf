@@ -25,6 +25,13 @@ resource "oci_identity_policy" "objectstorage_lifecycle" {
   ]
 }
 
+# IAM policies take a while to propagate; creating the lifecycle rule right
+# after the service policy fails the first apply with a permission error.
+resource "time_sleep" "objectstorage_policy_propagation" {
+  depends_on      = [oci_identity_policy.objectstorage_lifecycle]
+  create_duration = "60s"
+}
+
 resource "oci_objectstorage_object_lifecycle_policy" "valheim_backups" {
   namespace = data.oci_objectstorage_namespace.tenancy.namespace
   bucket    = oci_objectstorage_bucket.valheim_backups.name
@@ -38,7 +45,7 @@ resource "oci_objectstorage_object_lifecycle_policy" "valheim_backups" {
     time_unit   = "DAYS"
   }
 
-  depends_on = [oci_identity_policy.objectstorage_lifecycle]
+  depends_on = [time_sleep.objectstorage_policy_propagation]
 }
 
 resource "oci_identity_dynamic_group" "valheim_server" {

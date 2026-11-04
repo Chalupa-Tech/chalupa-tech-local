@@ -19,14 +19,14 @@ when a Stage 1 run happened to touch `proxmox_prep` (PR 1 removed that).
 |---|---|---|---|
 | daily, apt-daily timers | pve1 | `unattended-upgrades`: Debian security + updates, Proxmox repo. **Never reboots.** | `ansible/roles/proxmox_prep` → `unattended_upgrades` role |
 | 01:00 | pve1 | vzdump of 100/101/200/250 (PR 1) | `proxmox_prep/tasks/backups.yml` |
-| 04:30 | Plex LXC 200 | reboot if `/var/run/reboot-required` (Ubuntu security/updates + Plex repo applied daily) | `lxc_baseline` in `playbooks/vm-configure.yml` |
+| 04:30 (11:30 UTC — the container runs UTC) | Plex LXC 200 | reboot if `/var/run/reboot-required` (Ubuntu security/updates + Plex repo applied daily) | `lxc_baseline` in `playbooks/vm-configure.yml` |
 | 04:45 | Tailscale LXC 100 | same, Ubuntu + `origin=Tailscale`; `tailscale set --auto-update=true`. Drops the CI subnet route for ~1 min | `lxc_baseline`, host `tailscale` (pct exec via pve1) |
 | 06:00 | cluster | Renovate (unchanged) | `gitops/apps/infra-tools/renovate` |
 | 09:30 UTC | Oracle | world backup (+ `rclone sync` to bucket `valheim-backups`) | `valheim-backup.timer` |
 | 10:00 UTC | Oracle | `valheim-update.timer`: pull current Steam build, keep `server.prev`, restart only if changed | `valheim-update.sh` |
 | 10:15 UTC | Oracle | reboot if required (Ubuntu security/updates + Tailscale applied daily) | `base` role → `unattended_upgrades` |
 | Sundays 10:00 UTC | pve1 | **maintenance window**: full-upgrade + reboot, only if a reboot is pending and every guest backup is < 30 h old; then health check | `.github/workflows/maintenance-window.yml` |
-| 1st, 10:00 UTC | pve1 | restore drill (PR 1) | `.github/workflows/restore-drill.yml` |
+| 1st, 12:00 UTC | pve1 | restore drill (PR 1; shares the `pve1-host-ops` concurrency group with the maintenance window) | `.github/workflows/restore-drill.yml` |
 
 ## The maintenance window, step by step
 
@@ -58,8 +58,9 @@ to reboot without a pending update).
 - pve1 reboots into kernel 7.0.14-x and applies the 76 pending packages the
   next Sunday after merge (or on dispatch). Everything is down for a few
   minutes; the Talos cluster and TrueNAS come back on their own.
-- The LXCs apply their backlog on the first apt-daily run and reboot the
-  same night at 04:30/04:45.
+- The LXCs apply their backlog on the first `apt-daily-upgrade` run (around
+  06:00 local, randomised) and reboot at the next 04:30/04:45 window, i.e.
+  the following night.
 - The Oracle VM reboots at 10:15 UTC the first day `reboot-required` is set.
 - `openbao-2` is currently sealed; without the unseal secret it stays that
   way after the host reboot (see decision below).

@@ -6,6 +6,10 @@ terraform {
       source  = "oracle/oci"
       version = "~> 9.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
+    }
   }
 
   # OCI Object Storage via its S3-compatible API. Region + endpoint differ

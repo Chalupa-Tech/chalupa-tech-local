@@ -13,6 +13,11 @@ HC_HA_URL="${HC_HA_URL:-http://192.168.1.234:8123/}"
 HC_TRUENAS="${HC_TRUENAS:-192.168.1.40}"
 HC_GUESTS="${HC_GUESTS:-100 101 200 250}"
 HC_NODE_COUNT="${HC_NODE_COUNT:-6}"
+# Right after a reboot, apps are still Progressing and secrets still syncing:
+# re-run the whole suite up to HC_ATTEMPTS times, HC_SLEEP seconds apart, and
+# report the attempt that went green (or the last one).
+HC_ATTEMPTS="${HC_ATTEMPTS:-1}"
+HC_SLEEP="${HC_SLEEP:-60}"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
 
 failed=0
@@ -83,15 +88,25 @@ check_truenas_nfs() {
   if ssh "${SSH_OPTS[@]}" "root@$HC_PVE" "showmount -e $HC_TRUENAS" 2>/dev/null | grep -q '/mnt/PlexMedia/frame'; then ok truenas-nfs; else bad truenas-nfs "showmount -e $HC_TRUENAS does not list /mnt/PlexMedia/frame"; fi
 }
 
-check_pve_ssh
-check_guests_running
-check_talos_nodes_ready
-check_argocd_healthy
-check_openbao_unsealed
-check_externalsecrets_ready
-check_plex_identity
-check_ha_http
-check_truenas_nfs
+run_all() {
+  failed=0
+  check_pve_ssh
+  check_guests_running
+  check_talos_nodes_ready
+  check_argocd_healthy
+  check_openbao_unsealed
+  check_externalsecrets_ready
+  check_plex_identity
+  check_ha_http
+  check_truenas_nfs
+}
+
+for ((attempt = 1; attempt <= HC_ATTEMPTS; attempt++)); do
+  [ "$HC_ATTEMPTS" -gt 1 ] && echo "health-check: attempt $attempt/$HC_ATTEMPTS"
+  run_all
+  [ "$failed" -eq 0 ] && break
+  [ "$attempt" -lt "$HC_ATTEMPTS" ] && sleep "$HC_SLEEP"
+done
 
 if [ "$failed" -ne 0 ]; then echo "health-check: FAILED"; exit 1; fi
 echo "health-check: all checks passed"

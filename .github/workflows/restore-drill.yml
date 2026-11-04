@@ -10,9 +10,15 @@ name: Restore Drill
 
 on:
   schedule:
-    # 10:00 UTC on the 1st = 03:00 MST / 04:00 MDT (cron has no DST).
-    - cron: '0 10 1 * *'
+    # 12:00 UTC on the 1st = 05:00 MST / 06:00 MDT (cron has no DST). Two
+    # hours after the maintenance window's Sunday slot so a 1st-of-the-month
+    # Sunday can never reboot pve1 mid-restore; both share a concurrency group.
+    - cron: '0 12 1 * *'
   workflow_dispatch:
+
+concurrency:
+  group: pve1-host-ops
+  cancel-in-progress: false
 
 permissions:
   contents: read

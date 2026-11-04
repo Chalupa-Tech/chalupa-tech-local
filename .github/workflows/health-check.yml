@@ -7,6 +7,11 @@ name: Health Check
 
 on:
   workflow_call:
+    inputs:
+      attempts:
+        description: Re-run the suite up to N times, 60 s apart (post-reboot settle)
+        type: number
+        default: 1
   workflow_dispatch:
 
 permissions:
@@ -46,3 +51,4 @@ jobs:
         run: bash scripts/health-check.sh
         env:
           KUBECONFIG: /tmp/kubeconfig
+          HC_ATTEMPTS: ${{ inputs.attempts || 1 }}

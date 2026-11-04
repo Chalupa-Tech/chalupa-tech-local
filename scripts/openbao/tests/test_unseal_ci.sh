@@ -21,7 +21,7 @@ case "$*" in
   "bao status -format=json")
     if [ "$sealed" = 1 ]; then printf '{"sealed":true}\n'; exit 2; else printf '{"sealed":false}\n'; exit 0; fi ;;
   "bao operator unseal -format=json "*)
-    key=${*##* }
+    key="${!#}"
     [ "$key" = bad ] && { echo "invalid key" >&2; exit 1; }
     n=$(cat "$STATE_DIR/$pod.progress" 2>/dev/null || echo 0); n=$((n + 1)); echo $n > "$STATE_DIR/$pod.progress"
     [ "$n" -ge "${UNSEAL_NEEDED:-3}" ] && echo 0 > "$f"

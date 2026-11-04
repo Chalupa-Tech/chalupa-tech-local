@@ -65,10 +65,15 @@ fi
 
 # --- Act ---------------------------------------------------------------------
 log "upgrading packages ($reason)"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -q
-apt-get -y -q -o Dpkg::Options::=--force-confold full-upgrade
-apt-get -y -q autoremove
+# apt runs in a transient systemd unit, detached from this SSH session: if
+# the upgrade restarts networking and the session drops, dpkg keeps going
+# instead of being SIGHUP'd mid-transaction. --wait keeps this script
+# blocked until it finishes. No autoremove on the hypervisor.
+systemd-run --wait --pipe --collect --unit=maintenance-apt-update \
+  --setenv=DEBIAN_FRONTEND=noninteractive apt-get update -q
+systemd-run --wait --pipe --collect --unit=maintenance-apt-upgrade \
+  --setenv=DEBIAN_FRONTEND=noninteractive \
+  apt-get -y -q -o Dpkg::Options::=--force-confold full-upgrade
 log "rebooting pve1 now ($reason)"
 # Short pause so the calling SSH session collects this output first;
 # `systemctl reboot` returns immediately and Proxmox stops guests in reverse

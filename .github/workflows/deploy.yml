@@ -40,6 +40,7 @@ jobs:
               - 'ansible/group_vars/**'
               - 'ansible/inventory.yml'
               - 'ansible/roles/proxmox_prep/**'
+              - 'ansible/roles/unattended_upgrades/**'
               - '.github/workflows/deploy.yml'
               - '.github/actions/connect-proxmox/**'
             pulumi_infra:
@@ -57,6 +58,8 @@ jobs:
               - 'ansible/playbooks/vm-configure.yml'
               - 'ansible/roles/plex_lxc/**'
               - 'ansible/roles/plex_server/**'
+              - 'ansible/roles/lxc_baseline/**'
+              - 'ansible/roles/unattended_upgrades/**'
               - 'pulumi/**'
               - '.github/workflows/deploy.yml'
               - '.github/actions/connect-proxmox/**'
