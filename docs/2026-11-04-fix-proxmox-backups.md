@@ -1,7 +1,7 @@
 # Fix: Proxmox guest backups had been failing since March (and nothing noticed)
 
 **Date:** 2026-11-04
-**PR:** #TBD (PR 1 of the auto-patching series —
+**PR:** [#428](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/428) (PR 1 of the auto-patching series —
 `docs/superpowers/specs/2026-11-04-auto-patching-design.md`)
 
 ## Symptom
