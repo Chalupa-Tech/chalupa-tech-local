@@ -1,0 +1,103 @@
+---
+# Guest backups: NVMe dir storage, optional TrueNAS NFS storage, two vzdump
+# jobs, and the hook that exports backup timestamps as metrics. See
+# docs/2026-11-04-fix-proxmox-backups.md.
+
+# --- nvme-backups: LV on the spare NVMe, ext4, mounted, registered ---
+- name: Create backups logical volume on the spare NVMe
+  community.general.lvol:
+    vg: "{{ proxmox_prep_backup_vg }}"
+    lv: "{{ proxmox_prep_backup_lv }}"
+    size: "{{ proxmox_prep_backup_lv_size }}"
+    shrink: false
+  register: proxmox_prep_backup_lv_result
+
+# In --check mode the LV may not exist yet; filesystem/mount would then
+# error on a missing device, so they are skipped until the LV is real.
+
+- name: Format backups volume (no-op if a filesystem already exists)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "/dev/{{ proxmox_prep_backup_vg }}/{{ proxmox_prep_backup_lv }}"
+  when: not (ansible_check_mode and proxmox_prep_backup_lv_result is changed)
+
+- name: Mount backups volume
+  ansible.posix.mount:
+    path: "{{ proxmox_prep_backup_mount }}"
+    src: "/dev/{{ proxmox_prep_backup_vg }}/{{ proxmox_prep_backup_lv }}"
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+  when: not (ansible_check_mode and proxmox_prep_backup_lv_result is changed)
+
+- name: Read Proxmox storage list
+  ansible.builtin.command: pvesm status
+  register: proxmox_prep_pvesm_status
+  changed_when: false
+  check_mode: false
+
+- name: Register nvme-backups dir storage
+  ansible.builtin.command: >-
+    pvesm add dir nvme-backups --path {{ proxmox_prep_backup_mount }}
+    --content backup --is_mountpoint 1
+  when: "'nvme-backups' not in proxmox_prep_pvesm_status.stdout"
+  changed_when: true
+
+# --- truenas-backups: NFS, only once the owner has created the export ---
+- name: Register truenas-backups NFS storage
+  ansible.builtin.command: >-
+    pvesm add nfs truenas-backups --server {{ proxmox_prep_backup_nfs_server }}
+    --export {{ proxmox_prep_backup_nfs_export }} --content backup --options vers=4.2
+  when:
+    - proxmox_prep_backup_nfs_export | length > 0
+    - "'truenas-backups' not in proxmox_prep_pvesm_status.stdout"
+  changed_when: true
+
+# --- metrics hook + job manager ---
+- name: Install vzdump helper scripts
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: "0755"
+  loop:
+    - vzdump-metrics-hook.sh
+    - ensure-vzdump-job.sh
+
+- name: Point vzdump at the metrics hook
+  ansible.builtin.lineinfile:
+    path: /etc/vzdump.conf
+    regexp: '^script:'
+    line: "script: /usr/local/bin/vzdump-metrics-hook.sh"
+    create: true
+    mode: "0644"
+
+# ansible.builtin.script transfers the manager each run, so it also works in
+# --check mode on a host that has never had it installed. The verdict is the
+# last stdout line: exactly CHANGED or UNCHANGED (substring match would be
+# wrong — UNCHANGED contains CHANGED).
+- name: Ensure nightly-truenas vzdump job (TrueNAS VM -> NVMe)
+  ansible.builtin.script:
+    cmd: >-
+      ensure-vzdump-job.sh --id nightly-truenas
+      --schedule {{ proxmox_prep_backup_schedule }}
+      --vmids {{ proxmox_prep_backup_truenas_vmids | join(',') }}
+      --storage nvme-backups
+      --prune {{ proxmox_prep_backup_prune }}
+      {{ proxmox_prep_backup_legacy_job_ids | map('regex_replace', '^', '--delete-id=') | join(' ') }}
+      {{ '--check' if ansible_check_mode else '' }}
+  register: proxmox_prep_job_truenas
+  changed_when: (proxmox_prep_job_truenas.stdout_lines | default([]) | last | default('')) == 'CHANGED'
+  check_mode: false
+
+- name: Ensure nightly-guests vzdump job (other guests -> TrueNAS NFS or NVMe)
+  ansible.builtin.script:
+    cmd: >-
+      ensure-vzdump-job.sh --id nightly-guests
+      --schedule {{ proxmox_prep_backup_schedule }}
+      --vmids {{ proxmox_prep_backup_guest_vmids | join(',') }}
+      --storage {{ proxmox_prep_backup_guest_storage }}
+      --prune {{ proxmox_prep_backup_prune }}
+      {{ '--check' if ansible_check_mode else '' }}
+  register: proxmox_prep_job_guests
+  changed_when: (proxmox_prep_job_guests.stdout_lines | default([]) | last | default('')) == 'CHANGED'
+  check_mode: false

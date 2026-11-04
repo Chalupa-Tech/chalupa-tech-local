@@ -19,6 +19,7 @@ while [ $# -gt 0 ]; do
     --storage) storage=$2; shift 2 ;;
     --prune) prune=$2; shift 2 ;;
     --delete-id) delete_ids+=("$2"); shift 2 ;;
+    --delete-id=*) delete_ids+=("${1#*=}"); shift ;;
     --check) check=1; shift ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac

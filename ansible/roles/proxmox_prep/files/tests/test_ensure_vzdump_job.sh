@@ -67,7 +67,13 @@ check_mode_mutates_nothing() {
   [ "$(mutations)" = 0 ] || fail "check_mode_mutates_nothing(drift): mutated"
 }
 
-for t in creates_when_absent deletes_legacy noop_when_current updates_drifted_job vmid_order_is_noop check_mode_mutates_nothing; do
+deletes_legacy_equals_form() {
+  out=$(run legacy.json "${common[@]}" --storage local --prune keep-last=1 --delete-id=backup-af8b79f5-6e9a)
+  [ "${out##*$'\n'}" = CHANGED ] || fail "deletes_legacy_equals_form: verdict"
+  [ "$(sed -n 1p "$PVESH_LOG")" = "delete /cluster/backup/backup-af8b79f5-6e9a" ] || fail "deletes_legacy_equals_form: no delete: $(sed -n 1p "$PVESH_LOG")"
+}
+
+for t in creates_when_absent deletes_legacy deletes_legacy_equals_form noop_when_current updates_drifted_job vmid_order_is_noop check_mode_mutates_nothing; do
   "$t"; echo "ok $t"
 done
 echo PASS

@@ -161,3 +161,6 @@
   # module would hard-fail. Standard guard: tolerate errors only in
   # check mode; real runs still fail loudly.
   ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Guest backups (vzdump targets, jobs, metrics hook)
+  ansible.builtin.import_tasks: backups.yml
