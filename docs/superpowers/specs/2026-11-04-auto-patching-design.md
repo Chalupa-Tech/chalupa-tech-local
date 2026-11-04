@@ -87,17 +87,26 @@ CVE exposure for the running versions is in the companion report
 + export is a manual TrueNAS UI step (section 7).* ZFS snapshots on
 `Backups` (daily, keep 30) are the second copy.
 
-1. **Proxmox guests → `truenas-backups` NFS storage.** `proxmox_prep` gains:
-   `pvesm add nfs truenas-backups --server 192.168.1.40 --export
-   /mnt/<pool>/Backups/proxmox --content backup` (idempotent), and manages
-   the vzdump job declaratively (`pvesh create/set /cluster/backup`):
-   nightly 01:00, VMIDs 100,101,200,250 (Talos VMs excluded — recreatable;
-   their state is covered below), `mode snapshot`, `zstd`,
-   `keep-last=7,keep-weekly=4`, `notification-mode notification-system`.
-   A vzdump hook script writes `pve_backup_last_success_timestamp{vmid}`
-   to the node-exporter textfile dir so the existing scrape sees it.
-   Until the NFS export exists the job targets `local` with `keep-last=1`
-   (fits: ~40 GB compressed) so we are never again at zero backups.
+1. **Proxmox guests → two targets (owner direction, 2026-11-04).** The
+   TrueNAS VM cannot be backed up to TrueNAS, and the host has a spare
+   4 TB NVMe (`nvme1n1`, Crucial CT4000P310, LVM VG `nvme_4tb_front`, no
+   LVs, 3.64 TB free). `proxmox_prep` carves LV `backups` (1 TB, ext4,
+   mounted at `/mnt/nvme-backups`) and registers it as dir storage
+   `nvme-backups` (content `backup`). Two declarative vzdump jobs
+   (`pvesh create/set /cluster/backup`, idempotent):
+   - `nightly-truenas`: VMID 101 → `nvme-backups`, 01:00,
+     `keep-last=7,keep-weekly=4`.
+   - `nightly-guests`: VMIDs 100, 200, 250 → `truenas-backups` (NFS from
+     `192.168.1.40`, created when `proxmox_prep_backup_nfs_export` is set)
+     with the same retention; until the export exists they go to
+     `nvme-backups` too, so real backups start on the first merge with no
+     manual prerequisite.
+   Talos VMs are excluded (recreatable; their state is covered below). Both
+   jobs use `mode snapshot`, `zstd`, `notification-mode
+   notification-system`. A vzdump hook script writes
+   `pve_backup_last_success_timestamp{vmid}` /
+   `pve_backup_last_failure_timestamp{vmid}` to the node-exporter textfile
+   dir so the existing `proxmox-host` scrape sees them.
 2. **PVC backups → VolSync + restic.** Deploy `platform/volsync` (chart) and
    a `platform/restic-rest` (restic `rest-server`, single pod, its data on
    an NFS PV at `Backups/k8s/restic`). One `ReplicationSource` per PVC
@@ -138,7 +147,9 @@ CVE exposure for the running versions is in the companion report
 **Restore drills (`restore-drill.yml`, monthly, manual dispatch too):**
 - `qmrestore` the newest VM 250 archive to VMID 9250 and `pct restore` the
   newest 200 archive to 9200 on `local-lvm` (not started), assert the disks
-  exist, destroy both.
+  exist, destroy both; `zstd -t` the newest 101 and 100 archives. Archives
+  are located by scanning every storage with `backup` content, so the drill
+  does not care which target a guest currently uses.
 - VolSync `ReplicationDestination` of the openbao and grafana repos into
   scratch PVCs; assert expected files; delete.
 - Create a throwaway CNPG cluster `arrs-pg-drill` (1 instance, 5 Gi), load
@@ -270,7 +281,10 @@ Talos 1.14.5 dashboard entry to exercise Stage 2c.
 
 1. TrueNAS: create dataset `Backups` (+ `proxmox`, `k8s`, `homeassistant`),
    NFS export to `10.10.10.0/24,192.168.1.0/24` with maproot root; enable a
-   daily snapshot task on it (keep 30).
+   daily snapshot task on it (keep 30). Then set
+   `proxmox_prep_backup_nfs_export` in `ansible/roles/proxmox_prep/defaults/main.yml`
+   to move the non-TrueNAS guests off the NVMe. (Not a prerequisite any
+   more: PR 1 backs everything up to the NVMe until then.)
 2. Home Assistant: Settings → System → Storage → add network storage
    `backups` (NFS, `192.168.1.40:/mnt/<pool>/Backups/homeassistant` — the HAOS VM only has a vmbr0 NIC), then
    Settings → System → Backups → change location to it.

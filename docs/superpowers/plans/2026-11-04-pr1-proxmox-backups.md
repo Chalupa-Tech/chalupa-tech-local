@@ -15,7 +15,7 @@
 - All changes via PR; CI applies. Local `ansible-playbook … --check --diff` is allowed and is the integration test here (read-only against `pve1`).
 - Never touch VMIDs other than the drill scratch IDs **9250** and **9200**; `qm destroy`/`pct destroy` may only ever receive those two.
 - `pulumi.Protect(true)` on TrueNAS/HAOS and `protection: 1` on LXC 100 are untouched (nothing in this PR edits Pulumi or `pct set`).
-- Backup job: schedule `01:00` daily, VMIDs `100,101,200,250`, `mode snapshot`, `compress zstd`, `notification-mode notification-system`, notes `{{guestname}}`. Retention `keep-last=1` while storage is `local`; `keep-last=7,keep-weekly=4` once storage is `truenas-backups`.
+- **Amended 2026-11-04 (owner):** two jobs. `nightly-truenas`: VMID `101` → dir storage `nvme-backups` (LV `backups`, 1T, ext4, VG `nvme_4tb_front`, mount `/mnt/nvme-backups`). `nightly-guests`: VMIDs `100,200,250` → `truenas-backups` NFS when `proxmox_prep_backup_nfs_export` is set, else `nvme-backups`. Both: schedule `01:00`, `mode snapshot`, `compress zstd`, `notification-mode notification-system`, notes `{{guestname}}`, retention `keep-last=7,keep-weekly=4`.
 - NFS storage name `truenas-backups`, server `192.168.1.40`, content `backup`, created only when `proxmox_prep_backup_nfs_export` is non-empty.
 - Textfile metrics live in `/var/lib/prometheus/node-exporter/` (verified present; `apt.prom` already there). Files must be written atomically (write temp, `mv`).
 - Stage 1 path filter already matches `ansible/roles/proxmox_prep/**` and `ansible/group_vars/**`; no `deploy.yml` change needed for Ansible. The new workflow is a separate file.
@@ -118,7 +118,7 @@
 - Modify: `ansible/roles/proxmox_prep/defaults/main.yml`
 
 **Interfaces:**
-- Defaults (exact names): `proxmox_prep_backup_job_id: nightly-guests`, `proxmox_prep_backup_schedule: "01:00"`, `proxmox_prep_backup_vmids: [100, 101, 200, 250]`, `proxmox_prep_backup_nfs_server: "192.168.1.40"`, `proxmox_prep_backup_nfs_export: ""` (owner fills `/mnt/<pool>/Backups/proxmox`), `proxmox_prep_backup_storage: "{{ 'truenas-backups' if proxmox_prep_backup_nfs_export else 'local' }}"`, `proxmox_prep_backup_prune: "{{ 'keep-last=7,keep-weekly=4' if proxmox_prep_backup_nfs_export else 'keep-last=1' }}"`, `proxmox_prep_backup_legacy_job_ids: [backup-af8b79f5-6e9a]`.
+- Defaults (exact names, amended): `proxmox_prep_backup_vg: nvme_4tb_front`, `proxmox_prep_backup_lv: backups`, `proxmox_prep_backup_lv_size: 1T`, `proxmox_prep_backup_mount: /mnt/nvme-backups`, `proxmox_prep_backup_schedule: "01:00"`, `proxmox_prep_backup_prune: keep-last=7,keep-weekly=4`, `proxmox_prep_backup_truenas_vmids: [101]`, `proxmox_prep_backup_guest_vmids: [100, 200, 250]`, `proxmox_prep_backup_nfs_server: "192.168.1.40"`, `proxmox_prep_backup_nfs_export: ""`, `proxmox_prep_backup_guest_storage: "{{ 'truenas-backups' if proxmox_prep_backup_nfs_export else 'nvme-backups' }}"`, `proxmox_prep_backup_legacy_job_ids: [backup-af8b79f5-6e9a]`.
 - Installs: `/usr/local/bin/vzdump-metrics-hook.sh` (0755), `/usr/local/bin/ensure-vzdump-job.sh` (0755), `script: /usr/local/bin/vzdump-metrics-hook.sh` line in `/etc/vzdump.conf` (`lineinfile`, `regexp: '^script:'`).
 
 - [ ] **Step 1: Write the defaults** per Interfaces with a comment block explaining the local→NFS switch and the one-line owner action.
@@ -152,7 +152,7 @@
 
 **Interfaces:**
 - Runs **on pve1** as root. CLI: `restore-drill.sh --storage <backup-storage> [--vm 250:9250] [--ct 200:9200] [--verify-only 101,100]`. Defaults: those exact pairs and verify list.
-- For each `--vm src:scratch`: refuse if `qm status <scratch>` succeeds; newest archive = `pvesm list <storage> --vmid <src> --content backup` sorted by the timestamp in the volid, last; `qmrestore <volid> <scratch> --storage local-lvm --unique 1`; assert `qm config <scratch>` has `scsi0`; `qm destroy <scratch> --purge 1` (also in an `EXIT` trap). `--ct` identical with `pct status`/`pct restore <scratch> <volid> --storage local-lvm --unique 1`/`pct config` has `rootfs`/`pct destroy <scratch> --purge 1`.
+- For each `--vm src:scratch`: refuse if `qm status <scratch>` succeeds; newest archive = union of `pvesm list <s> --vmid <src> --content backup` over all backup storages, sorted by the timestamp in the volid, last; `qmrestore <volid> <scratch> --storage local-lvm --unique 1`; assert `qm config <scratch>` has `scsi0`; `qm destroy <scratch> --purge 1` (also in an `EXIT` trap). `--ct` identical with `pct status`/`pct restore <scratch> <volid> --storage local-lvm --unique 1`/`pct config` has `rootfs`/`pct destroy <scratch> --purge 1`.
 - For `--verify-only` VMIDs: newest archive must exist and `zstd -t <path>` passes (path from `pvesm path <volid>`).
 - Writes `pve_restore_drill_last_success_timestamp <now>` to `/var/lib/prometheus/node-exporter/restore-drill.prom` (atomic) only when every step passed. Exit non-zero on any failure, with a one-line reason per failure.
 - Tests stub `qm`, `pct`, `qmrestore`, `pvesm`, `zstd` via PATH shims logging to `$DRILL_LOG`; override the prom path via `DRILL_METRICS_FILE`.
@@ -169,8 +169,8 @@
 - Create: `.github/workflows/restore-drill.yml`
 
 **Interfaces:**
-- `on: schedule: - cron: '0 10 1 * *'` (03:00 America/Denver on the 1st, UTC-7; note the DST drift in a comment) + `workflow_dispatch` with input `storage` (default `local`).
-- Job `drill`: `actions/checkout@v7` → `./.github/actions/connect-proxmox` (same secrets as `deploy.yml`) → `scp scripts/proxmox/restore-drill.sh root@192.168.1.223:/usr/local/bin/` → `ssh root@192.168.1.223 restore-drill.sh --storage <input or local>` with `timeout-minutes: 60`. (Storage default must match `proxmox_prep_backup_storage`; a comment says to flip both when the NFS export lands.)
+- `on: schedule: - cron: '0 10 1 * *'` (03:00 America/Denver on the 1st, UTC-7; note the DST drift in a comment) + `workflow_dispatch` (no inputs; amended).
+- Job `drill`: `actions/checkout@v7` → `./.github/actions/connect-proxmox` (same secrets as `deploy.yml`) → `scp scripts/proxmox/restore-drill.sh root@192.168.1.223:/usr/local/bin/` → `ssh root@192.168.1.223 restore-drill.sh` with `timeout-minutes: 60`.
 - Job `report` (`if: failure()`, `permissions: issues: write`): `actions/github-script@v9` finds an open issue labelled `backup-drill-failed` titled `Restore drill failed`; creates it or appends a comment with the run URL.
 
 - [ ] **Step 1: Write the workflow.**
