@@ -1,0 +1,7 @@
+---
+unattended_upgrades_origins:
+  - "origin=Debian,codename=${distro_codename}-security,label=Debian-Security"
+  - "origin=Debian,codename=${distro_codename}-updates"
+  - "origin=Proxmox,codename=${distro_codename},label=Proxmox Debian Repository"
+unattended_upgrades_auto_reboot: false
+unattended_upgrades_remove_unused: false
