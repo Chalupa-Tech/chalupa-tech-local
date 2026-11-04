@@ -44,3 +44,11 @@ proxmox_prep_backup_guest_storage: "{{ 'truenas-backups' if proxmox_prep_backup_
 # and failed every Sunday since. Removed on first run.
 proxmox_prep_backup_legacy_job_ids:
   - backup-af8b79f5-6e9a
+
+# Apt origins unattended-upgrades may apply on the host. Debian security +
+# updates and Proxmox's own repo (pve-no-subscription on trixie). Kernel
+# packages install but only take effect at the maintenance-window reboot.
+proxmox_prep_unattended_origins:
+  - "origin=Debian,codename=${distro_codename}-security,label=Debian-Security"
+  - "origin=Debian,codename=${distro_codename}-updates"
+  - "origin=Proxmox,codename=${distro_codename},label=Proxmox Debian Repository"
