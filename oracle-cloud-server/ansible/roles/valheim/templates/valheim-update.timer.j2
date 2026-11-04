@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Valheim server build update
+
+[Timer]
+OnCalendar={{ valheim_update_on_calendar }}
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

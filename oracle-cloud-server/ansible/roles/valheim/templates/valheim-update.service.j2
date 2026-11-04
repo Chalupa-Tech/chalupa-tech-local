@@ -1,0 +1,8 @@
+[Unit]
+Description=Update Valheim dedicated server to the current Steam build
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ valheim_home }}/valheim-update.sh
