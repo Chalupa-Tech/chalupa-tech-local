@@ -15,5 +15,5 @@ dump:
   timeZone: America/Denver
   keep: 14
   nfsServer: 10.10.10.40
-  nfsPath: /mnt/CHANGEME/Backups/k8s
+  nfsPath: /mnt/AppData/Backups/k8s
   size: 2Ti

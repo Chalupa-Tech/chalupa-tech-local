@@ -60,3 +60,19 @@ openbao:
   serverTelemetry:
     serviceMonitor:
       enabled: true
+
+# Hourly raft snapshots onto the TrueNAS backups export (templates/
+# snapshot-cronjob.tpl, files/raft-snapshot.sh). One-time OpenBao setup:
+# apply policy `snapshot` + create the Kubernetes auth role `openbao-snapshot`
+# (scripts/openbao/policies/snapshot.hcl has the commands).
+snapshot:
+  # Same image as the servers (matching `bao` CLI). Keep the tag equal to the
+  # version the chart deploys; Renovate tracks this repository/tag pair.
+  image:
+    repository: quay.io/openbao/openbao
+    tag: "2.6.2"
+  schedule: "5 * * * *"
+  keep: 48
+  nfsServer: 10.10.10.40
+  nfsPath: /mnt/AppData/Backups/k8s
+  size: 2Ti

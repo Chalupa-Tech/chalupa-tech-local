@@ -3,7 +3,7 @@
 # 10.10.10.0/24 (maproot root); `nfsPath` must then match the pool name.
 backups:
   nfsServer: 10.10.10.40
-  nfsPath: /mnt/CHANGEME/Backups/k8s
+  nfsPath: /mnt/AppData/Backups/k8s
   size: 2Ti
 
 # restic REST server — VolSync movers push to rest:http://restic-rest.backups.svc.cluster.local:8000/<repo>.
