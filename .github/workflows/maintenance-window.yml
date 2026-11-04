@@ -1,0 +1,169 @@
+name: Maintenance Window
+
+# Monthly-ish host maintenance for pve1: full package upgrade + reboot, only
+# when a reboot is actually pending and every backed-up guest has a vzdump
+# success younger than 30 h (scripts/proxmox/maintenance-reboot.sh enforces
+# both). The CI runner reaches 192.168.1.0/24 only through the Tailscale LXC
+# (VMID 100) subnet route, which the reboot takes down too, so the reconnect
+# loop below waits for that route to come back. OpenBao reseals on every
+# restart; if the OPENBAO_UNSEAL_KEYS secret exists it is unsealed here,
+# otherwise the OpenBaoSealed alert fires. See docs/2026-11-04-os-auto-patching.md.
+
+on:
+  schedule:
+    # Sundays 10:00 UTC = 03:00 MST / 04:00 MDT. Most weeks exit early with
+    # "nothing to do"; the reboot only happens when a kernel/core update is
+    # pending (roughly monthly).
+    - cron: '0 10 * * 0'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Reboot even if nothing is pending (backup gate still applies)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance-window
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    name: Upgrade + reboot pve1 (backup-gated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      skipped: ${{ steps.decide.outputs.skipped }}
+    env:
+      PVE: 192.168.1.223
+      GUESTS: "100 101 200 250"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Connect to Proxmox
+        uses: ./.github/actions/connect-proxmox
+        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Install maintenance script on pve1
+        run: |
+          scp -o StrictHostKeyChecking=yes scripts/proxmox/maintenance-reboot.sh "root@$PVE:/usr/local/bin/maintenance-reboot.sh"
+          ssh -o StrictHostKeyChecking=yes "root@$PVE" chmod 0755 /usr/local/bin/maintenance-reboot.sh
+
+      - name: Decide (backup gate + pending reboot)
+        id: decide
+        run: |
+          set +e
+          ssh -o StrictHostKeyChecking=yes "root@$PVE" /usr/local/bin/maintenance-reboot.sh --check ${{ inputs.force && '--force' || '' }}
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "skipped=false" >> "$GITHUB_OUTPUT" ;;
+            3) echo "skipped=true" >> "$GITHUB_OUTPUT"; echo "### Maintenance window: nothing to do" >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "pre-flight refused (rc=$rc)"; exit 1 ;;
+          esac
+
+      - name: Record pre-reboot boot time
+        if: steps.decide.outputs.skipped == 'false'
+        run: echo "BOOT_BEFORE=$(ssh -o StrictHostKeyChecking=yes "root@$PVE" uptime -s)" >> "$GITHUB_ENV"
+
+      - name: Upgrade packages and reboot
+        if: steps.decide.outputs.skipped == 'false'
+        run: |
+          # The SSH session drops when the host reboots; the script's last
+          # line before that is "rebooting pve1 now", which is what we check.
+          ssh -o StrictHostKeyChecking=yes -o ServerAliveInterval=10 "root@$PVE" \
+            /usr/local/bin/maintenance-reboot.sh ${{ inputs.force && '--force' || '' }} 2>&1 | tee maintenance.log || true
+          grep -q 'rebooting pve1 now' maintenance.log || { echo "maintenance script did not reach the reboot step"; exit 1; }
+
+      - name: Wait for pve1 to come back (via the Tailscale subnet route)
+        if: steps.decide.outputs.skipped == 'false'
+        run: |
+          for i in $(seq 1 90); do
+            boot=$(ssh -o StrictHostKeyChecking=yes -o ConnectTimeout=5 -o BatchMode=yes "root@$PVE" uptime -s 2>/dev/null || true)
+            if [ -n "$boot" ] && [ "$boot" != "$BOOT_BEFORE" ]; then
+              echo "pve1 is back (booted $boot, was $BOOT_BEFORE)"; exit 0
+            fi
+            echo "waiting for pve1 (attempt $i/90)"; sleep 20
+          done
+          echo "pve1 did not come back within 30 minutes"; exit 1
+
+      - name: Wait for guests to be running
+        if: steps.decide.outputs.skipped == 'false'
+        run: |
+          for i in $(seq 1 45); do
+            listing=$( { ssh -o StrictHostKeyChecking=yes "root@$PVE" "qm list | awk 'NR>1 {print \$1, \$3}'; pct list | awk 'NR>1 {print \$1, \$2}'"; } 2>/dev/null || true)
+            missing=""
+            for id in $GUESTS; do
+              state=$(awk -v id="$id" '$1 == id {print $2; exit}' <<<"$listing")
+              [ "$state" = running ] || missing="$missing $id"
+            done
+            if [ -z "$missing" ]; then echo "all guests running"; exit 0; fi
+            echo "waiting for guests:$missing (attempt $i/45)"; sleep 20
+          done
+          echo "guests not running after 15 minutes"; exit 1
+
+      - name: Install kubectl + Pulumi, fetch kubeconfig
+        if: steps.decide.outputs.skipped == 'false'
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+          "$HOME/.pulumi/bin/pulumi" stack output kubeconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/kubeconfig
+          chmod 600 /tmp/kubeconfig
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Wait for Kubernetes API + nodes
+        if: steps.decide.outputs.skipped == 'false'
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+        run: |
+          for i in $(seq 1 60); do
+            if kubectl get nodes -o json 2>/dev/null | jq -e '(.items | length) >= 6 and all(.items[]; any(.status.conditions[]; .type == "Ready" and .status == "True"))' >/dev/null 2>&1; then
+              echo "all nodes Ready"; exit 0
+            fi
+            echo "waiting for nodes (attempt $i/60)"; sleep 10
+          done
+          echo "nodes not Ready after 10 minutes"; exit 1
+
+      - name: Unseal OpenBao (only if OPENBAO_UNSEAL_KEYS is configured)
+        if: steps.decide.outputs.skipped == 'false'
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          OPENBAO_UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+        run: bash scripts/openbao/unseal-ci.sh
+
+  health:
+    name: Post-maintenance health check
+    needs: maintenance
+    if: needs.maintenance.outputs.skipped == 'false'
+    uses: ./.github/workflows/health-check.yml
+    secrets: inherit
+
+  report:
+    name: Open issue on failure
+    runs-on: ubuntu-latest
+    needs: [maintenance, health]
+    if: always() && (needs.maintenance.result != 'success' || needs.health.result == 'failure')
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const label = 'maintenance-failed';
+            const title = 'Maintenance window failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The pve1 maintenance window did not complete cleanly: ${runUrl}\n\nCheck pve1, guest state, OpenBao seal status and the health-check job output. Re-run with \`gh workflow run maintenance-window.yml\` after fixing.`;
+            const { data: issues } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: label });
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+            } else {
+              await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: [label] });
+            }
