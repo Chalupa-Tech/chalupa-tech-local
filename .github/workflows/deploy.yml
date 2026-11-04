@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      talos_upgrade:
+        description: Run Stage 2c (rolling Talos/Kubernetes upgrade to the pinned versions) even if the pins did not change
+        type: boolean
+        default: false
 
 jobs:
   # ════════════════════════════════════════════════════
@@ -192,6 +197,93 @@ jobs:
           path: pulumi/inventory-vms.yml
 
   # ════════════════════════════════════════════════════
+  # Stage 2c: Rolling Talos / Kubernetes node upgrade
+  #   - Runs only when the talosVersion / kubernetesVersion constants in
+  #     pulumi-talos/main.go changed in this push (or on dispatch with
+  #     talos_upgrade=true). Renovate auto-merges patch bumps, so this is
+  #     how the nodes actually get patched (docs/2026-11-04-platform-patch-flow.md).
+  #   - scripts/talos/rolling-upgrade.sh: etcd snapshot, control planes then
+  #     workers one at a time, health gate per node, talosctl rollback on
+  #     failure, then upgrade-k8s to the repo pin. Stage 2b waits for it so
+  #     machine configs are generated for the version the nodes run.
+  # ════════════════════════════════════════════════════
+  deploy-talos-upgrade:
+    name: "Stage 2c: Talos node upgrade"
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-proxmox-prep]
+    if: |
+      always() &&
+      needs.deploy-proxmox-prep.result != 'failure' &&
+      needs.deploy-proxmox-prep.result != 'cancelled' &&
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.talos_upgrade) ||
+        (github.event_name == 'push' && needs.detect-changes.outputs.pulumi_talos == 'true')
+      )
+    timeout-minutes: 150
+    concurrency:
+      group: talos-nodes
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Did a version pin change?
+        id: pins
+        run: |
+          cur_talos=$(grep -E 'talosVersion\s*=\s*"' pulumi-talos/main.go | sed -E 's/.*"(v[0-9.]+)".*/\1/')
+          cur_k8s=$(grep -E 'kubernetesVersion\s*=\s*"' pulumi-talos/main.go | sed -E 's/.*"([0-9.]+)".*/\1/')
+          if [ "${{ github.event_name }}" = push ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            prev_talos=$(git show "${{ github.event.before }}:pulumi-talos/main.go" 2>/dev/null | grep -E 'talosVersion\s*=\s*"' | sed -E 's/.*"(v[0-9.]+)".*/\1/' || true)
+            prev_k8s=$(git show "${{ github.event.before }}:pulumi-talos/main.go" 2>/dev/null | grep -E 'kubernetesVersion\s*=\s*"' | sed -E 's/.*"([0-9.]+)".*/\1/' || true)
+          else
+            prev_talos=""; prev_k8s=""
+          fi
+          changed=false
+          { [ "${{ github.event_name }}" = workflow_dispatch ] || [ "$cur_talos" != "$prev_talos" ] || [ "$cur_k8s" != "$prev_k8s" ]; } && changed=true
+          echo "talos=$cur_talos" >> "$GITHUB_OUTPUT"; echo "k8s=$cur_k8s" >> "$GITHUB_OUTPUT"; echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "talos $prev_talos -> $cur_talos, k8s $prev_k8s -> $cur_k8s, run=$changed"
+
+      - name: Connect to Proxmox
+        if: steps.pins.outputs.changed == 'true'
+        uses: ./.github/actions/connect-proxmox
+        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Install talosctl, kubectl, Pulumi
+        if: steps.pins.outputs.changed == 'true'
+        run: |
+          curl -fsSLo talosctl "https://github.com/siderolabs/talos/releases/download/${{ steps.pins.outputs.talos }}/talosctl-linux-amd64"
+          chmod +x talosctl && sudo mv talosctl /usr/local/bin/
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Get talosconfig + kubeconfig from Pulumi
+        if: steps.pins.outputs.changed == 'true'
+        run: |
+          "$HOME/.pulumi/bin/pulumi" stack output talosconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/talosconfig
+          "$HOME/.pulumi/bin/pulumi" stack output kubeconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/kubeconfig
+          chmod 600 /tmp/talosconfig /tmp/kubeconfig
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Rolling upgrade
+        if: steps.pins.outputs.changed == 'true'
+        env:
+          TALOSCONFIG: /tmp/talosconfig
+          KUBECONFIG: /tmp/kubeconfig
+          OPENBAO_UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+        run: |
+          schematic=$(grep -E '^proxmox_prep_talos_schematic_id:' ansible/roles/proxmox_prep/defaults/main.yml | sed -E 's/.*"([0-9a-f]+)".*/\1/')
+          bash scripts/talos/rolling-upgrade.sh \
+            --talos-version "${{ steps.pins.outputs.talos }}" \
+            --k8s-version "${{ steps.pins.outputs.k8s }}" \
+            --schematic "$schematic"
+
+  # ════════════════════════════════════════════════════
   # Stage 2b: Run Pulumi to provision Talos K8s cluster
   #   - Creates 3 Talos VMs (1 CP + 2 workers)
   #   - Generates machine configs, bootstraps cluster
@@ -200,11 +292,13 @@ jobs:
   deploy-talos:
     name: "Stage 2b: Talos K8s Cluster"
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-proxmox-prep]
+    needs: [detect-changes, deploy-proxmox-prep, deploy-talos-upgrade]
     if: |
       always() &&
       needs.deploy-proxmox-prep.result != 'failure' &&
       needs.deploy-proxmox-prep.result != 'cancelled' &&
+      needs.deploy-talos-upgrade.result != 'failure' &&
+      needs.deploy-talos-upgrade.result != 'cancelled' &&
       (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.pulumi_talos == 'true')
     steps:
       - uses: actions/checkout@v7
