@@ -1,0 +1,1 @@
+[{"all":1,"compress":"zstd","enabled":1,"fleecing":{"enabled":0},"id":"backup-af8b79f5-6e9a","mode":"snapshot","next-run":1794124800,"node":"proxmox","notes-template":"{{guestname}}","notification-mode":"notification-system","prune-backups":{"keep-last":"7"},"schedule":"sun 01:00","storage":"local_backups","type":"vzdump"}]
