@@ -106,7 +106,7 @@
   ansible.builtin.get_url:
     url: "https://github.com/home-assistant/operating-system/releases/download/{{ haos_version }}/{{ haos_image_filename }}"
     dest: "/var/lib/vz/import/{{ haos_image_filename }}"
-    checksum: "{{ haos_image_sha256 }}"
+    checksum: "{{ haos_image_checksum }}"
     mode: "0644"
 
 - name: Decompress HAOS qcow2 in place
