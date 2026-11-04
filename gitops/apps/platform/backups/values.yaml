@@ -7,8 +7,9 @@ backups:
   size: 2Ti
 
 # restic REST server — VolSync movers push to rest:http://restic-rest.backups.svc.cluster.local:8000/<repo>.
-# --append-only: a compromised mover can add but never delete/overwrite data;
-# pruning runs through VolSync's own prune with the repository password.
+# Not append-only: VolSync runs `restic forget` after every sync and `prune`
+# weekly, both of which DELETE over the REST protocol. History is protected by
+# the TrueNAS daily ZFS snapshots of the Backups dataset instead.
 resticRest:
   image:
     repository: restic/rest-server
@@ -17,17 +18,5 @@ resticRest:
     requests:
       cpu: 50m
       memory: 64Mi
-    limits:
-      memory: 512Mi
-
-# Upstream VolSync chart values (dependency name is the key).
-volsync:
-  manageCRDs: true
-  metrics:
-    disableAuth: true
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
     limits:
       memory: 512Mi

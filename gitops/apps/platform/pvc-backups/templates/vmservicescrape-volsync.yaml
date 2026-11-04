@@ -5,7 +5,7 @@ apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMServiceScrape
 metadata:
   name: volsync
-  namespace: backups
+  namespace: pvc-backups
   annotations:
     argocd.argoproj.io/sync-wave: "5"
 spec:

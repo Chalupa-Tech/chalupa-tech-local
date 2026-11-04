@@ -1,3 +1,15 @@
+# Upstream VolSync chart values (dependency name is the key).
+volsync:
+  manageCRDs: true
+  metrics:
+    disableAuth: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
 restic:
   # Service from platform/backups.
   restUrl: rest:http://restic-rest.backups.svc.cluster.local:8000
@@ -46,16 +58,19 @@ sources:
     schedule: "15 * * * *"
     runAsUser: 1000
     runAsGroup: 1000
+  # readmebook runs as root and keeps /app/config/.secrets 0600 root-owned
+  # (verified live): its movers must be root (media carries the
+  # privileged-movers annotation via the media ApplicationSet).
   - namespace: media
     pvc: readmebook-config
     schedule: "15 * * * *"
-    runAsUser: 1000
-    runAsGroup: 1000
+    runAsUser: 0
+    runAsGroup: 0
   - namespace: media
     pvc: readmebook-cache
     schedule: "15 * * * *"
-    runAsUser: 1000
-    runAsGroup: 1000
+    runAsUser: 0
+    runAsGroup: 0
   # vmsingle writes as root (image default); the vm-system namespace carries
   # the privileged-movers annotation so this mover may run as uid 0.
   - namespace: vm-system

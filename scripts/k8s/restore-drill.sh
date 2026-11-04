@@ -20,21 +20,30 @@ failures=0
 log() { printf '[cluster-drill] %s\n' "$*"; }
 err() { printf '[cluster-drill] ERROR: %s\n' "$*" >&2; failures=$((failures + 1)); }
 
+# cleanup [wait]: with "wait" it blocks until the objects are gone, which the
+# pre-apply cleanup needs (a Terminating PVC from a previous failed run would
+# otherwise swallow the new apply and vanish under the mover).
 cleanup() {
-  kubectl -n openbao delete replicationdestination data-openbao-0-drill --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  kubectl -n openbao delete pvc openbao-drill-restore --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  kubectl -n media delete cluster.postgresql.cnpg.io arrs-pg-drill --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  local w="--wait=false"; [ "${1:-}" = wait ] && w="--wait=true --timeout=180s"
+  # shellcheck disable=SC2086  # $w is two flags
+  kubectl -n openbao delete replicationdestination data-openbao-0-drill --ignore-not-found $w >/dev/null 2>&1 || true
+  # shellcheck disable=SC2086
+  kubectl -n openbao delete pvc openbao-drill-restore --ignore-not-found $w >/dev/null 2>&1 || true
+  # shellcheck disable=SC2086
+  kubectl -n media delete cluster.postgresql.cnpg.io arrs-pg-drill --ignore-not-found $w >/dev/null 2>&1 || true
   kubectl -n media delete secret arrs-pg-drill-superuser --ignore-not-found >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-# wait_for <description> <command...> : retries until the command prints "ok"
+# wait_for <description> <command...> : retries until the command prints "ok";
+# a command printing "failed" ends the wait immediately.
 wait_for() {
   local what=$1; shift
   local i out
   for ((i = 1; i <= DRILL_WAIT_ATTEMPTS; i++)); do
     out=$("$@" 2>/dev/null || true)
     [ "$out" = ok ] && return 0
+    if [ "$out" = failed ]; then err "$what reported failure"; return 1; fi
     [ "$i" -lt "$DRILL_WAIT_ATTEMPTS" ] && sleep "$DRILL_WAIT_SLEEP"
   done
   err "timed out waiting for $what"
@@ -43,7 +52,7 @@ wait_for() {
 
 # ---------------------------------------------------------------- 1. VolSync
 log "1/3 VolSync restore of openbao/data-openbao-0 into openbao-drill-restore"
-cleanup
+cleanup wait
 kubectl apply -f - <<'EOF'
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -80,7 +89,7 @@ rd_result() {
 }
 if wait_for "VolSync restore" rd_result; then
   listing=$(kubectl -n openbao run raft-ls-drill --rm -i --restart=Never --quiet --image=busybox:1.37 \
-    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":100,\"runAsGroup\":1000,\"fsGroup\":1000},\"containers\":[{\"name\":\"ls\",\"image\":\"busybox:1.37\",\"command\":[\"sh\",\"-c\",\"cd /data && find . -maxdepth 2 | sed 's|^./||'\"],\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/data\"}]}],\"volumes\":[{\"name\":\"data\",\"persistentVolumeClaim\":{\"claimName\":\"openbao-drill-restore\"}}]}}" 2>/dev/null || true)
+    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":100,\"runAsGroup\":1000,\"fsGroup\":1000},\"containers\":[{\"name\":\"raft-ls-drill\",\"image\":\"busybox:1.37\",\"command\":[\"sh\",\"-c\",\"cd /data && find . -maxdepth 2 | sed 's|^./||'\"],\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/data\"}]}],\"volumes\":[{\"name\":\"data\",\"persistentVolumeClaim\":{\"claimName\":\"openbao-drill-restore\"}}]}}" 2>/dev/null || true)
   if grep -q '^raft/raft.db$' <<<"$listing"; then log "restored volume contains raft/raft.db — OK"; else err "restored volume lacks raft/raft.db: $listing"; fi
 fi
 kubectl -n openbao delete replicationdestination data-openbao-0-drill --ignore-not-found --wait=false >/dev/null 2>&1 || true
@@ -121,7 +130,7 @@ cnpg_ready() {
 }
 if wait_for "CNPG drill cluster" cnpg_ready; then
   count=$(kubectl -n media run pg-restore-drill --rm -i --restart=Never --quiet --image="$PG_IMAGE" \
-    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":26,\"runAsGroup\":26,\"fsGroup\":26},\"containers\":[{\"name\":\"pg\",\"image\":\"$PG_IMAGE\",\"command\":[\"bash\",\"-c\",\"set -e; f=\$(ls -1 /backups/postgres/arrs-pg-*.sql.zst | sort | tail -n 1); zstd -dc \\\"\$f\\\" | psql -q -h arrs-pg-drill-rw -U postgres -d postgres >/dev/null; psql -tA -h arrs-pg-drill-rw -U postgres -d postgres -c \\\"select count(*) from pg_database where datname='radarr_main'\\\"\"],\"env\":[{\"name\":\"PGPASSWORD\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"arrs-pg-drill-superuser\",\"key\":\"password\"}}}],\"volumeMounts\":[{\"name\":\"backups\",\"mountPath\":\"/backups\",\"readOnly\":true}]}],\"volumes\":[{\"name\":\"backups\",\"persistentVolumeClaim\":{\"claimName\":\"backups-k8s\"}}]}}" 2>/dev/null | tr -d '[:space:]' || true)
+    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":26,\"runAsGroup\":26,\"fsGroup\":26},\"containers\":[{\"name\":\"pg-restore-drill\",\"image\":\"$PG_IMAGE\",\"command\":[\"bash\",\"-c\",\"set -e; f=\$(ls -1 /backups/postgres/arrs-pg-*.sql.gz | sort | tail -n 1); gzip -dc \\\"\$f\\\" | psql -q -v ON_ERROR_STOP=0 -h arrs-pg-drill-rw -U postgres -d postgres >/dev/null; psql -tA -h arrs-pg-drill-rw -U postgres -d postgres -c \\\"select count(*) from pg_database where datname='radarr_main'\\\"\"],\"env\":[{\"name\":\"PGPASSWORD\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"arrs-pg-drill-superuser\",\"key\":\"password\"}}}],\"volumeMounts\":[{\"name\":\"backups\",\"mountPath\":\"/backups\",\"readOnly\":true}]}],\"volumes\":[{\"name\":\"backups\",\"persistentVolumeClaim\":{\"claimName\":\"backups-k8s\"}}]}}" 2>/dev/null | tr -d '[:space:]' || true)
   if [ "$count" = 1 ]; then log "dump restored; radarr_main present — OK"; else err "dump restore check failed (radarr_main count='$count')"; fi
 fi
 kubectl -n media delete cluster.postgresql.cnpg.io arrs-pg-drill --ignore-not-found --wait=false >/dev/null 2>&1 || true
@@ -130,7 +139,7 @@ kubectl -n media delete secret arrs-pg-drill-superuser --ignore-not-found >/dev/
 # ------------------------------------------------------- 3. raft snapshot file
 log "3/3 inspect newest OpenBao raft snapshot"
 if kubectl -n openbao run snapshot-inspect-drill --rm -i --restart=Never --quiet --image="$OPENBAO_IMAGE" \
-    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":100,\"runAsGroup\":1000,\"fsGroup\":1000},\"containers\":[{\"name\":\"bao\",\"image\":\"$OPENBAO_IMAGE\",\"command\":[\"sh\",\"-c\",\"f=\$(ls -1 /backups/openbao/raft-*.snap | sort | tail -n 1); [ -n \\\"\$f\\\" ] && bao operator raft snapshot inspect \\\"\$f\\\"\"],\"volumeMounts\":[{\"name\":\"backups\",\"mountPath\":\"/backups\",\"readOnly\":true}]}],\"volumes\":[{\"name\":\"backups\",\"persistentVolumeClaim\":{\"claimName\":\"backups-k8s\"}}]}}" >/dev/null 2>&1; then
+    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":100,\"runAsGroup\":1000,\"fsGroup\":1000},\"containers\":[{\"name\":\"snapshot-inspect-drill\",\"image\":\"$OPENBAO_IMAGE\",\"command\":[\"sh\",\"-c\",\"f=\$(ls -1 /backups/openbao/raft-*.snap | sort | tail -n 1); [ -n \\\"\$f\\\" ] && bao operator raft snapshot inspect \\\"\$f\\\"\"],\"volumeMounts\":[{\"name\":\"backups\",\"mountPath\":\"/backups\",\"readOnly\":true}]}],\"volumes\":[{\"name\":\"backups\",\"persistentVolumeClaim\":{\"claimName\":\"backups-k8s\"}}]}}" >/dev/null 2>&1; then
   log "newest raft snapshot inspects cleanly — OK"
 else
   err "newest raft snapshot failed inspection (or none exists)"

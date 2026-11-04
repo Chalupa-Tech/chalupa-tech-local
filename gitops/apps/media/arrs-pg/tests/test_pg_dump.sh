@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2012  # test fixtures have fixed, safe filenames
-# Unit tests for files/pg-dump.sh with a stubbed pg_dumpall and real zstd.
+# Unit tests for files/pg-dump.sh with a stubbed pg_dumpall and real gzip
+# (the CNPG image has gzip but no zstd — verified live 2026-11-04).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 script="$here/../files/pg-dump.sh"
@@ -22,13 +23,13 @@ run() { set +e; bash "$script" >"$tmp/out" 2>&1; rc=$?; set -e; return $rc; }
 
 writes_and_prunes() {
   reset
-  for i in $(seq 1 16); do echo x | zstd -q > "$OUT_DIR/arrs-pg-2026010${i}-0000.sql.zst"; done
+  for i in $(seq 1 16); do echo x | gzip > "$OUT_DIR/arrs-pg-2026010${i}-0000.sql.gz"; done
   rc=0; run || rc=$?; [ $rc = 0 ] || fail "writes_and_prunes: rc $rc: $(cat "$tmp/out")"
-  n=$(ls "$OUT_DIR"/arrs-pg-*.sql.zst | wc -l | tr -d ' ')
+  n=$(ls "$OUT_DIR"/arrs-pg-*.sql.gz | wc -l | tr -d ' ')
   [ "$n" = 14 ] || fail "writes_and_prunes: expected 14 files, got $n"
-  newest=$(ls -t "$OUT_DIR"/arrs-pg-*.sql.zst | head -1)
-  zstd -dc "$newest" | grep -q 'CREATE DATABASE radarr_main' || fail "writes_and_prunes: newest file is not the dump"
-  grep -q 'zstd -t' "$tmp/out" || grep -q 'verified' "$tmp/out" || fail "writes_and_prunes: no verification logged"
+  newest=$(ls -t "$OUT_DIR"/arrs-pg-*.sql.gz | head -1)
+  gzip -dc "$newest" | grep -q 'CREATE DATABASE radarr_main' || fail "writes_and_prunes: newest file is not the dump"
+  grep -q 'verified' "$tmp/out" || fail "writes_and_prunes: no verification logged"
 }
 fails_when_dump_fails() {
   reset; export STUB_FAIL=1
@@ -46,8 +47,14 @@ uses_host_and_user_env() {
   rc=0; run || rc=$?
   grep -qE '^pg_dumpall .*(-h arrs-pg-rw|--host[= ]arrs-pg-rw)' "$STUB_LOG" || fail "uses_host_and_user_env: host not passed: $(cat "$STUB_LOG")"
 }
+omits_role_passwords() {
+  # pg_dumpall would otherwise emit ALTER ROLE postgres PASSWORD '<live hash>',
+  # which resets the superuser password of whatever cluster the dump is loaded into.
+  reset; rc=0; run || rc=$?
+  grep -q -- '--no-role-passwords' "$STUB_LOG" || fail "omits_role_passwords: flag missing: $(cat "$STUB_LOG")"
+}
 
-for t in writes_and_prunes fails_when_dump_fails no_password_in_logs uses_host_and_user_env; do
+for t in writes_and_prunes fails_when_dump_fails no_password_in_logs uses_host_and_user_env omits_role_passwords; do
   "$t"; echo "ok $t"
 done
 echo PASS

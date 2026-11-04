@@ -104,11 +104,15 @@ OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json)
 OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/kv-put.sh backups/restic password="$(openssl rand -hex 32)"
 #    -> copy the value into 1Password ("homelab-restic-password"): without it the repositories are unreadable.
 OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/apply-policy.sh backups-read
+#    Append to the role's LIVE policy list (never replace it — other policies
+#    may have been bound outside this repo):
+live=$(kubectl -n openbao exec openbao-0 -- env BAO_TOKEN="$OPENBAO_TOKEN" \
+  bao read -field=token_policies -format=json auth/kubernetes/role/external-secrets | jq -r 'join(",")')
 kubectl -n openbao exec openbao-0 -- env BAO_TOKEN="$OPENBAO_TOKEN" \
   bao write auth/kubernetes/role/external-secrets \
     bound_service_account_names=external-secrets \
     bound_service_account_namespaces=external-secrets \
-    token_policies="cloudflare-read,media-read,observability-read,renovate-read,backups-read"
+    token_policies="${live},backups-read"
 
 # 2. raft snapshots (CronJob openbao-snapshot, SA openbao-snapshot)
 OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/apply-policy.sh snapshot

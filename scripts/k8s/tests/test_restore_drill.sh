@@ -81,7 +81,29 @@ cleans_up_on_failure() {
   grep -q 'delete replicationdestination' "$CALL_LOG" || fail "cleans_up_on_failure: RD left behind"
 }
 
-for t in passes_when_all_green only_drill_names_touched fails_when_restore_not_successful fails_when_raft_db_missing fails_when_db_count_wrong fails_when_snapshot_inspect_fails cleans_up_on_failure; do
+override_container_named_after_pod() {
+  # kubectl run --overrides strategic-merges containers by name: a different
+  # name appends a second container and the attach goes to the default one.
+  reset; run || true
+  for pod in raft-ls-drill pg-restore-drill snapshot-inspect-drill; do
+    line=$(grep "run $pod" "$CALL_LOG" || true)
+    [ -n "$line" ] || fail "override_container_named_after_pod: no run for $pod"
+    grep -q "\"name\":\"$pod\"" <<<"$line" || fail "override_container_named_after_pod: $pod override container not named $pod"
+  done
+}
+cleanup_waits_before_reuse() {
+  reset; run || true
+  first_delete=$(grep -n 'delete replicationdestination data-openbao-0-drill' "$CALL_LOG" | head -1 | cut -d: -f2-)
+  grep -q -- '--wait=true' <<<"$first_delete" || fail "cleanup_waits_before_reuse: pre-apply cleanup must wait: $first_delete"
+}
+failed_restore_exits_early() {
+  reset; export STUB_RD_RESULT=Failed DRILL_WAIT_ATTEMPTS=50
+  rc=0; run || rc=$?; [ $rc = 1 ] || fail "failed_restore_exits_early: rc $rc"
+  [ "$(grep -c 'latestMoverStatus.result' "$CALL_LOG")" -le 2 ] || fail "failed_restore_exits_early: kept polling a Failed restore ($(grep -c 'latestMoverStatus.result' "$CALL_LOG") polls)"
+  unset DRILL_WAIT_ATTEMPTS; export DRILL_WAIT_ATTEMPTS=3
+}
+
+for t in override_container_named_after_pod cleanup_waits_before_reuse failed_restore_exits_early passes_when_all_green only_drill_names_touched fails_when_restore_not_successful fails_when_raft_db_missing fails_when_db_count_wrong fails_when_snapshot_inspect_fails cleans_up_on_failure; do
   "$t"; echo "ok $t"
 done
 echo PASS

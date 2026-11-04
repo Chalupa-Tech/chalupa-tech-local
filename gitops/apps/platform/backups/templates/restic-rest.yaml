@@ -34,7 +34,6 @@ spec:
             - --path=/data
             - --listen=:8000
             - --no-auth
-            - --append-only
             - --prometheus
             - --prometheus-no-auth
           ports:
