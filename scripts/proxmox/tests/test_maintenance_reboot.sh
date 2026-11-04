@@ -14,6 +14,14 @@ export MW_REBOOT_DELAY=0
 
 # shellcheck disable=SC2016  # stub body is meant to be literal
 for c in apt-get systemctl; do printf '#!/usr/bin/env bash\nprintf "%s %%s\\n" "$*" >> "$MW_LOG"\n' "$c" > "$tmp/bin/$c"; done
+# systemd-run stub: log, then execute the wrapped command (after the first `--` or
+# the first non-option word) so apt-get calls still land in the log.
+cat > "$tmp/bin/systemd-run" <<'STUB'
+#!/usr/bin/env bash
+printf 'systemd-run %s\n' "$*" >> "$MW_LOG"
+while [ $# -gt 0 ]; do case "$1" in --) shift; break ;; -*) shift ;; *) break ;; esac; done
+exec "$@"
+STUB
 cat > "$tmp/bin/uname" <<'STUB'
 #!/usr/bin/env bash
 echo "${MW_STUB_RUNNING:-7.0.14-17-pve}"
@@ -66,6 +74,8 @@ kernel_mismatch_triggers() {
   reset; fresh_prom; export MW_STUB_RUNNING=7.0.2-4-pve
   rc=0; run || rc=$?; [ $rc = 0 ] || fail "kernel_mismatch_triggers: rc $rc: $(cat "$tmp/out")"
   grep -q '^apt-get .*full-upgrade' "$MW_LOG" || fail "kernel_mismatch_triggers: no full-upgrade: $(cat "$MW_LOG")"
+  grep -q '^systemd-run .*--wait.*apt-get' "$MW_LOG" || fail "kernel_mismatch_triggers: apt not detached via systemd-run --wait: $(cat "$MW_LOG")"
+  ! grep -q 'autoremove' "$MW_LOG" || fail "kernel_mismatch_triggers: autoremove must not run on the hypervisor"
   grep -q '^systemctl reboot' "$MW_LOG" || fail "kernel_mismatch_triggers: no reboot"
   [ "$(grep -n -E '^(apt-get .*full-upgrade|systemctl reboot)' "$MW_LOG" | cut -d: -f2 | head -1 | cut -d' ' -f1)" = apt-get ] || fail "kernel_mismatch_triggers: reboot before upgrade"
 }

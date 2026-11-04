@@ -43,7 +43,13 @@ case "$args" in
     h=Healthy; [ "${HC_STUB_APP_DEGRADED:-0}" = 1 ] && h=Degraded
     printf '{"items":[{"metadata":{"name":"argocd"},"status":{"health":{"status":"Healthy"}}},{"metadata":{"name":"openbao"},"status":{"health":{"status":"%s"}}}]}\n' "$h" ;;
   *"exec openbao-2"*"bao status"*)
-    s=false; [ "${HC_STUB_SEALED:-0}" = 1 ] && s=true; printf '{"sealed":%s}\n' "$s" ;;
+    s=false; [ "${HC_STUB_SEALED:-0}" = 1 ] && s=true
+    # HC_STUB_SEALED_UNTIL=<n>: report sealed for the first n status calls, then unsealed
+    if [ -n "${HC_STUB_SEALED_UNTIL:-}" ]; then
+      c=$(cat "$HC_LOG.count" 2>/dev/null || echo 0); c=$((c + 1)); echo $c > "$HC_LOG.count"
+      [ "$c" -le "$HC_STUB_SEALED_UNTIL" ] && s=true || s=false
+    fi
+    printf '{"sealed":%s}\n' "$s" ;;
   *"bao status"*) printf '{"sealed":false}\n' ;;
   *"get externalsecret"*)
     printf '{"items":[{"metadata":{"namespace":"media","name":"x"},"status":{"conditions":[{"type":"Ready","status":"True"}]}}]}\n' ;;
@@ -62,7 +68,7 @@ export PATH="$tmp/bin:$PATH"
 export KUBECONFIG="$tmp/kubeconfig"; : > "$KUBECONFIG"
 
 fail() { echo "FAIL: $1"; exit 1; }
-reset() { : > "$HC_LOG"; unset HC_STUB_SEALED HC_STUB_NODE_NOTREADY HC_STUB_APP_DEGRADED HC_STUB_GUEST_STOPPED HC_STUB_HTTP_DOWN; }
+reset() { : > "$HC_LOG"; rm -f "$HC_LOG.count"; unset HC_STUB_SEALED_UNTIL HC_STUB_SEALED HC_STUB_NODE_NOTREADY HC_STUB_APP_DEGRADED HC_STUB_GUEST_STOPPED HC_STUB_HTTP_DOWN; }
 names="pve-ssh guests-running talos-nodes-ready argocd-healthy openbao-unsealed externalsecrets-ready plex-identity ha-http truenas-nfs"
 
 all_green_exits_zero() {
@@ -96,7 +102,21 @@ reports_every_check_even_after_failure() {
   grep -q '^FAIL plex-identity' <<<"$out" || fail "reports_every_check_even_after_failure: plex should FAIL"
 }
 
-for t in all_green_exits_zero fails_on_sealed_openbao fails_on_node_not_ready fails_on_degraded_app fails_on_stopped_guest reports_every_check_even_after_failure; do
+retries_until_green() {
+  reset; export HC_STUB_SEALED_UNTIL=2 HC_ATTEMPTS=3 HC_SLEEP=0
+  out=$(bash "$script") || fail "retries_until_green: exit $?: $out"
+  grep -q '^ok openbao-unsealed' <<<"$out" || fail "retries_until_green: never went green: $out"
+  grep -qi 'attempt 3' <<<"$out" || fail "retries_until_green: should report the attempt: $out"
+  unset HC_ATTEMPTS HC_SLEEP
+}
+gives_up_after_attempts() {
+  reset; export HC_STUB_SEALED_UNTIL=99 HC_ATTEMPTS=2 HC_SLEEP=0
+  if bash "$script" >/dev/null; then fail "gives_up_after_attempts: exited 0"; fi
+  [ "$(cat "$HC_LOG.count")" = 2 ] || fail "gives_up_after_attempts: status calls $(cat "$HC_LOG.count")"
+  unset HC_ATTEMPTS HC_SLEEP
+}
+
+for t in retries_until_green gives_up_after_attempts all_green_exits_zero fails_on_sealed_openbao fails_on_node_not_ready fails_on_degraded_app fails_on_stopped_guest reports_every_check_even_after_failure; do
   "$t"; echo "ok $t"
 done
 echo PASS
