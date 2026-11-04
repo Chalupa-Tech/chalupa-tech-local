@@ -34,9 +34,9 @@ This repository manages the infrastructure and configuration for a local Proxmox
    - **Storage:** Mounts the "Plex" share from the TrueNAS VM.
    - **Managed by:** Ansible (`ansible/`)
 
-4. **Tailscale LXC (Manual Setup)**
-   - **Purpose:** Provides secure remote access to the local network.
-   - **Note:** This container and Tailscale were both installed manually and are not currently managed by Pulumi.
+4. **Tailscale LXC (VMID 100)**
+   - **Purpose:** Subnet router (advertises `192.168.1.0/24`) — the CI runners' only path into the LAN.
+   - **Note:** The container itself was created by hand (community script, `protection: 1`) and is not managed by Pulumi. Its in-container patch policy (unattended-upgrades, 04:45 reboot, Tailscale self-update) is managed by Ansible over `pct exec` (`playbooks/vm-configure.yml`, host `tailscale`).
 
 ## Repository Structure
 
@@ -55,6 +55,15 @@ Deployment and provisioning are handled entirely through Pull Requests and GitHu
 - **Ansible**: Runs linting and `ansible-playbook --check --diff` on PRs (posting results as a comment) and applies configuration on merge to `main`.
 
 ## Operational notes
+
+### Patching
+
+Every host/VM/LXC applies security updates daily with unattended-upgrades;
+the LXCs and the Oracle VM reboot themselves when required (04:30 / 04:45 /
+10:15 UTC); `pve1` only reboots in the Sunday maintenance window, which is
+gated on fresh backups (`gh workflow run maintenance-window.yml`; health check
+alone: `gh workflow run health-check.yml`). Details:
+`docs/2026-11-04-os-auto-patching.md`.
 
 ### Backups
 

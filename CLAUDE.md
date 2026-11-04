@@ -48,10 +48,12 @@ Tailscale (host `oracle-server`, SSH never exposed publicly; only UDP
 2456-2457 open). CI: `.github/workflows/oracle.yml` (PR plan/lint) and
 `oracle-deploy.yml` (apply on merge, or ad-hoc via `workflow_dispatch` with a
 `scope` input: `ansible` (default) / `terraform-and-ansible` / `terraform`).
-The Valheim server build is **not pinned** — any Ansible run pulls the current
-Steam build — so a game patch needs a dispatch, not a PR:
-`gh workflow run oracle-deploy.yml`. See `oracle-cloud-server/README.md`
-for bootstrap + operations.
+The Valheim server build is **not pinned**: `valheim-update.timer` pulls the
+current Steam build daily at 10:00 UTC (previous build kept in
+`/opt/valheim/server.prev`; `sudo /opt/valheim/valheim-rollback.sh` reverts),
+and any Ansible run does the same (`gh workflow run oracle-deploy.yml` for an
+immediate update). See `oracle-cloud-server/README.md` for bootstrap +
+operations.
 
 ## Network
 
@@ -106,6 +108,14 @@ and Pyscript notes when working on the climate-balance automation.
 ```bash
 cd ansible && ansible-lint           # Lint
 ansible-playbook -i inventory.yml site.yml --check --diff   # Dry-run host prep
+ansible-playbook -i inventory-vms.yml playbooks/vm-configure.yml --check --diff --limit tailscale  # LXC 100 via pct
+```
+
+### Maintenance (GitHub Actions)
+```bash
+gh workflow run maintenance-window.yml   # upgrade + reboot pve1 if pending (backup-gated); -f force=true to reboot anyway
+gh workflow run health-check.yml         # estate health: pve1, guests, Talos, ArgoCD, OpenBao, ESO, Plex, HA, NFS
+gh workflow run restore-drill.yml        # prove backups restore (scratch VMIDs 9250/9200)
 ```
 
 ### Oracle Cloud Server (from `oracle-cloud-server/`)
