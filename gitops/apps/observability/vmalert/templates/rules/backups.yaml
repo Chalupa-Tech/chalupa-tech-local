@@ -1,0 +1,58 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: backups
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: backups
+      rules:
+        # pve_backup_* come from the vzdump hook installed by proxmox_prep
+        # (ansible/roles/proxmox_prep/files/vzdump-metrics-hook.sh) via the
+        # node-exporter textfile collector on pve1, scraped as job proxmox-host.
+        - alert: ProxmoxBackupStale
+          expr: 'time() - max by (vmid) (pve_backup_last_success_timestamp{job="proxmox-host"}) > 36 * 3600'
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Proxmox backup of VMID {{ "{{ $labels.vmid }}" }} is stale'
+            description: 'No successful vzdump of VMID {{ "{{ $labels.vmid }}" }} for more than 36h — the nightly job did not run or did not finish.'
+        - alert: ProxmoxBackupFailed
+          expr: 'pve_backup_last_failure_timestamp{job="proxmox-host"} > ignoring(storage) pve_backup_last_success_timestamp{job="proxmox-host"}'
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Proxmox backup of VMID {{ "{{ $labels.vmid }}" }} failed'
+            description: 'The most recent vzdump of VMID {{ "{{ $labels.vmid }}" }} aborted and no success has been recorded since. Check the task log on pve1 (Datacenter -> Backup).'
+        # Fires until the very first successful run after PR 1 lands — that is
+        # the point: zero backups must never again be silent.
+        - alert: ProxmoxBackupMetricsAbsent
+          expr: 'absent(pve_backup_last_success_timestamp{job="proxmox-host"})'
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: No Proxmox backup success has ever been recorded
+            description: pve_backup_last_success_timestamp is absent — either no vzdump has succeeded since the hook was installed, or the hook/textfile collector is broken.
+        - alert: ProxmoxRestoreDrillStale
+          expr: 'time() - pve_restore_drill_last_success_timestamp{job="proxmox-host"} > 40 * 86400 or absent(pve_restore_drill_last_success_timestamp{job="proxmox-host"})'
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Proxmox restore drill has not passed in 40 days
+            description: The monthly restore-drill workflow (.github/workflows/restore-drill.yml) has not recorded a success — backups are unverified. Run it by hand with `gh workflow run restore-drill.yml`.
+        # node_reboot_required comes from the apt textfile collector already
+        # present on pve1 (prometheus-node-exporter-apt.timer).
+        - alert: ProxmoxRebootRequired
+          expr: 'node_reboot_required{job="proxmox-host"} > 0'
+          for: 14d
+          labels:
+            severity: warning
+          annotations:
+            summary: Proxmox host has needed a reboot for 14 days
+            description: pve1 has a pending kernel or core library update that only takes effect after a reboot. Use the maintenance-window workflow.
