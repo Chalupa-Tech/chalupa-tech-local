@@ -4,14 +4,12 @@ kind: ServiceAccount
 metadata:
   name: openbao-snapshot
   namespace: openbao
-  annotations:
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: openbao-snapshot
   namespace: openbao
-  annotations:
 data:
   raft-snapshot.sh: |
 {{ .Files.Get "files/raft-snapshot.sh" | indent 4 }}
@@ -23,7 +21,6 @@ metadata:
   namespace: openbao
   labels:
     app.kubernetes.io/part-of: backups
-  annotations:
 spec:
   schedule: {{ .Values.snapshot.schedule | quote }}
   concurrencyPolicy: Forbid
