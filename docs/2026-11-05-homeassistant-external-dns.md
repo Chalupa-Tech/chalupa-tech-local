@@ -1,6 +1,6 @@
 # 2026-11-05 — Home Assistant missing from public DNS
 
-PR: _TBD_
+PR: https://github.com/Chalupa-Tech/chalupa-tech-local/pull/443
 
 ## Symptom
 
