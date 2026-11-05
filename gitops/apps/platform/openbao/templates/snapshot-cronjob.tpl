@@ -5,7 +5,6 @@ metadata:
   name: openbao-snapshot
   namespace: openbao
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -13,7 +12,6 @@ metadata:
   name: openbao-snapshot
   namespace: openbao
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
 data:
   raft-snapshot.sh: |
 {{ .Files.Get "files/raft-snapshot.sh" | indent 4 }}
@@ -26,7 +24,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: backups
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
 spec:
   schedule: {{ .Values.snapshot.schedule | quote }}
   concurrencyPolicy: Forbid
