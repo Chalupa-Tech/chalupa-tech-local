@@ -20,6 +20,7 @@ must live in `/config/pyscript/modules/`. Our pure-logic modules go there.
 | `pyscript/modules/fan_speed.py` | Headroom → fan speed mapping | yes → `/config/pyscript/modules/` |
 | `pyscript/climate_balance.py` | Pyscript entry (state triggers; Phase 2+ adds engine + actuators) | yes → `/config/pyscript/` |
 | `packages/climate_balance.yaml` | HA helpers (input_boolean / input_number / input_datetime) | yes → `/config/packages/` |
+| `packages/auto_update.yaml` | nightly Core/OS/add-on auto-update automation (`docs/2026-11-04-homeassistant-auto-update.md`) | yes → `/config/packages/` |
 | `tests/` | pytest unit tests for pure logic modules | **no** — never copy to HAOS |
 | `pyproject.toml` | pytest config | **no** |
 
