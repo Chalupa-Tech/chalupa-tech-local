@@ -54,7 +54,10 @@ weekday-morning schedule.
    between `github.event.before` and the merge commit and runs
    `scripts/talos/rolling-upgrade.sh`: pre-flight (nodes Ready, etcd,
    **every OpenBao replica unsealed** — a sealed one makes the PDB block the
-   drain; with `OPENBAO_UNSEAL_KEYS` it unseals, otherwise it refuses),
+   drain; a replica restarted by the previous node's drain auto-unseals via
+   OCI KMS within a 2-minute wait (`docs/2026-11-05-openbao-auto-unseal.md`);
+   on a pre-migration cluster `OPENBAO_UNSEAL_KEYS` unseals it; otherwise
+   the run refuses/stops cleanly),
    etcd snapshot, then `talosctl upgrade --preserve --wait` per node:
    .225 → .228 → .229 (control planes) → .226 → .227 → .232 (workers). Each
    node must come back at the target version, Ready, with etcd healthy,
@@ -81,8 +84,10 @@ same one the ISO uses.
    `curl -su x-access-token:$TOKEN "https://ghcr.io/token?scope=repository:renovatebot/renovate:pull"`
    must return a `token`. If it does not, swap the hostRule password for a
    read-only `read:packages` PAT stored in OpenBao next to the App key.
-2. Unseal `openbao-2` (sealed since September) before approving the Talos
-   1.14.5 dashboard item, or provide `OPENBAO_UNSEAL_KEYS` (PR 3).
+2. Run the seal-migration runbook (`docs/runbooks/openbao-seal-migration.md`,
+   whose first step restarts and unseals `openbao-2`, sealed since
+   September) before approving the Talos 1.14.5 dashboard item — or, as a
+   stop-gap, unseal it by hand / provide `OPENBAO_UNSEAL_KEYS` (PR 3).
 3. After merge, the first Renovate run migrates its config to 44.x — read
    that run's log once for migration warnings.
 4. The pending dashboard items this policy now auto-handles: Talos 1.14.5

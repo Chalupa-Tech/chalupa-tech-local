@@ -190,6 +190,19 @@
       ],
       "datasourceTemplate": "docker",
       "depNameTemplate": "{{registry}}/{{repo}}"
+    },
+    {
+      "customType": "regex",
+      "description": "OpenBao OCI KMS seal plugin (openbao-plugins release kms-oci-vX.Y.Z) pinned in the openbao chart values; the sha256 line below it must be updated by hand",
+      "managerFilePatterns": [
+        "/gitops/apps/platform/openbao/values\\.yaml$/"
+      ],
+      "matchStrings": [
+        "version:\\s*\"(?<currentValue>[0-9.]+)\"\\s*\\n\\s*sha256:\\s*\"[0-9a-f]{64}\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "openbao/openbao-plugins",
+      "extractVersionTemplate": "^kms-oci-v(?<version>.+)$"
     }
   ],
   "packageRules": [
@@ -430,6 +443,19 @@
       ],
       "automerge": true,
       "platformAutomerge": true
+    },
+    {
+      "description": "OpenBao OCI KMS seal plugin: never auto-merge (sha256 pin + go-kms-wrapping#163 flag inversion need a human)",
+      "matchDepNames": [
+        "openbao/openbao-plugins"
+      ],
+      "automerge": false,
+      "labels": [
+        "openbao-plugin"
+      ],
+      "prBodyNotes": [
+        "Before merging: (1) set `global.ociKms.plugin.sha256` to the `openbao-plugin-kms-oci_linux_amd64_v1.tar.gz` line of `checksums-kms-oci.txt` from the release; (2) check whether openbao/go-kms-wrapping#163 is fixed \u2014 if the plugin now pins a wrapper >= v2.4 with the fix, keep `auth_type_api_key = \"true\"`; if it pins the inverted wrapper, do not merge; (3) roll one pod (`kubectl -n openbao delete pod openbao-2`) and confirm it auto-unseals before the others."
+      ]
     }
   ],
   "osvVulnerabilityAlerts": true,

@@ -28,6 +28,15 @@ After init, configure auth methods, KV engine, policies, and roles. This is docu
 
 ### Phase 3: Routine — Unseal after every cluster reboot
 
+Since the OCI KMS migration (`docs/runbooks/openbao-seal-migration.md`)
+replicas unseal themselves; the five Shamir shares are **recovery keys** and
+`unseal.sh` is only used for a migration back to Shamir. If a replica stays
+sealed (alert `OpenBaoSealed`), auto-unseal failed — check
+`kubectl -n openbao logs <pod> -c kms-init` and the server log for OCI
+errors rather than unsealing by hand.
+
+Before the migration (Shamir):
+
 ```bash
 ./scripts/openbao/unseal.sh --keys-file ~/secure/openbao-init.json
 ```
@@ -122,3 +131,13 @@ kubectl -n openbao exec openbao-0 -- env BAO_TOKEN="$OPENBAO_TOKEN" \
     bound_service_account_namespaces=openbao \
     token_policies=snapshot ttl=15m
 ```
+
+### Phase 7: Seal (OCI KMS auto-unseal)
+
+- Runbook: `docs/runbooks/openbao-seal-migration.md` (migration, verification, rollback).
+- Bootstrap secret `openbao-oci-kms` (namespace `openbao`): `config`, `key.pem`,
+  `key_id`, `crypto_endpoint`, `management_endpoint`. Rotate the API key by
+  generating a new pair, committing the new `.pub`, updating the secret and
+  rolling the pods one at a time (standbys first).
+- Plugin pin: `global.ociKms.plugin.{version,sha256}` in the chart values;
+  Renovate PRs for it are never auto-merged.
