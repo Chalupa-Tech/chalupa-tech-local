@@ -1,0 +1,47 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: cluster-backups
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: cluster-backups
+      rules:
+        # arrs-pg dumps run nightly, OpenBao snapshots hourly: 2 days without a
+        # success — or never having run at all — is a problem either way.
+        - alert: BackupCronJobStale
+          expr: '(time() - kube_cronjob_status_last_successful_time{cronjob=~"arrs-pg-dump|openbao-snapshot"}) > 2 * 86400'
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Backup CronJob {{ "{{ $labels.namespace }}" }}/{{ "{{ $labels.cronjob }}" }} has not succeeded in 2 days'
+            description: 'Check `kubectl -n {{ "{{ $labels.namespace }}" }} get jobs` and the last job log.'
+        - alert: BackupCronJobNeverSucceeded
+          expr: 'absent(kube_cronjob_status_last_successful_time{cronjob="arrs-pg-dump"}) or absent(kube_cronjob_status_last_successful_time{cronjob="openbao-snapshot"})'
+          for: 3h
+          labels:
+            severity: warning
+          annotations:
+            summary: A backup CronJob has never recorded a success
+            description: 'arrs-pg-dump or openbao-snapshot has no last-successful-time series — the job never ran or always fails (or kube-state-metrics is down).'
+        # VolSync: a ReplicationSource whose last sync is older than its schedule
+        # allows. Covers every local-path PVC backup (platform/pvc-backups).
+        - alert: VolSyncOutOfSync
+          expr: 'volsync_volume_out_of_sync == 1'
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: 'VolSync source {{ "{{ $labels.obj_namespace }}" }}/{{ "{{ $labels.obj_name }}" }} is out of sync'
+            description: 'The last restic backup of this PVC missed its schedule — check `kubectl -n {{ "{{ $labels.obj_namespace }}" }} describe replicationsource {{ "{{ $labels.obj_name }}" }}` and the mover pod log.'
+        - alert: VolSyncMetricsAbsent
+          expr: 'absent(volsync_volume_out_of_sync)'
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: VolSync metrics are missing
+            description: No volsync_volume_out_of_sync series — the operator is down or its scrape (backups/volsync VMServiceScrape) is broken; PVC backups are unmonitored.

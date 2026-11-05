@@ -7,4 +7,7 @@ metadata:
     pod-security.kubernetes.io/audit: baseline
     pod-security.kubernetes.io/warn: baseline
   annotations:
+    # VolSync may run the vmsingle backup mover as root (platform/pvc-backups):
+    # VictoriaMetrics writes its data files as uid 0.
+    volsync.backube/privileged-movers: "true"
     argocd.argoproj.io/sync-wave: "-1"

@@ -1,0 +1,17 @@
+# ESO controller metrics (externalsecret_status_condition etc.) for the
+# ExternalSecretNotReady rule in the vmalert app.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: external-secrets
+  namespace: external-secrets
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: external-secrets
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

@@ -78,6 +78,12 @@ Freshness/failure alerts come from the vzdump hook metrics (VMRule
 touches scratch VMIDs 9250/9200). Details:
 `docs/2026-11-04-fix-proxmox-backups.md`.
 
+Cluster data (every local-path PVC via VolSync/restic, arrs-pg dumps,
+OpenBao raft snapshots) goes to the TrueNAS export `/mnt/AppData/Backups/k8s`;
+etcd snapshots go weekly to pve1's NVMe. The same drill restores a PVC, a
+Postgres dump and a raft snapshot into throwaway `*-drill` resources.
+Details: `docs/2026-11-04-cluster-backups.md`.
+
 ### Adding a new VM: DHCP reservation is required
 
 The Unifi gateway only issues a LAN IP to a MAC address that has a DHCP reservation. When `pulumi up` creates a new VM, Proxmox assigns it a freshly generated MAC, so DHCP fails and Talos boots without a LAN IP. The Pulumi run then errors with `no valid IP found for <node> via qemu-guest-agent` because `Ipv4Addresses` from the guest agent contains only loopback.

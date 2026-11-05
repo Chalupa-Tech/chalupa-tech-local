@@ -91,3 +91,34 @@ kubectl -n openbao exec openbao-0 \
 - `unseal.sh` accepts keys via env vars or a `--keys-file` JSON path. The JSON file should live somewhere encrypted at rest (e.g., `~/secure/`) and should not be committed.
 - `kv-put.sh` requires `OPENBAO_TOKEN`; do not export this variable in your shell history. Set it inline (`OPENBAO_TOKEN=$(...) ./scripts/openbao/kv-put.sh ...`) or in a single-shot subshell.
 - `apply-policy.sh` pipes the .hcl via stdin (file contents never appear in argv) and passes the token via `env` (see `kv-put.sh` for the same pattern + rationale).
+
+### Phase 6: Backups (PR 2 — cluster backups)
+
+The backup stack needs two policies and one extra Kubernetes auth role:
+
+```bash
+export KUBECONFIG=~/.kube/chalupa-cluster.yaml
+OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json)
+
+# 1. restic repository password, read by ESO for every VolSync source
+OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/kv-put.sh backups/restic password="$(openssl rand -hex 32)"
+#    -> copy the value into 1Password ("homelab-restic-password"): without it the repositories are unreadable.
+OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/apply-policy.sh backups-read
+#    Append to the role's LIVE policy list (never replace it — other policies
+#    may have been bound outside this repo):
+live=$(kubectl -n openbao exec openbao-0 -- env BAO_TOKEN="$OPENBAO_TOKEN" \
+  bao read -field=token_policies -format=json auth/kubernetes/role/external-secrets | jq -r 'join(",")')
+kubectl -n openbao exec openbao-0 -- env BAO_TOKEN="$OPENBAO_TOKEN" \
+  bao write auth/kubernetes/role/external-secrets \
+    bound_service_account_names=external-secrets \
+    bound_service_account_namespaces=external-secrets \
+    token_policies="${live},backups-read"
+
+# 2. raft snapshots (CronJob openbao-snapshot, SA openbao-snapshot)
+OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/apply-policy.sh snapshot
+kubectl -n openbao exec openbao-0 -- env BAO_TOKEN="$OPENBAO_TOKEN" \
+  bao write auth/kubernetes/role/openbao-snapshot \
+    bound_service_account_names=openbao-snapshot \
+    bound_service_account_namespaces=openbao \
+    token_policies=snapshot ttl=15m
+```

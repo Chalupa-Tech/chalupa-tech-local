@@ -40,6 +40,11 @@ spec:
           - CreateNamespace=true
           - ServerSideApply=true
           - SkipDryRunOnMissingResource=true
+        # VolSync may run the readmebook backup movers as root (the app writes
+        # root-owned 0600 files); see gitops/apps/platform/pvc-backups/values.yaml.
+        managedNamespaceMetadata:
+          annotations:
+            volsync.backube/privileged-movers: "true"
       # Silence false-positive drift from admission-controller field
       # defaulters. Same block as platform.yaml so the media tier's
       # forthcoming ExternalSecret resources do not show 'OutOfSync but

@@ -1,0 +1,65 @@
+name: etcd Snapshot
+
+# Weekly `talosctl etcd snapshot` of the Talos control plane, kept on pve1's
+# NVMe backup volume (/mnt/nvme-backups/talos, newest 8). The cluster is
+# recreatable from the pipeline and app data has its own backups (PR 2), so
+# this is belt-and-braces for a fast control-plane restore.
+# See docs/2026-11-04-cluster-backups.md.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # Mondays 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    name: Snapshot etcd to pve1
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PVE: 192.168.1.223
+      CP: 192.168.1.225
+      DEST: /mnt/nvme-backups/talos
+      KEEP: 8
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Connect to Proxmox
+        uses: ./.github/actions/connect-proxmox
+        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Install talosctl (version pinned in pulumi-talos/main.go)
+        run: |
+          ver=$(grep -E 'talosVersion\s*=\s*"' pulumi-talos/main.go | sed -E 's/.*"(v[0-9.]+)".*/\1/')
+          curl -fsSLo talosctl "https://github.com/siderolabs/talos/releases/download/${ver}/talosctl-linux-amd64"
+          chmod +x talosctl && sudo mv talosctl /usr/local/bin/
+          talosctl version --client
+
+      - name: Install Pulumi CLI
+        run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Get talosconfig from Pulumi
+        run: |
+          pulumi stack output talosconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/talosconfig
+          chmod 600 /tmp/talosconfig
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Take snapshot and copy to pve1
+        env:
+          TALOSCONFIG: /tmp/talosconfig
+        run: |
+          set -euo pipefail
+          talosctl -n "$CP" etcd snapshot /tmp/etcd.snap
+          [ -s /tmp/etcd.snap ] || { echo "empty snapshot"; exit 1; }
+          name="etcd-$(date -u +%Y%m%d-%H%M).snap"
+          ssh -o StrictHostKeyChecking=yes "root@$PVE" "mkdir -p $DEST"
+          scp -o StrictHostKeyChecking=yes /tmp/etcd.snap "root@$PVE:$DEST/$name"
+          # prune: newest KEEP only, inside DEST only
+          ssh -o StrictHostKeyChecking=yes "root@$PVE" "cd $DEST && ls -1 etcd-*.snap | sort -r | tail -n +$((KEEP + 1)) | xargs -r rm -f --; ls -la $DEST"

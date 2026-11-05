@@ -1,0 +1,19 @@
+apiVersion: v2
+name: pvc-backups
+description: |
+  One VolSync ReplicationSource (restic, copyMethod Direct) per local-path
+  PVC on the cluster, pushing to the restic REST server in platform/backups.
+  local-path volumes are node-local hostPath directories with no CSI
+  snapshots, so Direct is the only copy method; the mover pod lands on the
+  volume's node via the PV's node affinity and runs as the UID that owns
+  the files (values: sources[].runAsUser). Adding a PVC = one list entry.
+  The VolSync operator is a dependency of THIS chart (not platform/backups)
+  so its CRDs are applied in the same ArgoCD sync as the ReplicationSources;
+  sync-waves do not order across Applications.
+type: application
+version: 0.1.0
+appVersion: "0.17.0"
+dependencies:
+  - name: volsync
+    version: 0.17.0
+    repository: https://backube.github.io/helm-charts/

@@ -1,0 +1,85 @@
+# Upstream VolSync chart values (dependency name is the key).
+volsync:
+  manageCRDs: true
+  metrics:
+    disableAuth: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+restic:
+  # Service from platform/backups.
+  restUrl: rest:http://restic-rest.backups.svc.cluster.local:8000
+  # OpenBao path/property holding the shared repository password.
+  passwordKey: backups/restic
+  passwordProperty: password
+  pruneIntervalDays: 7
+  retain:
+    hourly: 24
+    daily: 14
+    weekly: 8
+  # Scratch space for restic's cache (default StorageClass = local-path).
+  cacheCapacity: 2Gi
+
+# UID/GID per source = what owns the files on the volume (verified live
+# 2026-11-04). A mover that cannot read the files fails loudly; one that runs
+# as root needs the namespace annotation volsync.backube/privileged-movers.
+sources:
+  - namespace: openbao
+    pvc: data-openbao-0
+    schedule: "0 * * * *"
+    runAsUser: 100
+    runAsGroup: 1000
+  - namespace: openbao
+    pvc: data-openbao-1
+    schedule: "0 * * * *"
+    runAsUser: 100
+    runAsGroup: 1000
+  - namespace: openbao
+    pvc: data-openbao-2
+    schedule: "0 * * * *"
+    runAsUser: 100
+    runAsGroup: 1000
+  - namespace: grafana
+    pvc: grafana
+    schedule: "15 * * * *"
+    runAsUser: 472
+    runAsGroup: 472
+  - namespace: media
+    pvc: audiobookshelf-config
+    schedule: "15 * * * *"
+    runAsUser: 1000
+    runAsGroup: 1000
+  - namespace: media
+    pvc: audiobookshelf-metadata
+    schedule: "15 * * * *"
+    runAsUser: 1000
+    runAsGroup: 1000
+  # readmebook runs as root and keeps /app/config/.secrets 0600 root-owned
+  # (verified live): its movers must be root (media carries the
+  # privileged-movers annotation via the media ApplicationSet).
+  - namespace: media
+    pvc: readmebook-config
+    schedule: "15 * * * *"
+    runAsUser: 0
+    runAsGroup: 0
+  - namespace: media
+    pvc: readmebook-cache
+    schedule: "15 * * * *"
+    runAsUser: 0
+    runAsGroup: 0
+  # vmsingle writes as root (image default); the vm-system namespace carries
+  # the privileged-movers annotation so this mover may run as uid 0.
+  - namespace: vm-system
+    pvc: vmsingle-vmsingle-chalupa
+    schedule: "30 2 * * *"
+    runAsUser: 0
+    runAsGroup: 0
+  - namespace: vl-system
+    pvc: server-volume-vl-system-victoria-logs-single-server-0
+    schedule: "30 2 * * *"
+    runAsUser: 1000
+    runAsGroup: 2000

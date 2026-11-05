@@ -44,11 +44,47 @@ jobs:
       - name: Run restore drill
         run: ssh -o StrictHostKeyChecking=yes root@192.168.1.223 'chmod 0755 /usr/local/bin/restore-drill.sh && /usr/local/bin/restore-drill.sh'
 
+  cluster-drill:
+    name: Restore cluster backups (VolSync, CNPG, raft snapshot)
+    runs-on: ubuntu-latest
+    needs: drill
+    if: always() && needs.drill.result != 'cancelled'
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Connect to Proxmox
+        uses: ./.github/actions/connect-proxmox
+        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+      - name: Install Pulumi CLI
+        run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Get kubeconfig from Pulumi
+        run: |
+          pulumi stack output kubeconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/kubeconfig
+          chmod 600 /tmp/kubeconfig
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Run cluster restore drill
+        run: bash scripts/k8s/restore-drill.sh
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+
   report:
     name: Open issue on failure
     runs-on: ubuntu-latest
-    needs: drill
-    if: failure()
+    needs: [drill, cluster-drill]
+    if: always() && (needs.drill.result != 'success' || needs.cluster-drill.result != 'success')
     permissions:
       issues: write
     steps:
@@ -58,7 +94,7 @@ jobs:
             const label = 'backup-drill-failed';
             const title = 'Restore drill failed';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `The monthly Proxmox restore drill failed: ${runUrl}\n\nBackups are unverified until this passes. Run \`gh workflow run restore-drill.yml\` after fixing.`;
+            const body = `The monthly restore drill (Proxmox guests and/or cluster backups) failed: ${runUrl}\n\nBackups are unverified until this passes. Run \`gh workflow run restore-drill.yml\` after fixing.`;
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: label,
             });

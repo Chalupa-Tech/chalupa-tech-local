@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: backups-k8s
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: backups
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  capacity:
+    storage: {{ .Values.backups.size }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    # Same rationale as media-plexmedia (gitops/apps/media/nzbget/templates/pv-plexmedia.yaml).
+    - nfsvers=4.2
+    - hard
+    - rsize=1048576
+    - wsize=1048576
+    - noatime
+    - nodiratime
+  nfs:
+    server: {{ .Values.backups.nfsServer }}
+    path: {{ .Values.backups.nfsPath }}
+  claimRef:
+    namespace: backups
+    name: backups

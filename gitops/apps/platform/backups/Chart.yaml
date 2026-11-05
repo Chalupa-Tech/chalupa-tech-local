@@ -1,0 +1,12 @@
+apiVersion: v2
+name: backups-wrapper
+description: |
+  Cluster data backups foundation: the shared NFS backup volume on TrueNAS
+  (Backups/k8s), a restic REST server that stores every PVC's restic
+  repository on it, and the restic repository password synced from
+  OpenBao. The VolSync operator lives in platform/pvc-backups together
+  with its CRs so ArgoCD applies the CRDs and the ReplicationSources in
+  one sync. See docs/2026-11-04-cluster-backups.md.
+type: application
+version: 0.1.0
+appVersion: "0.14.0"

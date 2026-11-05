@@ -7,3 +7,13 @@ cluster:
 
 serviceHostname: arrs-pg-rw.media.svc.cluster.local
 servicePort: 5432
+
+# Nightly logical dump (templates/dump-cronjob.tpl, files/pg-dump.sh) onto the
+# TrueNAS backups export (same path as platform/backups values: backups.nfsPath).
+dump:
+  schedule: "0 0 * * *"
+  timeZone: America/Denver
+  keep: 14
+  nfsServer: 10.10.10.40
+  nfsPath: /mnt/AppData/Backups/k8s
+  size: 2Ti

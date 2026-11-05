@@ -1,0 +1,46 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: cluster-health
+  namespace: vm-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  groups:
+    - name: cluster-health
+      rules:
+        # OpenBao reseals on every pod restart; while sealed, every
+        # ExternalSecret stops syncing (this went unnoticed for 74 days once —
+        # docs/2026-09-07-fix-renovate-never-ran.md). Readiness probe == seal state.
+        - alert: OpenBaoSealed
+          expr: 'kube_pod_container_status_ready{namespace="openbao",pod=~"openbao-[0-9]+",container="openbao"} == 0'
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'OpenBao replica {{ "{{ $labels.pod }}" }} is sealed or not ready'
+            description: 'Unseal it: scripts/openbao/unseal.sh --keys-file ~/secure/openbao-init.json (or let the maintenance window do it if OPENBAO_UNSEAL_KEYS is configured). A sealed replica also blocks node drains via the openbao PDB.'
+        - alert: ExternalSecretNotReady
+          expr: 'externalsecret_status_condition{condition="Ready",status="True"} == 0'
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'ExternalSecret {{ "{{ $labels.namespace }}" }}/{{ "{{ $labels.name }}" }} is not Ready'
+            description: 'ESO cannot sync this secret — usually OpenBao sealed, a missing policy, or a missing KV path.'
+        - alert: ExternalSecretMetricsAbsent
+          expr: 'absent(up{job=~".*external-secrets.*"})'
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: ESO metrics are missing
+            description: No scrape of the external-secrets controller — ExternalSecretNotReady cannot fire.
+        - alert: KubeNodeNotReady
+          expr: 'kube_node_status_condition{condition="Ready",status="true"} == 0'
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Node {{ "{{ $labels.node }}" }} is NotReady'
+            description: 'Talos node has been NotReady for 10+ minutes — check the VM on pve1 and `talosctl -n <ip> dmesg`.'

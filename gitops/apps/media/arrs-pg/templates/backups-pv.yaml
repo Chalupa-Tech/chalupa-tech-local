@@ -1,0 +1,31 @@
+# Second PV onto the same NFS export as platform/backups (NFS allows many
+# PVs per export; a PVC can only bind a PV in its own namespace).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: backups-k8s-media
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: backups
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  capacity:
+    storage: {{ .Values.dump.size }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - rsize=1048576
+    - wsize=1048576
+    - noatime
+    - nodiratime
+  nfs:
+    server: {{ .Values.dump.nfsServer }}
+    path: {{ .Values.dump.nfsPath }}
+  claimRef:
+    namespace: media
+    name: backups-k8s
