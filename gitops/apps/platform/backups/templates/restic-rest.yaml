@@ -30,6 +30,10 @@ spec:
       containers:
         - name: rest-server
           image: "{{ .Values.resticRest.image.repository }}:{{ .Values.resticRest.image.tag }}"
+          # The image has no ENTRYPOINT (its CMD is /entrypoint.sh, which
+          # expects env vars); without `command` the args replace CMD and the
+          # kubelet tries to exec "--path=/data".
+          command: ["/usr/bin/rest-server"]
           args:
             - --path=/data
             - --listen=:8000
