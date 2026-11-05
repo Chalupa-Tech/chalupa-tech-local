@@ -103,3 +103,5 @@ those names, also on failure.
 - readmebook's movers run as root (one 0600 root-owned file on its volume);
   the `media` ApplicationSet sets `volsync.backube/privileged-movers` on the
   namespace via `managedNamespaceMetadata`.
+
+**2026-11-05 fix:** VolSync 0.17 crash-looped after the merge (`no matches for kind VolumeSnapshot`): it watches the VolumeSnapshot kinds at startup even for `copyMethod: Direct`. The three `snapshot.storage.k8s.io` CRDs (external-snapshotter v8.7.0, CRDs only — no snapshot controller) are now vendored in `gitops/apps/platform/pvc-backups/crds/`.
