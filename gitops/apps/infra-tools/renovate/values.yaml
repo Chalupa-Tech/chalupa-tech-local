@@ -2,11 +2,19 @@
 # Secrets/runtime wiring live here; the actual update policy (managers,
 # packageRules) lives in the repo-root renovate.json that Renovate reads.
 renovate:
+  # Pinned AND tracked: this repository/tag pair matches Renovate's own
+  # docker regex manager, so minor/patch bumps auto-merge and a Renovate
+  # major needs dashboard approval (renovate.json). Chart bumps alone cannot
+  # change the running Renovate version — the chart's appVersion is not
+  # semver-aligned with its own version, so a chart patch could otherwise
+  # carry a Renovate major. (The old hand pin sat at 43.231.4 for months.)
+  # Key order matters for Renovate: `registry` between `repository` and `tag`
+  # keeps the generic repository/tag regex from matching this block; the
+  # dedicated "Renovate image" regex manager in renovate.json reads all three.
   image:
-    # Pinned so deploys are deterministic. Renovate keeps itself current by
-    # bumping the chart `version` in Chart.yaml (helmv3 manager), which pulls a
-    # newer appVersion/image with it.
-    tag: "43.231.4"
+    repository: renovatebot/renovate
+    registry: ghcr.io
+    tag: "44.214.0"
 
   cronjob:
     schedule: "0 6 * * *"
@@ -20,7 +28,7 @@ renovate:
     # /auth volume that config.js reads at startup.
     initContainers:
       - name: mint-github-token
-        image: node:22-alpine
+        image: node:22.23.4-alpine
         command: ["node", "/scripts/mint-token.js"]
         volumeMounts:
           - name: github-app
@@ -50,10 +58,19 @@ renovate:
     configIsJavaScript: true
     config: |
       const fs = require('fs');
+      const token = fs.readFileSync('/auth/token', 'utf8').trim();
       module.exports = {
         platform: 'github',
         endpoint: 'https://api.github.com/',
-        token: fs.readFileSync('/auth/token', 'utf8').trim(),
+        token,
+        // ghcr.io rate-limits anonymous tag listings (429s; lscr.io redirects
+        // there): authenticate ghcr.io lookups with the App installation token
+        // (App permission `packages: read`). Scoped to ghcr.io only — the token
+        // must not be sent to third-party hosts. Verify once before relying on
+        // it (docs/2026-11-04-platform-patch-flow.md, owner step 3).
+        hostRules: [
+          { matchHost: 'ghcr.io', hostType: 'docker', username: 'x-access-token', password: token },
+        ],
         autodiscover: false,
         repositories: ['Chalupa-Tech/chalupa-tech-local'],
         onboarding: false,
