@@ -37,10 +37,15 @@ resource "oci_kms_key" "openbao_unseal" {
 # hold (secret openbao-oci-kms). No console password, no auth tokens, no
 # customer secret keys: the key can only drive KMS encrypt/decrypt on the
 # one key the policy below names.
+# Identity-domain tenancies refuse a user without a primary email
+# ("IdcsConversionError: The primary email must be specified"); a plus-address
+# of the budget alert mailbox keeps any notice about this principal with the
+# owner without needing a second mailbox.
 resource "oci_identity_user" "openbao_unseal" {
   compartment_id = var.tenancy_ocid
   name           = "openbao-unseal"
   description    = "API-key principal used by the home OpenBao cluster to auto-unseal with the openbao-unseal key"
+  email          = replace(var.budget_alert_email, "@", "+openbao-unseal@")
 }
 
 resource "oci_identity_user_capabilities_management" "openbao_unseal" {
