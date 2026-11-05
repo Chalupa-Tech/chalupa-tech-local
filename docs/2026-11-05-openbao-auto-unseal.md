@@ -184,3 +184,5 @@ secret now opens the vault, where before it needed 3 Shamir shares.
 - Not possible here: a live apply/migration (needs OCI credentials and the
   Shamir shares). The plugin tarball sha256 was computed from the real
   release asset and matches `checksums-kms-oci.txt`.
+
+**2026-11-05 follow-up:** the OpenBao StatefulSet uses `updateStrategyType: OnDelete`, so after any chart change it reports *Progressing* until the pods are restarted by hand. The snapshot CronJob/SA/ConfigMap sat in later sync-waves, which made every ArgoCD sync wait on that health and never finish (and queue the next revision). The waves are removed; a sync now applies everything at once and completes, and the pod restart only decides when the new spec takes effect.
