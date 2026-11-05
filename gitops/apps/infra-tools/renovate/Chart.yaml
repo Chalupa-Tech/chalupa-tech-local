@@ -9,7 +9,7 @@ description: |
   Update policy lives in the repo-root renovate.json, not here.
 type: application
 version: 0.1.0
-appVersion: "43.231.4"
+appVersion: "44.214.0"
 dependencies:
   - name: renovate
     version: 46.409.0

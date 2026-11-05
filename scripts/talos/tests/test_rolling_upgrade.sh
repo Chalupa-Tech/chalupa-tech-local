@@ -22,10 +22,14 @@ case "$*" in
   *" version"*) printf 'Client:\n\tTag: v9.9.9\nServer:\n\tNODE: %s\n\tTag: %s\n' "$node" "$(cat "$STATE_DIR/$node")" ;;
   *" upgrade --image "*)
     img=$(sed -E 's/.*--image ([^ ]+).*/\1/' <<<"$*"); ver=${img##*:}
-    [ "${STUB_FAIL_NODE:-}" = "$node" ] || echo "$ver" > "$STATE_DIR/$node" ;;
+    [ "${STUB_CMD_FAIL:-}" = "$node" ] && { echo "rpc error: connection reset" >&2; exit 1; }
+    echo "$ver" > "$STATE_DIR/$node"
+    [ "${STUB_FAIL_NODE:-}" = "$node" ] && echo degraded > "$STATE_DIR/apps"
+    [ "${STUB_SEAL_AFTER:-}" = "$node" ] && echo openbao-0 > "$STATE_DIR/sealed"
+    exit 0 ;;
   *" rollback"*) echo "rolled-back" > "$STATE_DIR/$node" ;;
   *"etcd snapshot "*) f="${!#}"; echo snap > "$f" ;;
-  *"etcd status"*) printf 'NODE MEMBER DB_SIZE LEADER\n%s abc 72MB abc\n' "$node" ;;
+  *"etcd status"*) printf 'NODE MEMBER DB_SIZE LEADER\n'; IFS=, read -ra ns <<<"$node"; for n in "${ns[@]}"; do printf '%s abc 72MB abc\n' "$n"; done ;;
   *"upgrade-k8s --to "*) echo "${!#}" > "$STATE_DIR/k8s" ;;
   *) echo "unexpected talosctl: $*" >&2; exit 1 ;;
 esac
@@ -41,7 +45,8 @@ case "$*" in
       r=True; [ "$(cat "$STATE_DIR/$ip")" = rolled-back ] && r=False
       printf '{"metadata":{"name":"n%s"},"status":{"conditions":[{"type":"Ready","status":"%s"}],"nodeInfo":{"kubeletVersion":"v%s"},"addresses":[{"type":"InternalIP","address":"%s"}]}}' "${ip##*.}" "$r" "$(cat "$STATE_DIR/k8s")" "$ip"
     done; printf ']}\n' ;;
-  *"get applications"*) printf '{"items":[{"metadata":{"name":"argocd"},"status":{"health":{"status":"Healthy"}}},{"metadata":{"name":"traefik"},"status":{"health":{"status":"Healthy"}}}]}\n' ;;
+  *"get applications"*) h=Healthy; [ -f "$STATE_DIR/apps" ] && h=Degraded; printf '{"items":[{"metadata":{"name":"argocd"},"status":{"health":{"status":"Healthy"}}},{"metadata":{"name":"traefik"},"status":{"health":{"status":"%s"}}}]}\n' "$h" ;;
+  *"uncordon"*) exit 0 ;;
   *"get clustersecretstore"*) printf 'True\n' ;;
   *"exec openbao-"*"bao status"*)
     pod=$(sed -E 's/.*exec (openbao-[0-9]).*/\1/' <<<"$*")
@@ -55,7 +60,7 @@ chmod +x "$tmp/bin/"*
 export PATH="$tmp/bin:$PATH"
 
 fail() { echo "FAIL: $1"; exit 1; }
-reset() { : > "$CALL_LOG"; for ip in $cps $workers; do echo v1.14.1 > "$STATE_DIR/$ip"; done; echo 1.36.0 > "$STATE_DIR/k8s"; rm -f "$ETCD_SNAPSHOT_PATH" "$STATE_DIR/sealed"; unset STUB_FAIL_NODE OPENBAO_UNSEAL_KEYS; }
+reset() { : > "$CALL_LOG"; for ip in $cps $workers; do echo v1.14.1 > "$STATE_DIR/$ip"; done; echo 1.36.0 > "$STATE_DIR/k8s"; rm -f "$ETCD_SNAPSHOT_PATH" "$STATE_DIR/sealed" "$STATE_DIR/apps"; unset STUB_FAIL_NODE STUB_CMD_FAIL STUB_SEAL_AFTER OPENBAO_UNSEAL_KEYS; }
 run() { set +e; bash "$script" --talos-version "$1" --k8s-version "$2" --schematic abc123 >"$tmp/out" 2>&1; rc=$?; set -e; return $rc; }
 upgrades() { grep -E '^talosctl .*upgrade --image' "$CALL_LOG" | sed -E 's/.*-n ([0-9.]+).*/\1/' | paste -sd' ' -; }
 
@@ -91,13 +96,42 @@ unseals_when_keys_present() {
   grep -q '^unseal-ci keys' "$CALL_LOG" || fail "unseals_when_keys_present: helper not called"
   [ "$(upgrades)" = "$cps $workers" ] || fail "unseals_when_keys_present: nodes: $(upgrades)"
 }
-stops_after_first_failure() {
+rolls_back_only_a_node_that_booted_the_new_version() {
+  # upgrade command succeeds, node boots v1.14.5, but the gate (apps Healthy) never clears
   reset; export STUB_FAIL_NODE=192.168.1.228
-  rc=0; run v1.14.5 1.36.0 || rc=$?; [ $rc = 1 ] || fail "stops_after_first_failure: rc $rc"
-  [ "$(upgrades)" = "192.168.1.225 192.168.1.228" ] || fail "stops_after_first_failure: upgraded '$(upgrades)'"
-  grep -q 'talosctl .*-n 192.168.1.228 rollback' "$CALL_LOG" || fail "stops_after_first_failure: no rollback: $(grep rollback "$CALL_LOG" || true)"
-  grep -q '192.168.1.228: FAILED' "$tmp/out" || fail "stops_after_first_failure: no FAILED line: $(cat "$tmp/out")"
-  [ "$(cat "$STATE_DIR/192.168.1.229")" = v1.14.1 ] || fail "stops_after_first_failure: touched the next node"
+  rc=0; run v1.14.5 1.36.0 || rc=$?; [ $rc = 1 ] || fail "rollback_new_version: rc $rc"
+  [ "$(upgrades)" = "192.168.1.225 192.168.1.228" ] || fail "rollback_new_version: upgraded '$(upgrades)'"
+  grep -q 'talosctl .*-n 192.168.1.228 rollback' "$CALL_LOG" || fail "rollback_new_version: no rollback: $(grep rollback "$CALL_LOG" || true)"
+  grep -q '192.168.1.228: FAILED' "$tmp/out" || fail "rollback_new_version: no FAILED line: $(cat "$tmp/out")"
+  [ "$(cat "$STATE_DIR/192.168.1.229")" = v1.14.1 ] || fail "rollback_new_version: touched the next node"
+}
+no_rollback_when_upgrade_command_fails_before_boot() {
+  # transient talosctl error (VIP reconnect, drain blocked): node is still on the old version — leave it alone, uncordon, stop
+  reset; export STUB_CMD_FAIL=192.168.1.228
+  rc=0; run v1.14.5 1.36.0 || rc=$?; [ $rc = 1 ] || fail "no_rollback_old_version: rc $rc"
+  ! grep -q 'rollback' "$CALL_LOG" || fail "no_rollback_old_version: rolled back a node still on the old version"
+  grep -q 'kubectl uncordon' "$CALL_LOG" || fail "no_rollback_old_version: node left cordoned"
+  [ "$(cat "$STATE_DIR/192.168.1.228")" = v1.14.1 ] || fail "no_rollback_old_version: version changed"
+  [ "$(cat "$STATE_DIR/192.168.1.229")" = v1.14.1 ] || fail "no_rollback_old_version: touched the next node"
+}
+stops_before_next_node_when_sealed_without_keys() {
+  # the drain of .226 reseals a replica; without keys the run must stop cleanly before .227 (PDB would block), no rollback
+  reset; export STUB_SEAL_AFTER=192.168.1.226
+  rc=0; run v1.14.5 1.36.0 || rc=$?; [ $rc = 1 ] || fail "stops_sealed: rc $rc"
+  [ "$(upgrades)" = "$cps 192.168.1.226" ] || fail "stops_sealed: upgraded '$(upgrades)'"
+  ! grep -q 'rollback' "$CALL_LOG" || fail "stops_sealed: rolled back"
+  grep -qi 'sealed' "$tmp/out" || fail "stops_sealed: message: $(cat "$tmp/out")"
+}
+continues_past_resealed_replica_with_keys() {
+  reset; export STUB_SEAL_AFTER=192.168.1.226 OPENBAO_UNSEAL_KEYS=$'a\nb\nc'
+  run v1.14.5 1.36.0 || fail "continues_with_keys: exit $?: $(cat "$tmp/out")"
+  [ "$(upgrades)" = "$cps $workers" ] || fail "continues_with_keys: nodes: $(upgrades)"
+  grep -q '^unseal-ci keys' "$CALL_LOG" || fail "continues_with_keys: helper not called"
+}
+etcd_gate_checks_all_control_planes() {
+  reset; run v1.14.5 1.36.0 || fail "etcd_all_cps: exit"
+  grep -q 'etcd status' "$CALL_LOG" || fail "etcd_all_cps: no etcd status"
+  grep 'etcd status' "$CALL_LOG" | grep -q -- '-n 192.168.1.225,192.168.1.228,192.168.1.229' || fail "etcd_all_cps: status not queried on all CPs: $(grep 'etcd status' "$CALL_LOG" | head -1)"
 }
 k8s_upgrade_uses_repo_pin_only() {
   reset; echo 1.36.0 > "$STATE_DIR/k8s"
@@ -106,6 +140,11 @@ k8s_upgrade_uses_repo_pin_only() {
   [ "$(cat "$STATE_DIR/k8s")" = 1.36.6 ] || fail "k8s_pin: k8s not upgraded"
   last=$(grep -nE 'upgrade --image|upgrade-k8s' "$CALL_LOG" | tail -1); grep -q upgrade-k8s <<<"$last" || fail "k8s_pin: upgrade-k8s must run after node upgrades"
 }
+no_k8s_downgrade_when_cluster_is_ahead() {
+  reset; for ip in $cps $workers; do echo v1.14.5 > "$STATE_DIR/$ip"; done; echo 1.36.1 > "$STATE_DIR/k8s"
+  run v1.14.5 1.36.0 || fail "no_k8s_downgrade: exit $?: $(cat "$tmp/out")"
+  ! grep -q 'upgrade-k8s' "$CALL_LOG" || fail "no_k8s_downgrade: attempted a downgrade"
+}
 nothing_to_do_is_success() {
   reset; for ip in $cps $workers; do echo v1.14.5 > "$STATE_DIR/$ip"; done
   run v1.14.5 1.36.0 || fail "nothing_to_do: exit $?"
@@ -113,7 +152,7 @@ nothing_to_do_is_success() {
   ! grep -q 'etcd snapshot' "$CALL_LOG" || fail "nothing_to_do: took a snapshot for nothing"
 }
 
-for t in snapshots_etcd_first upgrades_cp_before_workers skips_nodes_already_at_version refuses_when_openbao_sealed_without_keys unseals_when_keys_present stops_after_first_failure k8s_upgrade_uses_repo_pin_only nothing_to_do_is_success; do
+for t in snapshots_etcd_first upgrades_cp_before_workers skips_nodes_already_at_version refuses_when_openbao_sealed_without_keys unseals_when_keys_present rolls_back_only_a_node_that_booted_the_new_version no_rollback_when_upgrade_command_fails_before_boot stops_before_next_node_when_sealed_without_keys continues_past_resealed_replica_with_keys etcd_gate_checks_all_control_planes k8s_upgrade_uses_repo_pin_only no_k8s_downgrade_when_cluster_is_ahead nothing_to_do_is_success; do
   "$t"; echo "ok $t"
 done
 echo PASS

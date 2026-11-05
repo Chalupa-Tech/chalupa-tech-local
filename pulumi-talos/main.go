@@ -14,15 +14,17 @@ import (
 
 const (
 	talosClusterName = "chalupa-cluster"
-	// talosVersion must trail the version actually running on the nodes:
-	// changing it here only changes machine-config generation — the OS is
-	// upgraded out-of-band with `talosctl upgrade`, one minor at a time.
+	// talosVersion drives both machine-config generation AND the node roll:
+	// a merged change here makes deploy.yml Stage 2c upgrade the nodes
+	// (control planes then workers, health gate, rollback) before Stage 2b
+	// regenerates configs — docs/2026-11-04-platform-patch-flow.md. Renovate
+	// auto-merges patches; minors are a PR; majors need approval.
 	talosVersion = "v1.14.1"
 	// kubernetesVersion is pinned separately so a talosVersion bump can't
 	// silently pull in that release's default Kubernetes (this broke the
-	// v1.14.1 bump: nodes on Talos 1.12.7 rejected K8s 1.36 images).
-	// Upgrade the cluster with `talosctl upgrade-k8s` first, then bump this
-	// to match. Must stay within the running Talos version's support matrix.
+	// v1.14.1 bump: nodes on Talos 1.12.7 rejected K8s 1.36 images). Stage 2c
+	// runs `talosctl upgrade-k8s --to` this value (never a downgrade). Must
+	// stay within the running Talos version's support matrix.
 	kubernetesVersion = "1.36.0"
 	controlPlaneIP    = "192.168.1.225"
 	controlPlaneVIP   = "192.168.1.231"

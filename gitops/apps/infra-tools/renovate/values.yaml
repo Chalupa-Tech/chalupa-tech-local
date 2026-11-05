@@ -2,10 +2,19 @@
 # Secrets/runtime wiring live here; the actual update policy (managers,
 # packageRules) lives in the repo-root renovate.json that Renovate reads.
 renovate:
-  # No image tag override: the chart's appVersion drives the running Renovate
-  # version, and the chart bump (helmv3 manager, platform patch auto-merge)
-  # keeps it current. The old explicit pin left Renovate on 43.231.4 for
-  # months while the chart moved to 44.x (2026-11-04 audit).
+  # Pinned AND tracked: this repository/tag pair matches Renovate's own
+  # docker regex manager, so minor/patch bumps auto-merge and a Renovate
+  # major needs dashboard approval (renovate.json). Chart bumps alone cannot
+  # change the running Renovate version — the chart's appVersion is not
+  # semver-aligned with its own version, so a chart patch could otherwise
+  # carry a Renovate major. (The old hand pin sat at 43.231.4 for months.)
+  # Key order matters for Renovate: `registry` between `repository` and `tag`
+  # keeps the generic repository/tag regex from matching this block; the
+  # dedicated "Renovate image" regex manager in renovate.json reads all three.
+  image:
+    repository: renovatebot/renovate
+    registry: ghcr.io
+    tag: "44.214.0"
 
   cronjob:
     schedule: "0 6 * * *"
@@ -54,12 +63,13 @@ renovate:
         platform: 'github',
         endpoint: 'https://api.github.com/',
         token,
-        // ghcr.io rate-limits anonymous tag listings (429 on lscr.io, which is a
-        // CNAME to ghcr.io): authenticate container lookups with the same App
-        // installation token. The App needs the `packages: read` permission.
+        // ghcr.io rate-limits anonymous tag listings (429s; lscr.io redirects
+        // there): authenticate ghcr.io lookups with the App installation token
+        // (App permission `packages: read`). Scoped to ghcr.io only — the token
+        // must not be sent to third-party hosts. Verify once before relying on
+        // it (docs/2026-11-04-platform-patch-flow.md, owner step 3).
         hostRules: [
           { matchHost: 'ghcr.io', hostType: 'docker', username: 'x-access-token', password: token },
-          { matchHost: 'lscr.io', hostType: 'docker', username: 'x-access-token', password: token },
         ],
         autodiscover: false,
         repositories: ['Chalupa-Tech/chalupa-tech-local'],

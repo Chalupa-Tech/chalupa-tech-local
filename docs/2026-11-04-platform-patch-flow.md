@@ -35,8 +35,10 @@ weekday-morning schedule.
 
 - `hostRules` for `ghcr.io` and `lscr.io` use the Renovate GitHub App's
   installation token (App needs **`packages: read`** — owner step).
-- Renovate image follows the chart's `appVersion` (tag override removed);
-  `node:22.23.4-alpine` pinned and tracked by a new single-line `image:` regex.
+- Renovate image pinned as a `repository`/`tag` pair (tracked by the docker
+  regex manager: minor/patch auto-merge, major approval) so a chart bump can
+  never change the running Renovate version; `node:22.23.4-alpine` pinned and
+  tracked by a new single-line `image:` regex.
 - New regex managers: ArgoCD bootstrap `--version` in `deploy.yml`
   (datasource helm), `yannh/kubeconform` and `yamllint` in `gitops.yml`,
   `depotdownloader_version` (GitHub releases `DepotDownloader_X.Y.Z`); the
@@ -73,6 +75,12 @@ same one the ISO uses.
 ## Owner steps
 
 1. GitHub App `chalupa-renovate`: add **`packages: read`**.
+1b. Verify ghcr.io accepts the App installation token before relying on it
+   (otherwise lookups would fail instead of rate-limit): from the next
+   Renovate job's init container, or by minting a token locally,
+   `curl -su x-access-token:$TOKEN "https://ghcr.io/token?scope=repository:renovatebot/renovate:pull"`
+   must return a `token`. If it does not, swap the hostRule password for a
+   read-only `read:packages` PAT stored in OpenBao next to the App key.
 2. Unseal `openbao-2` (sealed since September) before approving the Talos
    1.14.5 dashboard item, or provide `OPENBAO_UNSEAL_KEYS` (PR 3).
 3. After merge, the first Renovate run migrates its config to 44.x — read

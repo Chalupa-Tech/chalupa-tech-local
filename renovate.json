@@ -178,6 +178,18 @@
         "\\bimage:[ \\t]+[\"']?(?<depName>[a-z0-9][a-z0-9./-]*[a-z0-9]):(?<currentValue>v?[0-9][A-Za-z0-9._-]*)[\"']?[ \\t]*(?:#[^\\n]*)?\\n"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Renovate's own image (chart splits registry/repository/tag)",
+      "managerFilePatterns": [
+        "/gitops/apps/infra-tools/renovate/values\\.yaml$/"
+      ],
+      "matchStrings": [
+        "repository:\\s+(?<repo>[^\\s\"']+)\\s*\\n\\s*registry:\\s+(?<registry>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\\s\"']+)[\"']?"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "{{registry}}/{{repo}}"
     }
   ],
   "packageRules": [
@@ -403,6 +415,21 @@
       ],
       "automerge": false,
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Renovate's own image: minor/patch auto-merge, major needs approval (chart bumps never change it)",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/renovatebot/renovate"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true,
+      "platformAutomerge": true
     }
   ],
   "osvVulnerabilityAlerts": true,
@@ -410,7 +437,6 @@
     "labels": [
       "security"
     ],
-    "automerge": false,
     "schedule": [
       "at any time"
     ]

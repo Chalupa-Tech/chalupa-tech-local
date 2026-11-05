@@ -221,28 +221,25 @@ jobs:
       )
     timeout-minutes: 150
     concurrency:
-      group: talos-nodes
+      # Shared with maintenance-window.yml and restore-drill.yml: never roll
+      # nodes while pve1 reboots or a drill restores.
+      group: pve1-host-ops
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
 
-      - name: Did a version pin change?
+      # The script is idempotent (nodes already at the target are skipped), so
+      # it runs on EVERY pulumi-talos change rather than on a pin diff: after a
+      # failed roll, the next push would otherwise see "no change" and let
+      # Stage 2b apply configs for a version the nodes do not run.
+      - name: Read version pins
         id: pins
         run: |
           cur_talos=$(grep -E 'talosVersion\s*=\s*"' pulumi-talos/main.go | sed -E 's/.*"(v[0-9.]+)".*/\1/')
           cur_k8s=$(grep -E 'kubernetesVersion\s*=\s*"' pulumi-talos/main.go | sed -E 's/.*"([0-9.]+)".*/\1/')
-          if [ "${{ github.event_name }}" = push ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
-            prev_talos=$(git show "${{ github.event.before }}:pulumi-talos/main.go" 2>/dev/null | grep -E 'talosVersion\s*=\s*"' | sed -E 's/.*"(v[0-9.]+)".*/\1/' || true)
-            prev_k8s=$(git show "${{ github.event.before }}:pulumi-talos/main.go" 2>/dev/null | grep -E 'kubernetesVersion\s*=\s*"' | sed -E 's/.*"([0-9.]+)".*/\1/' || true)
-          else
-            prev_talos=""; prev_k8s=""
-          fi
-          changed=false
-          { [ "${{ github.event_name }}" = workflow_dispatch ] || [ "$cur_talos" != "$prev_talos" ] || [ "$cur_k8s" != "$prev_k8s" ]; } && changed=true
-          echo "talos=$cur_talos" >> "$GITHUB_OUTPUT"; echo "k8s=$cur_k8s" >> "$GITHUB_OUTPUT"; echo "changed=$changed" >> "$GITHUB_OUTPUT"
-          echo "talos $prev_talos -> $cur_talos, k8s $prev_k8s -> $cur_k8s, run=$changed"
+          [ -n "$cur_talos" ] && [ -n "$cur_k8s" ] || { echo "could not read pins from pulumi-talos/main.go"; exit 1; }
+          echo "talos=$cur_talos" >> "$GITHUB_OUTPUT"; echo "k8s=$cur_k8s" >> "$GITHUB_OUTPUT"; echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "pins: talos $cur_talos, kubernetes $cur_k8s"
 
       - name: Connect to Proxmox
         if: steps.pins.outputs.changed == 'true'
@@ -282,6 +279,14 @@ jobs:
             --talos-version "${{ steps.pins.outputs.talos }}" \
             --k8s-version "${{ steps.pins.outputs.k8s }}" \
             --schematic "$schematic"
+
+      - name: Keep the pre-upgrade etcd snapshot
+        if: always() && steps.pins.outputs.changed == 'true' && hashFiles('/tmp/etcd-pre-upgrade.snap') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: etcd-pre-upgrade-${{ github.run_id }}
+          path: /tmp/etcd-pre-upgrade.snap
+          retention-days: 30
 
   # ════════════════════════════════════════════════════
   # Stage 2b: Run Pulumi to provision Talos K8s cluster
