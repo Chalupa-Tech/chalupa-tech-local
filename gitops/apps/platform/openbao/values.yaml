@@ -1,5 +1,83 @@
+# --- OCI KMS auto-unseal (docs/2026-11-05-openbao-auto-unseal.md) ---
+# Shared with the openbao subchart (its init container reads these via tpl).
+# `enabled` is flipped to true ONLY by the seal-migration runbook, after the
+# bootstrap secret `openbao-oci-kms` exists; `disabled: true` writes
+# `disabled = "true"` into the seal block for a migration back to Shamir.
+global:
+  ociKms:
+    enabled: false
+    disabled: false
+    plugin:
+      # kms-oci plugin from openbao/openbao-plugins (release tag kms-oci-v<version>).
+      # Renovate opens a PR for new releases but never automerges: update the
+      # sha256 (checksums-kms-oci.txt, linux_amd64 tarball) in the same commit
+      # and re-check openbao/go-kms-wrapping#163 (auth_type_api_key inverted in
+      # wrapper >= v2.4) before merging.
+      version: "0.1.1"
+      sha256: "103735c5b9c14d28ba37bf9c8d7a96c686b1d3afa2c96580b5b0fe0f7a4e9059"
+    secretName: openbao-oci-kms
+
 openbao:
   server:
+    # OCI KMS seal plugin: everything below is unconditional (the subchart
+    # does not template its HCL or volume lists); the seal itself is switched
+    # by global.ociKms.enabled through the init container (files/kms-init.sh),
+    # which writes /openbao/kms/seal.hcl that the server loads via extraArgs.
+    extraArgs: "-config=/openbao/kms/seal.hcl"
+    extraInitContainers:
+      - name: kms-init
+        image: '{{ .Values.server.image.registry }}/{{ .Values.server.image.repository }}:{{ .Values.server.image.tag | default (trimPrefix "v" .Chart.AppVersion) }}'
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "/openbao/kms-init/kms-init.sh"]
+        securityContext:
+          allowPrivilegeEscalation: false
+        env:
+          - name: OCI_KMS_ENABLED
+            value: "{{ .Values.global.ociKms.enabled }}"
+          - name: OCI_KMS_DISABLED
+            value: "{{ .Values.global.ociKms.disabled }}"
+          - name: PLUGIN_VERSION
+            value: "{{ .Values.global.ociKms.plugin.version }}"
+          - name: PLUGIN_SHA256
+            value: "{{ .Values.global.ociKms.plugin.sha256 }}"
+          - name: KMS_DIR
+            value: /openbao/kms
+        # key_id / crypto_endpoint / management_endpoint (Terraform outputs)
+        envFrom:
+          - secretRef:
+              name: "{{ .Values.global.ociKms.secretName }}"
+              optional: true
+        volumeMounts:
+          - name: kms
+            mountPath: /openbao/kms
+          - name: kms-init
+            mountPath: /openbao/kms-init
+            readOnly: true
+    volumes:
+      - name: kms
+        emptyDir: {}
+      - name: kms-init
+        configMap:
+          name: openbao-kms-init
+          defaultMode: 0555
+      # OCI SDK config + API private key (bootstrap secret, created by hand —
+      # ESO cannot provide it: OpenBao is sealed when this is needed).
+      - name: oci-config
+        secret:
+          secretName: openbao-oci-kms
+          optional: true
+          defaultMode: 0440
+          items:
+            - key: config
+              path: config
+            - key: key.pem
+              path: key.pem
+    volumeMounts:
+      - name: kms
+        mountPath: /openbao/kms
+      - name: oci-config
+        mountPath: /home/openbao/.oci
+        readOnly: true
     ha:
       enabled: true
       raft:
