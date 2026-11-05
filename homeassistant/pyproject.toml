@@ -8,3 +8,7 @@ requires-python = ">=3.13"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra"
+
+[project.optional-dependencies]
+# test_auto_update_package.py parses the package YAML
+test = ["pyyaml>=6"]

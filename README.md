@@ -63,7 +63,9 @@ the LXCs and the Oracle VM reboot themselves when required (04:30 / 04:45 /
 10:15 UTC); `pve1` only reboots in the Sunday maintenance window, which is
 gated on fresh backups (`gh workflow run maintenance-window.yml`; health check
 alone: `gh workflow run health-check.yml`). Details:
-`docs/2026-11-04-os-auto-patching.md`.
+`docs/2026-11-04-os-auto-patching.md`. Home Assistant updates itself nightly
+(`docs/2026-11-04-homeassistant-auto-update.md`); TrueNAS upgrades stay manual
+(`docs/runbooks/truenas-upgrade.md`).
 
 ### Backups
 
