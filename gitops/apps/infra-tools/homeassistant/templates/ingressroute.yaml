@@ -13,7 +13,9 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host({{ .Values.homeassistant.host | quote }})
+    # Backticks, not `| quote`: Traefik accepts "..." but external-dns's
+    # traefik-proxy source only parses Host(`...`) and silently skips the rest.
+    - match: Host(`{{ .Values.homeassistant.host }}`)
       kind: Rule
       services:
         - name: homeassistant
@@ -36,7 +38,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host({{ .Values.homeassistant.host | quote }})
+    - match: Host(`{{ .Values.homeassistant.host }}`)
       kind: Rule
       services:
         - name: homeassistant
