@@ -10,5 +10,6 @@
   openssl rsa -in openbao-unseal.pem -pubout -out openbao-unseal-api-key.pub
   ```
 
-  Until the `.pub` file exists Terraform skips the API-key resource, so the
-  rest of the stack still applies.
+  The API-key resource has `prevent_destroy`: rotate by replacing the file's
+  content (then update the `openbao-oci-kms` secret and roll the pods one at
+  a time); never delete the file.

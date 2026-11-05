@@ -75,34 +75,52 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+      # The full plan stays in this job's log; the PR comment gets only a
+      # summary (resource addresses + actions, no attribute values) because
+      # comments on a public repo are readable by anyone and are not masked.
       - name: Terraform plan
         id: plan
         run: |
           set +e
-          output=$(terraform plan -no-color -input=false 2>&1)
-          status=$?
+          terraform plan -no-color -input=false -out=tfplan 2>&1 | tee plan.txt
+          status=${PIPESTATUS[0]}
+          if [ "$status" -eq 0 ]; then
+            terraform show -json tfplan > plan.json
+            summary=$(jq -r '.resource_changes[] | select(.change.actions != ["no-op"]) | "\(.change.actions | join("+"))  \(.address)"' plan.json)
+            [ -n "$summary" ] || summary="(no changes)"
+          else
+            summary="plan FAILED — see the job log"
+          fi
           {
-            echo "output<<EOF"
-            echo "$output"
+            echo "summary<<EOF"
+            echo "$summary"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
           exit "$status"
         continue-on-error: true
 
-      - name: Comment PR with plan
+      # Refuses plans that delete/replace the OpenBao seal dependencies or
+      # create billable Key Management resources (scripts/plan-guard.sh).
+      - name: Plan guard
+        id: guard
+        if: steps.plan.outcome == 'success'
+        run: scripts/plan-guard.sh plan.json
+        continue-on-error: true
+
+      - name: Comment PR with plan summary
         uses: actions/github-script@v9
         env:
-          PLAN_OUTPUT: ${{ steps.plan.outputs.output }}
+          PLAN_SUMMARY: ${{ steps.plan.outputs.summary }}
+          GUARD: ${{ steps.guard.outcome }}
         with:
           script: |
-            const output = `### Oracle Terraform Plan
-            <details><summary>Show Output</summary>
+            const output = `### Oracle Terraform Plan (summary)
+            Plan guard: **${process.env.GUARD}**
 
             \`\`\`
-            ${process.env.PLAN_OUTPUT}
+            ${process.env.PLAN_SUMMARY}
             \`\`\`
-
-            </details>`;
+            Full plan: see the job log of this run.`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -110,8 +128,8 @@ jobs:
               body: output
             })
 
-      - name: Fail if plan failed
-        if: steps.plan.outcome == 'failure'
+      - name: Fail if plan failed or the guard refused it
+        if: steps.plan.outcome == 'failure' || steps.guard.outcome == 'failure'
         run: exit 1
 
   ansible-lint:

@@ -77,10 +77,26 @@ Runbook (migration, verification, rollback): `docs/runbooks/openbao-seal-migrati
 
 ## Terraform notes
 
-- `prevent_destroy` on the vault and key means any `ForceNew` change to them
-  (`vault_type`, `key_shape`, `protection_mode`) and a stack-level
-  `terraform destroy` fail the plan — on purpose. Change those only by
-  migrating OpenBao to a new key first (runbook rollback, then forward).
+- `prevent_destroy` on the vault, key and API key means any `ForceNew`
+  change to them (`vault_type`, `key_shape`, `protection_mode`, the `.pub`
+  content) and a stack-level `terraform destroy` fail the plan — on purpose.
+  Change those only by migrating OpenBao to a new key first (runbook
+  rollback, then forward). `prevent_destroy` only protects resources that
+  are still in the configuration, so both Oracle workflows now run
+  `scripts/plan-guard.sh` on the JSON plan and refuse any plan that deletes
+  or replaces those three resources, or that creates an HSM-protected key
+  (the API default when `protection_mode` is omitted), a `VIRTUAL_PRIVATE`
+  vault or any HSM/external-KMS resource. The deploy workflow applies the
+  guarded plan file, not a fresh plan. Tests: `oracle-cloud-server/terraform/tests/test_plan_guard.sh`.
+- IAM: `use keys` would also grant `KEY_EXPORT` (software keys are
+  exportable), so a stolen API key could take a permanent copy of the unseal
+  key. The policy therefore allows only `KEY_ENCRYPT`/`KEY_DECRYPT` (plus
+  `read keys`) on that one key.
+- The user OCID and API-key fingerprint outputs are `sensitive`; the PR
+  workflow comments a plan *summary* (addresses + actions) instead of the
+  raw plan, because comments on a public repository are readable by anyone
+  and not masked. Earlier plan comments (e.g. PRs #305–#307, #377) already
+  contain the tenancy and resource OCIDs — identifiers, not credentials.
 - Creating the IAM user/group/policy needs the CI principal to manage
   identity resources in the tenancy. The bootstrap user is the tenancy
   admin, so this applies; if the apply ever reports `NotAuthorized` on
@@ -100,12 +116,69 @@ Runbook (migration, verification, rollback): `docs/runbooks/openbao-seal-migrati
    authorized networks — the cluster mounts it via `10.10.10.40` (storage
    subnet), pve1 via `192.168.1.40`.
 
+## Public-repo and cost review (2026-11-05)
+
+A second, independent review looked at this branch plus the existing Oracle
+stack from two angles: what a public repository exposes, and whether
+anything can ever bill. Verdict: the branch's own resources are $0 and the
+hardening above closes its two real gaps (key export, silent deletion).
+What remains is the owner's, most important first:
+
+1. **Check the Always Free compute allowance now.** Oracle's Always Free
+   page (updated 2026-06) states 1,500 OCPU-hours and 9,000 GB-hours per
+   month for A1 (≈ 2 OCPU / 12 GB), while the price list still says 3,000 /
+   18,000. The Valheim VM is 4 OCPU / 24 GB. Open Billing → Cost Analysis
+   and look for any "Compute – Ampere A1" charge since June. If there is
+   one, set `instance_ocpus = 2`, `instance_memory_gb = 12`
+   (`oracle-cloud-server/terraform/variables.tf`) — the $5 budget should
+   also have alerted.
+2. **Compartment quota policy** (free, enforced at create time — the only
+   hard cap Oracle offers; budgets alert only). Suggested statements, to be
+   added as `oci_limits_quota` in the root compartment once item 1 is
+   decided (`standard-a1-*` values depend on it):
+   `zero kms quota virtual-private-vault-count in tenancy`,
+   `set kms quota virtual-vault-count to 1 in tenancy`,
+   `zero compute-core quotas in tenancy`,
+   `set compute-core quota standard-a1-core-count to <2|4> in tenancy`,
+   `zero compute-memory quotas in tenancy`,
+   `set compute-memory quota standard-a1-memory-count to <12|24> in tenancy`,
+   `set block-storage quota total-storage-gb to 200 in tenancy`,
+   `set object-storage quota storage-bytes to 10000000000 in tenancy`.
+   There is no quota for HSM key versions; the plan guard covers that.
+3. **Object Storage**: the paid-account free allowance is 10 GB Standard +
+   50,000 requests/month. The Valheim bucket keeps 30 daily world archives;
+   check its size (`oci os bucket get --bucket-name valheim-backups
+   --fields approximateSize`) and shorten the lifecycle to 14 days if a
+   month of archives approaches 9 GB.
+4. **Budget**: lower `budget_amount` to 1 and add an ACTUAL alert with an
+   absolute $0.01 threshold targeting the tenancy, so the first cent alerts.
+5. **CI supply chain** (pre-existing): the Oracle workflows hold the
+   tenancy-admin API key as job-level env next to tag-pinned third-party
+   actions that Renovate automerges. Pin those actions by SHA, exclude
+   `.github/workflows/oracle*.yml` from automerge, and require one review
+   on `oracle-cloud-server/**`.
+6. **Events → Notifications** (free) on KMS `ScheduleKeyDeletion`,
+   `DisableKey`, `DeleteVault` and on identity API-key create/delete, so the
+   7–30-day key-deletion window is noticed.
+7. **Plugin bumps**: the release ships OpenPGP `.sig` files signed by a
+   subkey of OpenBao's published key; add `gpg --verify` to the Renovate PR
+   checklist for the plugin.
+8. `preserve_boot_volume = false` on the instance (a replaced instance
+   would otherwise keep two 150 GB boot volumes, over the 200 GB free block
+   storage).
+
+Not exploitable from the repository: the committed public key (cannot sign
+requests), RFC1918 addresses, export paths. After the migration, revoke the
+root token kept on disk (`~/secure/openbao-init.json`) and keep the TrueNAS
+export's root mapping in mind: a raft snapshot plus the `openbao-oci-kms`
+secret now opens the vault, where before it needed 3 Shamir shares.
+
 ## Verification done here
 
 - `bash gitops/apps/platform/openbao/tests/test_kms_init.sh` (12/12),
   `/usr/bin/python3 gitops/apps/platform/openbao/tests/test_render.py`,
   `helm lint`, `yamllint`, `shellcheck`.
-- `terraform fmt -check`, `terraform validate` with and without the `.pub`.
+- `terraform fmt -check`, `terraform validate`; `oracle-cloud-server/terraform/tests/test_plan_guard.sh` (9/9).
 - `bash scripts/talos/tests/test_rolling_upgrade.sh` (15/15).
 - `scripts/renovate/validate.sh`.
 - Not possible here: a live apply/migration (needs OCI credentials and the

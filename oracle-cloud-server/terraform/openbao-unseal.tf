@@ -63,32 +63,33 @@ resource "oci_identity_user_group_membership" "openbao_unseal" {
   user_id  = oci_identity_user.openbao_unseal.id
 }
 
-# The public half of the API key pair the owner generates locally (private
-# half goes straight into the Kubernetes secret, never into Terraform state):
+# The public half of the API key pair the owner generated locally (private
+# half lives only in the Kubernetes secret openbao-oci-kms and 1Password):
 #   openssl genrsa -out openbao-unseal.pem 2048
 #   openssl rsa -in openbao-unseal.pem -pubout -out files/openbao-unseal-api-key.pub
-# Created only once the file is committed, so the rest of the stack applies
-# before that step.
-locals {
-  openbao_unseal_pub_path = "${path.module}/files/openbao-unseal-api-key.pub"
-  openbao_unseal_pub      = fileexists(local.openbao_unseal_pub_path) ? file(local.openbao_unseal_pub_path) : ""
-}
-
+# Replacing the file replaces the registered key (the pods then need the new
+# private half); deleting it would delete the key and strand the cluster, so
+# prevent_destroy — rotate by editing the file content, never by removing it.
 resource "oci_identity_api_key" "openbao_unseal" {
-  count     = local.openbao_unseal_pub != "" ? 1 : 0
   user_id   = oci_identity_user.openbao_unseal.id
-  key_value = local.openbao_unseal_pub
+  key_value = file("${path.module}/files/openbao-unseal-api-key.pub")
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# `use keys` covers Encrypt/Decrypt on the crypto endpoint and GetKey on the
-# management endpoint (the wrapper reads the current key version); the
-# `where` clause pins it to this one key.
+# Least privilege, pinned to this one key. `use keys` alone would also grant
+# KEY_EXPORT (software keys are exportable), so a stolen API key could take a
+# permanent copy of the unseal key; the `request.permission` clause limits it
+# to the two operations the seal performs. `read keys` covers GetKey.
 resource "oci_identity_policy" "openbao_unseal" {
   compartment_id = var.compartment_ocid
   name           = "openbao-unseal"
-  description    = "Let the openbao-unseal group use the openbao-unseal KMS key (OpenBao auto-unseal)"
+  description    = "Let the openbao-unseal group encrypt/decrypt with (and read) the openbao-unseal KMS key only"
   statements = [
-    "Allow group ${oci_identity_group.openbao_unseal.name} to use keys in compartment id ${var.compartment_ocid} where target.key.id = '${oci_kms_key.openbao_unseal.id}'",
+    "Allow group ${oci_identity_group.openbao_unseal.name} to use keys in compartment id ${var.compartment_ocid} where all {target.key.id = '${oci_kms_key.openbao_unseal.id}', any {request.permission = 'KEY_ENCRYPT', request.permission = 'KEY_DECRYPT'}}",
+    "Allow group ${oci_identity_group.openbao_unseal.name} to read keys in compartment id ${var.compartment_ocid} where target.key.id = '${oci_kms_key.openbao_unseal.id}'",
   ]
 }
 
@@ -109,12 +110,18 @@ output "openbao_kms_management_endpoint" {
   value       = oci_kms_vault.openbao.management_endpoint
 }
 
+# The two values that identify the auth principal are marked sensitive so
+# the public Actions log does not print them; read them from the OCI console
+# (Identity → Users → openbao-unseal) or compute the fingerprint locally:
+#   openssl rsa -pubin -in files/openbao-unseal-api-key.pub -outform DER | openssl md5 -c
 output "openbao_unseal_user_ocid" {
   description = "OCID of the openbao-unseal IAM user (`user=` in the OCI SDK config)"
   value       = oci_identity_user.openbao_unseal.id
+  sensitive   = true
 }
 
 output "openbao_unseal_api_key_fingerprint" {
-  description = "Fingerprint of the registered API key (`fingerprint=` in the OCI SDK config); empty until files/openbao-unseal-api-key.pub is committed"
-  value       = try(oci_identity_api_key.openbao_unseal[0].fingerprint, "")
+  description = "Fingerprint of the registered API key (`fingerprint=` in the OCI SDK config)"
+  value       = oci_identity_api_key.openbao_unseal.fingerprint
+  sensitive   = true
 }

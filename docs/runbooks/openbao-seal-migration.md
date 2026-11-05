@@ -11,16 +11,19 @@ deleted, no raft snapshot can be opened again. Terraform sets
 
 ## 0. Prerequisites
 
-1. This PR merged and the Oracle stack applied (`oracle-deploy.yml`). Collect
-   the outputs from the apply log or `terraform output` locally:
-   `openbao_kms_key_id`, `openbao_kms_crypto_endpoint`,
-   `openbao_kms_management_endpoint`, `openbao_unseal_user_ocid`,
-   `openbao_unseal_api_key_fingerprint` (non-empty only after step 2).
+1. This PR merged and the Oracle stack applied (`oracle-deploy.yml`). The
+   apply log prints `openbao_kms_key_id`, `openbao_kms_crypto_endpoint` and
+   `openbao_kms_management_endpoint`. The two principal values are
+   `sensitive` (not printed on the public repo): the user OCID is in the
+   OCI console under Identity → Domains → Default → Users → `openbao-unseal`,
+   and the fingerprint is computed locally from the committed public key:
+   `openssl rsa -pubin -in oracle-cloud-server/terraform/files/openbao-unseal-api-key.pub -outform DER | openssl md5 -c`
+   (or `terraform output -raw openbao_unseal_api_key_fingerprint` with local credentials).
 2. The API key pair exists: `openssl genrsa -out openbao-unseal.pem 2048 &&
    openssl rsa -in openbao-unseal.pem -pubout -out openbao-unseal-api-key.pub`;
    the `.pub` is committed as
-   `oracle-cloud-server/terraform/files/openbao-unseal-api-key.pub` and
-   applied (the fingerprint output is then set).
+   `oracle-cloud-server/terraform/files/openbao-unseal-api-key.pub` (done
+   2026-11-05) and applied with the stack.
 3. Bootstrap secret (hand-made; ESO cannot provide it because OpenBao is
    sealed when it is needed):
 
