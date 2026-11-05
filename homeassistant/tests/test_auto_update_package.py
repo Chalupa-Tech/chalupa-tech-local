@@ -59,10 +59,13 @@ def _install_calls(auto):
 
 def test_kill_switch_and_trigger():
     pkg = _load()
-    assert pkg["input_boolean"]["auto_update_enabled"]["initial"] in (True, "on")
+    # no `initial`: the helper must keep its state across HA restarts (a Core
+    # update restarts HA; `initial: on` would silently re-enable auto-update)
+    assert "initial" not in pkg["input_boolean"]["auto_update_enabled"]
     auto = _automation(pkg)
     triggers = auto.get("trigger") or auto.get("triggers")
-    assert any(t.get("at") == "04:00:00" for t in triggers), "must trigger at 04:00:00"
+    # 05:30 local: after HA's own automatic backup (~11:04 UTC = 04:04 MST / 05:04 MDT)
+    assert any(t.get("at") == "05:30:00" for t in triggers), "must trigger at 05:30:00"
     conds = auto.get("condition") or auto.get("conditions")
     assert any(c.get("entity_id") == "input_boolean.auto_update_enabled" and c.get("state") == "on" for c in conds), "kill switch condition missing"
 
@@ -77,6 +80,20 @@ def _allow_list(auto, var):
     raise AssertionError(f"variable {var} not found")
 
 
+def _ordered_list(auto, var):
+    """Entity ids in the order they appear in the variable's template."""
+    import re
+    for a in _flatten(auto["action"]):
+        tpl = (a.get("variables") or {}).get(var)
+        if tpl:
+            seen = []
+            for e in re.findall(r"update\.[a-z0-9_]+", tpl):
+                if e not in seen:
+                    seen.append(e)
+            return seen
+    raise AssertionError(f"variable {var} not found")
+
+
 def test_supervisor_group_installs_with_backup():
     auto = _automation(_load())
     calls = _install_calls(auto)
@@ -84,9 +101,28 @@ def test_supervisor_group_installs_with_backup():
     assert len(with_backup) == 1, "exactly one backup:true install call (inside the repeat)"
     assert (with_backup[0].get("target") or {}).get("entity_id") == "{{ repeat.item }}"
     assert _allow_list(auto, "supervisor_pending") == SUPERVISOR_ENTITIES
-    # the repeat iterates the pending subset of that allow-list only
     text = yaml.safe_dump(auto)
-    assert "for_each: '{{ supervisor_pending }}'" in text or 'for_each: "{{ supervisor_pending }}"' in text or "for_each: '{{ supervisor_pending }}'" in text.replace('"', "'")
+    assert "{{ supervisor_pending }}" in text.replace("'", "").replace('"', "")
+
+
+def test_core_is_installed_last_and_order_is_explicit():
+    # expand() sorts by entity_id, so the list must be built in explicit order;
+    # the Core install restarts HA and kills the run, so Core goes last.
+    auto = _automation(_load())
+    text = yaml.safe_dump(auto)
+    assert "expand(" not in text.split("supervisor_pending")[1].split("os_pending")[0], "supervisor_pending must not be built with expand() (it reorders)"
+    order = _ordered_list(auto, "supervisor_pending")
+    assert order[-1] == "update.home_assistant_core_update", f"Core must be last: {order}"
+    assert set(order) == SUPERVISOR_ENTITIES
+
+
+def test_os_skipped_when_core_pending_and_outcome_notified():
+    auto = _automation(_load())
+    text = yaml.safe_dump(auto)
+    assert "core_pending" in text, "OS install must be skipped on a night Core is pending (Core restart would kill the run)"
+    notifies = [a for a in _flatten(auto["action"]) if a.get("action") == "notify.homeassistant_tejon_frame"]
+    assert len(notifies) >= 3, "need start, per-install failure and completion notifications"
+    assert any("failed" in yaml.safe_dump(n).lower() for n in notifies), "a failure notification is required"
 
 
 def test_os_group_has_no_backup_flag_and_is_gated_on_fresh_backup():
@@ -98,6 +134,8 @@ def test_os_group_has_no_backup_flag_and_is_gated_on_fresh_backup():
     text = PACKAGE.read_text()
     assert "sensor.backup_last_successful_automatic_backup" in text, "OS update must be gated on the last automatic backup age"
     assert "26" in text or "93600" in text, "backup age gate (26 h) missing"
+    # reload instruction in the header must be reload_all (automation/reload would not create the helper)
+    assert "homeassistant/reload_all" in text and "services/automation/reload" not in text
 
 
 def test_hacs_entities_excluded():

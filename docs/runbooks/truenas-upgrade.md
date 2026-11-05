@@ -2,9 +2,10 @@
 
 TrueNAS is the one system in the estate that is **not** auto-patched: every
 other backup and every NFS mount depends on it, and SCALE upgrades reboot the
-storage. Upstream publishes a release roughly monthly; do this when the
-`TrueNASUpdateAvailable` alert (PR #309's alert-list exporter) or the TrueNAS
-UI shows one. Budget 30 minutes; media playback and the arr stack are down
+storage. Upstream publishes a release roughly monthly; do this when the TrueNAS UI
+shows one (once PR #309's alert-list exporter lands, add a
+`TrueNASUpdateAvailable` rule on its `truenas_alert_active` metric so the
+signal reaches Discord). Budget 30 minutes; media playback and the arr stack are down
 for the reboot.
 
 ## 0. Preconditions (all automated — just check them)
@@ -32,7 +33,8 @@ System → Update → choose the release → **Apply pending update** with
 
 1. `ssh root@192.168.1.223 showmount -e 192.168.1.40` lists the exports.
 2. `gh workflow run health-check.yml` → green (Plex `/identity`, TrueNAS NFS,
-   ArgoCD apps; media pods recover once the NFS mount returns).
+   ArgoCD apps; media pods recover once the NFS mount returns), and
+   `kubectl -n media get pvc media-plexmedia` is `Bound`.
 3. Watch for `TrueNASMetricsStale` / `TrueNASAlert` (PR #309 rules) for an hour.
 
 ## 4. Rollback
