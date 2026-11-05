@@ -42,6 +42,8 @@ openbao:
             value: "{{ .Values.global.ociKms.plugin.sha256 }}"
           - name: KMS_DIR
             value: /openbao/kms
+          - name: PLUGIN_CACHE_DIR
+            value: /openbao/kms-cache
         # key_id / crypto_endpoint / management_endpoint (Terraform outputs)
         envFrom:
           - secretRef:
@@ -53,6 +55,11 @@ openbao:
           - name: kms-init
             mountPath: /openbao/kms-init
             readOnly: true
+          # Verified tarball cache on this replica's data PVC (subPath keeps it
+          # out of the raft files): restarts need no GitHub access.
+          - name: data
+            mountPath: /openbao/kms-cache
+            subPath: kms-cache
     volumes:
       - name: kms
         emptyDir: {}
@@ -75,6 +82,8 @@ openbao:
     volumeMounts:
       - name: kms
         mountPath: /openbao/kms
+      # Nested inside the chart's `home` emptyDir (/home/openbao); the runtime
+      # mounts parents before children regardless of list order.
       - name: oci-config
         mountPath: /home/openbao/.oci
         readOnly: true

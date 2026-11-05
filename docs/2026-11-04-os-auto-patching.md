@@ -41,8 +41,8 @@ when a Stage 1 run happened to touch `proxmox_prep` (PR 1 removed that).
    route) and polls `uptime -s` for up to 30 min until the boot time changes,
    then waits up to 15 min for 100/101/200/250 to be `running`, then for all
    six Talos nodes Ready.
-4. OpenBao: replicas unseal themselves after the reboot (OCI KMS auto-unseal,
-   `docs/2026-11-05-openbao-auto-unseal.md`); the health check's retries
+4. OpenBao: once migrated to OCI KMS (`docs/2026-11-05-openbao-auto-unseal.md`)
+   replicas unseal themselves after the reboot; the health check's retries
    cover the minute that takes. On a cluster that has not migrated yet,
    `scripts/openbao/unseal-ci.sh` unseals with `OPENBAO_UNSEAL_KEYS` if that
    secret exists; otherwise the `OpenBaoSealed` alert (PR 2) fires until

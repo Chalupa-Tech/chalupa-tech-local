@@ -11,6 +11,7 @@
 #   PLUGIN_SHA256        sha256 of openbao-plugin-kms-oci_linux_amd64_v1.tar.gz
 #   PLUGIN_URL           optional override of the download URL (tests, mirrors)
 #   KMS_DIR              emptyDir shared with the server (default /openbao/kms)
+#   PLUGIN_CACHE_DIR     optional persistent dir (data PVC subPath) caching the verified tarball
 #   key_id, crypto_endpoint, management_endpoint   from the secret (envFrom)
 #
 # Runs with the server image (Alpine: wget, sha256sum, tar) as the openbao
@@ -36,20 +37,45 @@ fi
 
 for v in PLUGIN_VERSION PLUGIN_SHA256 key_id crypto_endpoint management_endpoint; do
   eval "val=\${$v:-}"
+  # Secret values created with --from-file carry a trailing newline; a quote
+  # or backslash would break the HCL string far from here (server crash-loop).
+  val=$(printf '%s' "$val" | tr -d '\r\n')
   [ -n "$val" ] || die "$v is not set (secret openbao-oci-kms missing a key, or values.yaml incomplete)"
+  case "$val" in *'"'* | *"\\"*) die "$v contains a quote or backslash" ;; esac
+  eval "$v=\$val"
 done
+
+sha_ok() { echo "$PLUGIN_SHA256  $1" | sha256sum -c - >/dev/null 2>&1; }
 
 url="${PLUGIN_URL:-https://github.com/openbao/openbao-plugins/releases/download/kms-oci-v${PLUGIN_VERSION}/${asset}.tar.gz}"
 rm -rf "$plugin_dir"
 mkdir -p "$plugin_dir"
 tgz="$KMS_DIR/plugin.tgz"
-log "downloading $url"
-i=0
-until wget -q -O "$tgz" "$url"; do
-  i=$((i + 1)); [ "$i" -lt 5 ] || die "download failed after $i attempts: $url"
-  log "download failed (attempt $i); retrying in 5s"; sleep 5
-done
-echo "$PLUGIN_SHA256  $tgz" | sha256sum -c - >/dev/null 2>&1 || die "sha256 mismatch for $url (expected $PLUGIN_SHA256, got $(sha256sum "$tgz" | cut -d' ' -f1))"
+# The data PVC keeps a verified copy so restarts (node reboot, drain, power
+# cut) do not depend on github.com being reachable; only the first start
+# after a version bump or on a rebuilt PVC downloads.
+cached=""
+[ -n "${PLUGIN_CACHE_DIR:-}" ] && cached="$PLUGIN_CACHE_DIR/${bin_name}_${PLUGIN_VERSION}_linux_amd64_v1.tar.gz"
+if [ -n "$cached" ] && [ -f "$cached" ] && sha_ok "$cached"; then
+  log "using cached plugin tarball $cached (sha256 verified)"
+  cp "$cached" "$tgz"
+else
+  [ -n "$cached" ] && [ -f "$cached" ] && log "cached tarball $cached fails its sha256 check; re-downloading"
+  log "downloading $url"
+  i=0
+  until wget -q -O "$tgz" "$url"; do
+    i=$((i + 1)); [ "$i" -lt 5 ] || die "download failed after $i attempts: $url"
+    log "download failed (attempt $i); retrying in 5s"; sleep 5
+  done
+  sha_ok "$tgz" || die "sha256 mismatch for $url (expected $PLUGIN_SHA256, got $(sha256sum "$tgz" | cut -d' ' -f1))"
+  if [ -n "$cached" ]; then
+    if mkdir -p "$PLUGIN_CACHE_DIR" && cp "$tgz" "$cached.tmp" && mv "$cached.tmp" "$cached"; then
+      log "cached verified tarball at $cached"
+    else
+      log "warning: could not write the plugin cache at $cached (continuing without cache)"
+    fi
+  fi
+fi
 tar xzf "$tgz" -C "$plugin_dir" "$asset"
 mv "$plugin_dir/$asset" "$plugin_dir/$bin_name"
 chmod 0755 "$plugin_dir/$bin_name"
@@ -57,7 +83,7 @@ rm -f "$tgz"
 
 disabled_line=""
 [ "${OCI_KMS_DISABLED:-false}" = true ] && disabled_line='  disabled = "true"'
-# shellcheck disable=SC2154  # key_id cat > "$hcl" <<HCL co. arrive via envFrom the secret
+# shellcheck disable=SC2154  # key_id and the endpoints arrive via envFrom the secret
 cat > "$hcl" <<HCL
 # Written by kms-init (files/kms-init.sh); do not edit in the pod.
 plugin_directory = "$plugin_dir"

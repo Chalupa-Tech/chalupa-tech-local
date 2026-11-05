@@ -31,6 +31,14 @@ Runbook (migration, verification, rollback): `docs/runbooks/openbao-seal-migrati
   sealed when it is needed). The same secret carries `key_id`,
   `crypto_endpoint`, `management_endpoint` (Terraform outputs) via `envFrom`
   on the init container, so the chart values hold no OCIDs.
+- **Restarts do not depend on GitHub.** The first start downloads the
+  15 MB tarball; after verifying it, `kms-init` keeps a copy on the
+  replica's data PVC (`subPath: kms-cache`, never part of the raft files)
+  and later starts use it when its sha256 still matches. Only a version
+  bump or a rebuilt PVC (node rebuild) downloads again — those need
+  network anyway. A cold start after a WAN outage therefore unseals as
+  long as OCI itself is reachable, which is the dependency auto-unseal
+  inherently has.
 - **Explicit switch.** `global.ociKms.enabled` defaults to `false`; the
   wiring is unconditional (the subchart does not template its HCL), only
   the seal stanza is. A pod that restarts with `enabled: true` but a
@@ -67,6 +75,18 @@ Runbook (migration, verification, rollback): `docs/runbooks/openbao-seal-migrati
 - Recovery keys: the five Shamir shares. They cannot unseal by themselves;
   DR needs the raft snapshot **and** the OCI key + API key secret.
 
+## Terraform notes
+
+- `prevent_destroy` on the vault and key means any `ForceNew` change to them
+  (`vault_type`, `key_shape`, `protection_mode`) and a stack-level
+  `terraform destroy` fail the plan — on purpose. Change those only by
+  migrating OpenBao to a new key first (runbook rollback, then forward).
+- Creating the IAM user/group/policy needs the CI principal to manage
+  identity resources in the tenancy. The bootstrap user is the tenancy
+  admin, so this applies; if the apply ever reports `NotAuthorized` on
+  `oci_identity_user`, grant that user `manage users, groups, policies in
+  tenancy` or create the user by hand and import it.
+
 ## Owner steps
 
 1. Generate the API key pair, commit the `.pub`
@@ -82,7 +102,7 @@ Runbook (migration, verification, rollback): `docs/runbooks/openbao-seal-migrati
 
 ## Verification done here
 
-- `bash gitops/apps/platform/openbao/tests/test_kms_init.sh` (7/7),
+- `bash gitops/apps/platform/openbao/tests/test_kms_init.sh` (12/12),
   `/usr/bin/python3 gitops/apps/platform/openbao/tests/test_render.py`,
   `helm lint`, `yamllint`, `shellcheck`.
 - `terraform fmt -check`, `terraform validate` with and without the `.pub`.

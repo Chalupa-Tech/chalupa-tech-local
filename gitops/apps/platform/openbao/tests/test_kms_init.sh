@@ -34,6 +34,7 @@ reset() {
   : > "$CALL_LOG"; rm -rf "$tmp/kms"; mkdir -p "$tmp/kms"
   export KMS_DIR="$tmp/kms" PLUGIN_VERSION=0.1.1 PLUGIN_SHA256="$good_sha" OCI_KMS_ENABLED=true OCI_KMS_DISABLED=false
   export key_id=ocid1.key.oc1..aaa crypto_endpoint=https://crypto.example management_endpoint=https://mgmt.example
+  rm -rf "$tmp/cache"; mkdir -p "$tmp/cache"; export PLUGIN_CACHE_DIR="$tmp/cache"
   unset STUB_WGET_FAIL PLUGIN_URL
 }
 run() { sh "$script" > "$tmp/out" 2>&1; }
@@ -96,7 +97,41 @@ plugin_url_override_is_used() {
   grep -q 'https://mirror.example/plugin.tgz' "$CALL_LOG" || fail "override: url: $(cat "$CALL_LOG")"
 }
 
-for t in disabled_writes_empty_config_without_network enabled_installs_plugin_and_writes_seal bad_sha_fails_and_installs_nothing missing_seal_values_fail_before_download download_failure_fails disabled_flag_writes_disabled_seal plugin_url_override_is_used; do
+download_populates_cache_and_cache_skips_network() {
+  reset; run || fail "cache: first run rc $?"
+  cached="$tmp/cache/openbao-plugin-kms-oci_0.1.1_linux_amd64_v1.tar.gz"
+  [ -f "$cached" ] || fail "cache: tarball not cached at $cached"
+  : > "$CALL_LOG"; rm -rf "$tmp/kms"; mkdir -p "$tmp/kms"; export STUB_WGET_FAIL=1
+  run || fail "cache: second run rc $? $(cat "$tmp/out")"
+  [ ! -s "$CALL_LOG" ] || fail "cache: wget called although the cache was valid"
+  [ -x "$bin" ] || fail "cache: binary not installed from cache"
+  grep -qi 'cache' "$tmp/out" || fail "cache: no cache message"
+}
+corrupt_cache_is_replaced_by_a_fresh_download() {
+  reset; echo garbage > "$tmp/cache/openbao-plugin-kms-oci_0.1.1_linux_amd64_v1.tar.gz"
+  run || fail "corrupt: rc $? $(cat "$tmp/out")"
+  grep -q 'wget' "$CALL_LOG" || fail "corrupt: did not re-download"
+  [ -x "$bin" ] || fail "corrupt: binary missing"
+  [ "$(sha256sum "$tmp/cache/openbao-plugin-kms-oci_0.1.1_linux_amd64_v1.tar.gz" | cut -d" " -f1)" = "$good_sha" ] || fail "corrupt: cache not refreshed"
+}
+no_cache_dir_means_plain_download() {
+  reset; unset PLUGIN_CACHE_DIR
+  run || fail "nocache: rc $? $(cat "$tmp/out")"
+  [ -x "$bin" ] || fail "nocache: binary missing"
+}
+values_with_trailing_newline_are_trimmed() {
+  reset; export key_id="$(printf 'ocid1.key.oc1..aaa\n')" crypto_endpoint="$(printf 'https://crypto.example\r\n')"
+  run || fail "trim: rc $? $(cat "$tmp/out")"
+  grep -q 'key_id *= "ocid1.key.oc1..aaa"$' "$hcl" || fail "trim: key_id line: $(grep key_id "$hcl")"
+  grep -q 'crypto_endpoint *= "https://crypto.example"$' "$hcl" || fail "trim: crypto line: $(grep crypto "$hcl")"
+}
+values_with_quotes_or_backslashes_are_rejected() {
+  reset; export management_endpoint='https://mgmt.example"'
+  rc=0; run || rc=$?; [ $rc -ne 0 ] || fail "reject: rc 0"
+  grep -q 'management_endpoint' "$tmp/out" || fail "reject: message: $(cat "$tmp/out")"
+  [ ! -f "$hcl" ] || fail "reject: seal.hcl written"
+}
+for t in disabled_writes_empty_config_without_network enabled_installs_plugin_and_writes_seal bad_sha_fails_and_installs_nothing missing_seal_values_fail_before_download download_failure_fails disabled_flag_writes_disabled_seal plugin_url_override_is_used download_populates_cache_and_cache_skips_network corrupt_cache_is_replaced_by_a_fresh_download no_cache_dir_means_plain_download values_with_trailing_newline_are_trimmed values_with_quotes_or_backslashes_are_rejected; do
   $t; echo "ok $t"
 done
 echo PASS

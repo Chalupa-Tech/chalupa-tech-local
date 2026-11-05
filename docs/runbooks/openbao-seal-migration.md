@@ -39,8 +39,11 @@ deleted, no raft snapshot can be opened again. Terraform sets
      --from-literal=key_id='<openbao_kms_key_id>' \
      --from-literal=crypto_endpoint='<openbao_kms_crypto_endpoint>' \
      --from-literal=management_endpoint='<openbao_kms_management_endpoint>'
-   rm oci-config openbao-unseal.pem   # the PEM now lives only in the secret + 1Password
    ```
+
+   Store `openbao-unseal.pem` in 1Password (OpenBao item, "OCI unseal API
+   key") **before** `rm oci-config openbao-unseal.pem`; the secret must not
+   be the only copy.
 
 4. Flip `global.ociKms.enabled: true` in
    `gitops/apps/platform/openbao/values.yaml` (PR), let ArgoCD sync. The
@@ -51,31 +54,56 @@ deleted, no raft snapshot can be opened again. Terraform sets
 5. Shamir shares (3 of 5) and the root token at hand
    (`~/secure/openbao-init.json`). `export BAO_TOKEN=...` is needed only
    for `step-down`.
-6. Note: the pods still run 2.6.2 while the StatefulSet already says
-   `openbao:2.7.1`; every restart below is also that upgrade. Read the
-   2.7 release notes first (built-in seals removed → plugin, which is what
-   this runbook installs).
+6. **The 2.7.1 upgrade is done first, separately (step 1).** The pods still
+   run 2.6.2 while the StatefulSet already says `openbao:2.7.1`
+   (`updateStrategyType: OnDelete`), so the first restart of each pod is
+   that upgrade. Doing it with `global.ociKms.enabled: false` (the state
+   right after this PR merges) and plain Shamir unseals keeps "2.7 broke
+   something" apart from "the seal plugin / OCI config is wrong". Read the
+   2.7 release notes once; a downgrade of a raft node that ran 2.7 is not
+   supported, so take the step 1 snapshot first.
 
-## 1. Snapshot
+## 1. Pass A — upgrade the pods to 2.7.1 (Shamir still, `enabled: false`)
 
 ```bash
-kubectl -n openbao exec openbao-0 -- bao status | grep -E 'HA Mode|Seal Type'   # expect active, shamir
-kubectl -n openbao create job --from=cronjob/openbao-snapshot pre-seal-migration
-kubectl -n openbao wait --for=condition=complete job/pre-seal-migration --timeout=5m
+kubectl -n openbao exec openbao-0 -- bao status | grep -E 'HA Mode|Seal Type|Version'   # expect active, shamir, 2.6.2
+kubectl -n openbao create job --from=cronjob/openbao-snapshot pre-upgrade
+kubectl -n openbao wait --for=condition=complete job/pre-upgrade --timeout=5m
 ```
 
 (The snapshot lands on the TrueNAS backups export; alternatively
 `bao operator raft snapshot save /tmp/pre.snap` + `kubectl cp`.)
 
-## 2. Standbys first: openbao-2, then openbao-1
-
-For `P` in `openbao-2` (sealed since September — nothing to lose) then
-`openbao-1`:
+Then, standbys first, leader last — for `P` in `openbao-2`, `openbao-1`:
 
 ```bash
-kubectl -n openbao delete pod $P
-kubectl -n openbao wait --for=condition=initialized pod/$P --timeout=5m
-kubectl -n openbao logs $P -c kms-init          # "installed openbao-plugin-kms-oci v0.1.1; seal config at /openbao/kms/seal.hcl"
+restart() { kubectl -n openbao delete pod "$1"; until kubectl -n openbao get pod "$1" >/dev/null 2>&1; do sleep 2; done; kubectl -n openbao wait --for=condition=initialized "pod/$1" --timeout=5m; }
+restart $P
+kubectl -n openbao logs $P -c kms-init            # "OCI KMS seal disabled; wrote empty /openbao/kms/seal.hcl"
+./scripts/openbao/unseal.sh --keys-file ~/secure/openbao-init.json   # Shamir, as today
+kubectl -n openbao exec $P -- bao status | grep -E 'Version|Sealed|HA Mode'   # 2.7.1, false, standby
+```
+
+Then `kubectl -n openbao exec openbao-0 -- env BAO_TOKEN=$BAO_TOKEN bao operator step-down`,
+`restart openbao-0`, unseal it the same way, and confirm all three report
+2.7.1 and a leader exists (`bao operator raft list-peers`). Only now
+create the secret (prereq 3) and flip `enabled: true` (prereq 4) — the
+pods do not restart on that sync.
+
+## 1b. Snapshot before the seal migration
+
+```bash
+kubectl -n openbao create job --from=cronjob/openbao-snapshot pre-seal-migration
+kubectl -n openbao wait --for=condition=complete job/pre-seal-migration --timeout=5m
+```
+
+## 2. Pass B — seal migration, standbys first: openbao-2, then openbao-1
+
+For `P` in `openbao-2` then `openbao-1` (the `restart` helper from step 1):
+
+```bash
+restart $P
+kubectl -n openbao logs $P -c kms-init          # "installed openbao-plugin-kms-oci v0.1.1; seal config at /openbao/kms/seal.hcl" (+ "cached verified tarball")
 kubectl -n openbao logs $P | grep -iE 'seal|plugin|error' | head
 kubectl -n openbao exec $P -- bao status        # Sealed true, Seal Type shamir (migration pending)
 kubectl -n openbao exec $P -- bao operator unseal -migrate '<share 1>'
@@ -101,16 +129,17 @@ kubectl -n openbao exec openbao-0 -- env BAO_TOKEN=$BAO_TOKEN bao operator step-
 sleep 10; for p in openbao-1 openbao-2; do kubectl -n openbao exec $p -- bao status | grep -E 'HA Mode|Seal Type|Sealed'; done
 # the new active node performs the migration; look for it in its log:
 kubectl -n openbao logs <new active> | grep -i 'seal migration'
-kubectl -n openbao delete pod openbao-0
+restart openbao-0
 kubectl -n openbao wait --for=condition=ready pod/openbao-0 --timeout=5m
 kubectl -n openbao exec openbao-0 -- bao status   # Sealed false WITHOUT any unseal command; Seal Type ocikms, Recovery Seal Type shamir
+kubectl -n openbao exec openbao-0 -- ls /home/openbao/.oci   # config  key.pem (nested mount works)
 ```
 
 ## 4. Verify and record
 
 ```bash
 for p in openbao-0 openbao-1 openbao-2; do kubectl -n openbao exec $p -- bao status | grep -E 'Seal Type|Sealed|Version|HA Mode'; done
-kubectl -n openbao delete pod openbao-2 && kubectl -n openbao wait --for=condition=ready pod/openbao-2 --timeout=5m   # the real test: comes back unsealed by itself
+restart openbao-2 && kubectl -n openbao wait --for=condition=ready pod/openbao-2 --timeout=5m   # the real test: comes back unsealed by itself, from the cached tarball (kms-init log says "using cached")
 kubectl get clustersecretstore openbao   # Ready
 ```
 
