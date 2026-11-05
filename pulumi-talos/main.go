@@ -19,7 +19,7 @@ const (
 	// (control planes then workers, health gate, rollback) before Stage 2b
 	// regenerates configs — docs/2026-11-04-platform-patch-flow.md. Renovate
 	// auto-merges patches; minors are a PR; majors need approval.
-	talosVersion = "v1.14.1"
+	talosVersion = "v1.14.5"
 	// kubernetesVersion is pinned separately so a talosVersion bump can't
 	// silently pull in that release's default Kubernetes (this broke the
 	// v1.14.1 bump: nodes on Talos 1.12.7 rejected K8s 1.36 images). Stage 2c
