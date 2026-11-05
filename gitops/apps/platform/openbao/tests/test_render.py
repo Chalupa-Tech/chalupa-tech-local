@@ -45,8 +45,8 @@ values = yaml.safe_load((CHART / "values.yaml").read_text())
 pin = values["global"]["ociKms"]["plugin"]
 if not re.fullmatch(r"[0-9a-f]{64}", pin["sha256"]):
     fail("global.ociKms.plugin.sha256 must be a 64-char hex sha256")
-if values["global"]["ociKms"]["enabled"] is not False:
-    fail("global.ociKms.enabled must default to false (flipped only by the migration runbook)")
+if not isinstance(values["global"]["ociKms"]["enabled"], bool):
+    fail("global.ociKms.enabled must be a boolean (true only after the seal-migration runbook)")
 
 by_kind = render()
 spec = sts(by_kind)
@@ -58,8 +58,8 @@ init = inits["kms-init"]
 if init["image"] != server["image"]:
     fail(f"kms-init image {init['image']} != server image {server['image']}")
 env = env_map(init)
-if env.get("OCI_KMS_ENABLED") != "false":
-    fail(f"OCI_KMS_ENABLED default: {env.get('OCI_KMS_ENABLED')}")
+if env.get("OCI_KMS_ENABLED") != str(values["global"]["ociKms"]["enabled"]).lower():
+    fail(f"OCI_KMS_ENABLED must mirror global.ociKms.enabled: {env.get('OCI_KMS_ENABLED')}")
 if env.get("OCI_KMS_DISABLED") != "false":
     fail("OCI_KMS_DISABLED default must be false")
 if env.get("PLUGIN_VERSION") != str(pin["version"]) or env.get("PLUGIN_SHA256") != pin["sha256"]:

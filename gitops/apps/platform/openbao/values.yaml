@@ -5,7 +5,7 @@
 # `disabled = "true"` into the seal block for a migration back to Shamir.
 global:
   ociKms:
-    enabled: false
+    enabled: true
     disabled: false
     plugin:
       # kms-oci plugin from openbao/openbao-plugins (release tag kms-oci-v<version>).
