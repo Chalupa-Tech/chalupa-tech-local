@@ -1,0 +1,11 @@
+---
+# Kernel 7 has been the PVE 9.2 default since docs/2026-05-26-remove-kernel7-optin.md;
+# the pve-test apt source that pulled it in early was left behind on the host
+# and keeps mixing unreleased packages into a production hypervisor. Remove it
+# and refresh the cache so the next apt run resolves against pve-no-subscription.
+- name: Remove pve-test apt source
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/pve-test.list
+    state: absent
+  when: proxmox_prep_remove_pve_test_repo
+  notify: Refresh apt cache

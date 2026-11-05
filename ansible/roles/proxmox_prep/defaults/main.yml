@@ -18,3 +18,29 @@ proxmox_prep_talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f27
 proxmox_prep_talos_iso_name: "talos-nocloud-amd64-{{ proxmox_prep_talos_version }}.iso"
 proxmox_prep_talos_iso_url: >-
   https://factory.talos.dev/image/{{ proxmox_prep_talos_schematic_id }}/{{ proxmox_prep_talos_version }}/nocloud-amd64.iso
+
+# Apt repositories. pve-test was an opt-in for kernel 7 (now the 9.2 default)
+# and must not stay enabled on a production host.
+proxmox_prep_remove_pve_test_repo: true
+
+# --- Guest backups (vzdump) ---
+# Two targets: the TrueNAS VM must not be backed up to TrueNAS, so it goes to
+# a dir storage carved from the spare 4 TB NVMe (VG nvme_4tb_front, which had
+# no LVs). Everything else goes to a TrueNAS NFS export once the owner creates
+# it and sets proxmox_prep_backup_nfs_export (e.g. /mnt/<pool>/Backups/proxmox);
+# until then it also lands on the NVMe so backups exist from the first run.
+proxmox_prep_backup_vg: nvme_4tb_front
+proxmox_prep_backup_lv: backups
+proxmox_prep_backup_lv_size: 1T
+proxmox_prep_backup_mount: /mnt/nvme-backups
+proxmox_prep_backup_schedule: "01:00"
+proxmox_prep_backup_prune: "keep-last=7,keep-weekly=4"
+proxmox_prep_backup_truenas_vmids: [101]
+proxmox_prep_backup_guest_vmids: [100, 200, 250]
+proxmox_prep_backup_nfs_server: "192.168.1.40"
+proxmox_prep_backup_nfs_export: ""
+proxmox_prep_backup_guest_storage: "{{ 'truenas-backups' if proxmox_prep_backup_nfs_export else 'nvme-backups' }}"
+# The job created by hand in March pointed at a storage that never existed
+# and failed every Sunday since. Removed on first run.
+proxmox_prep_backup_legacy_job_ids:
+  - backup-af8b79f5-6e9a

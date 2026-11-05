@@ -1,8 +1,12 @@
 # Tasks for preparing the Proxmox host (e.g., IOMMU, passthrough)
-- name: Ensure Proxmox system is up to date
-  ansible.builtin.apt:
-    update_cache: true
-    upgrade: dist
+#
+# Host package upgrades are deliberately NOT done here. unattended-upgrades
+# (PR 3 of the auto-patching series) owns day-to-day security patches and the
+# monthly maintenance-window workflow owns full upgrades + reboots, both
+# gated on a fresh vzdump. A Stage 1 run must never be the thing that
+# patches the host (docs/superpowers/specs/2026-11-04-auto-patching-design.md).
+- name: Manage apt repositories
+  ansible.builtin.import_tasks: repos.yml
 
 - name: Check if GRUB is used
   ansible.builtin.stat:
@@ -102,7 +106,7 @@
   ansible.builtin.get_url:
     url: "https://github.com/home-assistant/operating-system/releases/download/{{ haos_version }}/{{ haos_image_filename }}"
     dest: "/var/lib/vz/import/{{ haos_image_filename }}"
-    checksum: "{{ haos_image_sha256 }}"
+    checksum: "{{ haos_image_checksum }}"
     mode: "0644"
 
 - name: Decompress HAOS qcow2 in place
@@ -157,3 +161,6 @@
   # module would hard-fail. Standard guard: tolerate errors only in
   # check mode; real runs still fail loudly.
   ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Guest backups (vzdump targets, jobs, metrics hook)
+  ansible.builtin.import_tasks: backups.yml
