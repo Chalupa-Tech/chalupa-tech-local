@@ -12,6 +12,7 @@ mkdir -p "$tmp/bin" "$tmp/state"
 export STATE_DIR="$tmp/state" CALL_LOG="$tmp/calls.log"
 export GATE_ATTEMPTS=2 GATE_SLEEP=0 TALOSCONFIG="$tmp/tc" KUBECONFIG="$tmp/kc"; : > "$TALOSCONFIG"; : > "$KUBECONFIG"
 export UNSEAL_CI="$tmp/bin/unseal-ci.sh" ETCD_SNAPSHOT_PATH="$tmp/etcd.snap"
+export UNSEAL_WAIT_ATTEMPTS=3 UNSEAL_WAIT_SLEEP=0
 cps="192.168.1.225 192.168.1.228 192.168.1.229"; workers="192.168.1.226 192.168.1.227 192.168.1.232"
 
 cat > "$tmp/bin/talosctl" <<'STUB'
@@ -50,7 +51,11 @@ case "$*" in
   *"get clustersecretstore"*) printf 'True\n' ;;
   *"exec openbao-"*"bao status"*)
     pod=$(sed -E 's/.*exec (openbao-[0-9]).*/\1/' <<<"$*")
-    if [ -f "$STATE_DIR/sealed" ] && [ "$(cat "$STATE_DIR/sealed")" = "$pod" ]; then printf '{"sealed":true}\n'; exit 2; else printf '{"sealed":false}\n'; fi ;;
+    if [ -f "$STATE_DIR/sealed" ] && [ "$(cat "$STATE_DIR/sealed")" = "$pod" ]; then
+      # STUB_AUTO_UNSEAL_AFTER=<n>: the replica auto-unseals (OCI KMS) after n status polls
+      if [ -n "${STUB_AUTO_UNSEAL_AFTER:-}" ]; then n=$(( $(cat "$STATE_DIR/polls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$STATE_DIR/polls"; [ "$n" -ge "$STUB_AUTO_UNSEAL_AFTER" ] && rm -f "$STATE_DIR/sealed"; fi
+      printf '{"sealed":true}\n'; exit 2
+    else printf '{"sealed":false}\n'; fi ;;
   *) echo "unexpected kubectl: $*" >&2; exit 1 ;;
 esac
 STUB
@@ -60,7 +65,7 @@ chmod +x "$tmp/bin/"*
 export PATH="$tmp/bin:$PATH"
 
 fail() { echo "FAIL: $1"; exit 1; }
-reset() { : > "$CALL_LOG"; for ip in $cps $workers; do echo v1.14.1 > "$STATE_DIR/$ip"; done; echo 1.36.0 > "$STATE_DIR/k8s"; rm -f "$ETCD_SNAPSHOT_PATH" "$STATE_DIR/sealed" "$STATE_DIR/apps"; unset STUB_FAIL_NODE STUB_CMD_FAIL STUB_SEAL_AFTER OPENBAO_UNSEAL_KEYS; }
+reset() { : > "$CALL_LOG"; for ip in $cps $workers; do echo v1.14.1 > "$STATE_DIR/$ip"; done; echo 1.36.0 > "$STATE_DIR/k8s"; rm -f "$ETCD_SNAPSHOT_PATH" "$STATE_DIR/sealed" "$STATE_DIR/apps" "$STATE_DIR/polls"; unset STUB_FAIL_NODE STUB_CMD_FAIL STUB_SEAL_AFTER STUB_AUTO_UNSEAL_AFTER OPENBAO_UNSEAL_KEYS; }
 run() { set +e; bash "$script" --talos-version "$1" --k8s-version "$2" --schematic abc123 >"$tmp/out" 2>&1; rc=$?; set -e; return $rc; }
 upgrades() { grep -E '^talosctl .*upgrade --image' "$CALL_LOG" | sed -E 's/.*-n ([0-9.]+).*/\1/' | paste -sd' ' -; }
 
@@ -152,7 +157,22 @@ nothing_to_do_is_success() {
   ! grep -q 'etcd snapshot' "$CALL_LOG" || fail "nothing_to_do: took a snapshot for nothing"
 }
 
-for t in snapshots_etcd_first upgrades_cp_before_workers skips_nodes_already_at_version refuses_when_openbao_sealed_without_keys unseals_when_keys_present rolls_back_only_a_node_that_booted_the_new_version no_rollback_when_upgrade_command_fails_before_boot stops_before_next_node_when_sealed_without_keys continues_past_resealed_replica_with_keys etcd_gate_checks_all_control_planes k8s_upgrade_uses_repo_pin_only no_k8s_downgrade_when_cluster_is_ahead nothing_to_do_is_success; do
+waits_for_auto_unseal_without_keys() {
+  # OCI KMS auto-unseal: the replica drained off the first node reseals, then
+  # unseals by itself a couple of polls later; the run must wait and continue.
+  reset; export STUB_SEAL_AFTER=192.168.1.225 STUB_AUTO_UNSEAL_AFTER=2
+  rc=0; run v1.14.5 1.36.0 || rc=$?; [ $rc = 0 ] || fail "waits_auto: rc $rc: $(cat "$tmp/out")"
+  [ "$(upgrades)" = "$cps $workers" ] || fail "waits_auto: upgraded '$(upgrades)'"
+  ! grep -q 'unseal-ci keys' "$CALL_LOG" || fail "waits_auto: used keys"
+  grep -qi 'waiting' "$tmp/out" || fail "waits_auto: no waiting message: $(cat "$tmp/out")"
+}
+gives_up_after_the_unseal_wait() {
+  reset; export STUB_SEAL_AFTER=192.168.1.225 STUB_AUTO_UNSEAL_AFTER=99
+  rc=0; run v1.14.5 1.36.0 || rc=$?; [ $rc = 1 ] || fail "gives_up: rc $rc"
+  [ "$(upgrades)" = "192.168.1.225" ] || fail "gives_up: upgraded '$(upgrades)'"
+  [ "$(cat "$STATE_DIR/polls")" -ge 3 ] || fail "gives_up: polled only $(cat "$STATE_DIR/polls") times"
+}
+for t in snapshots_etcd_first upgrades_cp_before_workers skips_nodes_already_at_version refuses_when_openbao_sealed_without_keys unseals_when_keys_present rolls_back_only_a_node_that_booted_the_new_version no_rollback_when_upgrade_command_fails_before_boot stops_before_next_node_when_sealed_without_keys continues_past_resealed_replica_with_keys etcd_gate_checks_all_control_planes k8s_upgrade_uses_repo_pin_only no_k8s_downgrade_when_cluster_is_ahead nothing_to_do_is_success waits_for_auto_unseal_without_keys gives_up_after_the_unseal_wait; do
   "$t"; echo "ok $t"
 done
 echo PASS

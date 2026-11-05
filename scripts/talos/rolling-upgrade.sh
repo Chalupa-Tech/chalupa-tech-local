@@ -9,11 +9,12 @@
 # Order: pre-flight (nodes Ready, etcd quorum on all control planes, every
 # OpenBao replica unsealed — a sealed one makes the openbao PDB block the
 # drain), etcd snapshot, control planes one at a time, then workers one at a
-# time. Before each node the OpenBao check repeats: a drain reseals the
-# replica that lived on the node, so with OPENBAO_UNSEAL_KEYS it is unsealed,
-# without them the run STOPS cleanly before the next node (exit 1, nothing
-# rolled back, cluster healthy but partially upgraded — re-run after
-# unsealing).
+# time. Before each node the OpenBao check repeats: a drain restarts the
+# replica that lived on the node; with OCI KMS auto-unseal it comes back
+# unsealed within the UNSEAL_WAIT window (2 min), with OPENBAO_UNSEAL_KEYS
+# (Shamir, pre-migration) it is unsealed by the helper, otherwise the run
+# STOPS cleanly before the next node (exit 1, nothing rolled back, cluster
+# healthy but partially upgraded — re-run after unsealing).
 #
 # Per node: skip if already at the target; `talosctl upgrade --preserve
 # --wait`; then the gate: node reports the target version, all nodes Ready,
@@ -48,6 +49,8 @@ GATE_ATTEMPTS="${GATE_ATTEMPTS:-40}"      # x GATE_SLEEP = 10 min
 GATE_SLEEP="${GATE_SLEEP:-15}"
 UNSEAL_CI="${UNSEAL_CI:-$(dirname "$0")/../openbao/unseal-ci.sh}"
 ETCD_SNAPSHOT_PATH="${ETCD_SNAPSHOT_PATH:-/tmp/etcd-pre-upgrade.snap}"
+UNSEAL_WAIT_ATTEMPTS="${UNSEAL_WAIT_ATTEMPTS:-8}"   # x UNSEAL_WAIT_SLEEP = 2 min
+UNSEAL_WAIT_SLEEP="${UNSEAL_WAIT_SLEEP:-15}"
 first_cp=${nodes_cp%% *}
 cp_list=${nodes_cp// /,}
 cp_count=$(wc -w <<<"$nodes_cp" | tr -d ' ')
@@ -78,9 +81,13 @@ sealed_pods() {
   done
   echo "${list% }"
 }
-# ensure_unsealed: 0 when every replica is unsealed (after trying the helper when keys exist)
+# ensure_unsealed: 0 when every replica is unsealed. A replica that was just
+# rescheduled (drain, reboot) auto-unseals through OCI KMS a few seconds
+# after it starts, so a sealed one is polled UNSEAL_WAIT_ATTEMPTS times,
+# UNSEAL_WAIT_SLEEP apart, before it counts as stuck. Shamir shares in
+# OPENBAO_UNSEAL_KEYS (pre-migration clusters) are tried first.
 ensure_unsealed() {
-  local sealed
+  local sealed i
   sealed=$(sealed_pods)
   [ -z "$sealed" ] && return 0
   if [ -n "${OPENBAO_UNSEAL_KEYS:-}" ]; then
@@ -89,7 +96,13 @@ ensure_unsealed() {
     sealed=$(sealed_pods)
     [ -z "$sealed" ] && return 0
   fi
-  log "OpenBao replica(s) sealed: $sealed"
+  log "OpenBao replica(s) sealed: $sealed; waiting up to $((UNSEAL_WAIT_ATTEMPTS * UNSEAL_WAIT_SLEEP))s for auto-unseal"
+  for ((i = 1; i <= UNSEAL_WAIT_ATTEMPTS; i++)); do
+    sleep "$UNSEAL_WAIT_SLEEP"
+    sealed=$(sealed_pods)
+    [ -z "$sealed" ] && { log "all OpenBao replicas unsealed"; return 0; }
+  done
+  log "OpenBao replica(s) still sealed: $sealed"
   return 1
 }
 version_lt() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n 1)" = "$1" ]; }
