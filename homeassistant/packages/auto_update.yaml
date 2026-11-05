@@ -1,0 +1,104 @@
+# Nightly auto-update for Home Assistant (Core, OS, Supervisor add-ons).
+# Copy this file to HAOS /config/packages/auto_update.yaml (deploy loop in
+# homeassistant/CLAUDE.md) and reload automations:
+#   curl -X POST -H "Authorization: Bearer $TOK" -d '{}' $HA/api/services/automation/reload
+# Requires configuration.yaml: homeassistant: packages: !include_dir_named packages
+#
+# Policy (docs/2026-11-04-homeassistant-auto-update.md):
+#   - 04:00 local, only if input_boolean.auto_update_enabled is on and no
+#     update is already in progress.
+#   - Core + Supervisor add-ons: update.install with backup: true (the
+#     Supervisor takes a partial backup first and can roll back).
+#   - OS: update.install without backup (unsupported for OS); only when the
+#     last automatic HA backup is < 26 h old (they run daily ~11:04 UTC).
+#   - HACS frontend/integration updates are deliberately excluded.
+#   - Every run posts to Discord (notify.homeassistant_tejon_frame).
+
+input_boolean:
+  auto_update_enabled:
+    name: "Auto Update Enabled"
+    initial: on
+    icon: mdi:update
+
+automation:
+  - id: auto_update_nightly
+    alias: "Auto update nightly (Core, OS, add-ons)"
+    description: >-
+      Installs pending Home Assistant Core / OS / add-on updates at 04:00
+      behind a Supervisor backup (Core, add-ons) or a fresh automatic backup
+      (OS). Kill switch: input_boolean.auto_update_enabled.
+    mode: single
+    trigger:
+      - platform: time
+        at: "04:00:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.auto_update_enabled
+        state: "on"
+      - condition: state
+        entity_id: sensor.backup_backup_manager_state
+        state: "idle"
+      # Never start while any managed update is already in progress.
+      - condition: template
+        value_template: >-
+          {{ not (expand('update.home_assistant_core_update',
+                         'update.home_assistant_operating_system_update',
+                         'update.z_wave_js_update',
+                         'update.advanced_ssh_web_terminal_update',
+                         'update.mosquitto_broker_update',
+                         'update.xcel_itron_mqtt_update',
+                         'update.appdaemon_update',
+                         'update.whisper_update')
+                  | selectattr('attributes.in_progress', 'eq', true) | list | count) }}
+    action:
+      # Which of the Supervisor-backed entities actually have an update?
+      - variables:
+          supervisor_pending: >-
+            {{ expand('update.home_assistant_core_update',
+                      'update.z_wave_js_update',
+                      'update.advanced_ssh_web_terminal_update',
+                      'update.mosquitto_broker_update',
+                      'update.xcel_itron_mqtt_update',
+                      'update.appdaemon_update',
+                      'update.whisper_update')
+               | selectattr('state', 'eq', 'on') | map(attribute='entity_id') | list }}
+          os_pending: "{{ is_state('update.home_assistant_operating_system_update', 'on') }}"
+          backup_age_ok: >-
+            {{ states('sensor.backup_last_successful_automatic_backup') not in ('unknown', 'unavailable')
+               and (now() - as_datetime(states('sensor.backup_last_successful_automatic_backup'))).total_seconds() < 26 * 3600 }}
+      - choose:
+          - conditions: "{{ (supervisor_pending | count) == 0 and not os_pending }}"
+            sequence:
+              - stop: "Nothing to update"
+      - action: notify.homeassistant_tejon_frame
+        data:
+          message: >-
+            Auto-update starting: {{ supervisor_pending | join(', ') if supervisor_pending else 'no Core/add-on updates' }};
+            OS update {{ 'pending' if os_pending else 'none' }}
+            {{ '' if backup_age_ok else '(skipped: last automatic backup older than 26 h)' }}.
+          target: ["1508674689256652850"]
+      # Core + add-ons, one at a time, each behind a Supervisor backup. The
+      # allow-list is the expand() in `supervisor_pending` above; HACS
+      # frontend/integration update entities are deliberately not in it.
+      - repeat:
+          for_each: "{{ supervisor_pending }}"
+          sequence:
+            - action: update.install
+              target:
+                entity_id: "{{ repeat.item }}"
+              data:
+                backup: true
+              continue_on_error: true
+            - wait_template: "{{ not state_attr(repeat.item, 'in_progress') }}"
+              timeout: "00:20:00"
+              continue_on_timeout: true
+      # OS last (it reboots the VM): no per-update backup exists for OS, so
+      # the gate is a fresh automatic backup (+ the nightly vzdump of VM 250).
+      - choose:
+          - conditions: "{{ os_pending and backup_age_ok }}"
+            sequence:
+              - action: update.install
+                target:
+                  entity_id:
+                    - update.home_assistant_operating_system_update
+                continue_on_error: true
