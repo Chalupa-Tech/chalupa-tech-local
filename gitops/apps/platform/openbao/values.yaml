@@ -43,7 +43,7 @@ openbao:
           - name: KMS_DIR
             value: /openbao/kms
           - name: PLUGIN_CACHE_DIR
-            value: /openbao/kms-cache
+            value: /openbao/data/kms-cache
         # key_id / crypto_endpoint / management_endpoint (Terraform outputs)
         envFrom:
           - secretRef:
@@ -55,11 +55,13 @@ openbao:
           - name: kms-init
             mountPath: /openbao/kms-init
             readOnly: true
-          # Verified tarball cache on this replica's data PVC (subPath keeps it
-          # out of the raft files): restarts need no GitHub access.
+          # Verified tarball cache in a plain directory on this replica's data
+          # PVC (next to raft/, not inside it): restarts need no GitHub access.
+          # Deliberately no subPath: the kubelet creates subPath directories
+          # root-owned 0755 and fsGroup is not applied to them, so uid 100
+          # could not write the cache (observed 2026-11-05).
           - name: data
-            mountPath: /openbao/kms-cache
-            subPath: kms-cache
+            mountPath: /openbao/data
     volumes:
       - name: kms
         emptyDir: {}

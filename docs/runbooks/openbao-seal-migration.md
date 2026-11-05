@@ -68,6 +68,12 @@ deleted, no raft snapshot can be opened again. Terraform sets
 
 ## 1. Pass A — upgrade the pods to 2.7.1 (Shamir still, `enabled: false`)
 
+The snapshot CronJob needs the `snapshot` policy and the `openbao-snapshot`
+Kubernetes auth role (`scripts/openbao/README.md` Phase 6). Without them,
+save the snapshot directly: `kubectl -n openbao exec <active> -- env
+BAO_TOKEN=$BAO_TOKEN bao operator raft snapshot save /tmp/pre.snap` then
+`kubectl -n openbao cp <active>:/tmp/pre.snap ~/secure/openbao-raft-pre-upgrade-<date>.snap`.
+
 ```bash
 kubectl -n openbao exec openbao-0 -- bao status | grep -E 'HA Mode|Seal Type|Version'   # expect active, shamir, 2.6.2
 kubectl -n openbao create job --from=cronjob/openbao-snapshot pre-upgrade
@@ -100,9 +106,12 @@ kubectl -n openbao create job --from=cronjob/openbao-snapshot pre-seal-migration
 kubectl -n openbao wait --for=condition=complete job/pre-seal-migration --timeout=5m
 ```
 
-## 2. Pass B — seal migration, standbys first: openbao-2, then openbao-1
+## 2. Pass B — seal migration, standbys first
 
-For `P` in `openbao-2` then `openbao-1` (the `restart` helper from step 1):
+The leader after pass A is whichever pod carries the `openbao-active=true`
+label (`kubectl -n openbao get pods -l openbao-active=true`); on 2026-11-05
+it was `openbao-1`. The two **other** pods are the standbys — for each `P`
+(the `restart` helper from step 1):
 
 ```bash
 restart $P
@@ -126,6 +135,10 @@ Wait until `bao operator raft list-peers` (on openbao-0, with the token)
 shows the replica back before doing the next one.
 
 ## 3. Hand over leadership, migrate, restart the old leader
+
+(`openbao-0` below stands for the active pod identified in step 2.) The
+standbys log `barrier seal type does not match loaded type` every 5 s and
+stay not-Ready until this step completes — expected.
 
 ```bash
 kubectl -n openbao exec openbao-0 -- env BAO_TOKEN=$BAO_TOKEN bao operator step-down
