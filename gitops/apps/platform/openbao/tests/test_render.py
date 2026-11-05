@@ -74,11 +74,14 @@ if " ".join(init.get("command", []) + init.get("args", [])).find("/openbao/kms-i
 init_mounts = {m["mountPath"]: m for m in init.get("volumeMounts", [])}
 if "/openbao/kms" not in init_mounts or "/openbao/kms-init" not in init_mounts:
     fail(f"kms-init mounts: {sorted(init_mounts)}")
-cache = init_mounts.get("/openbao/kms-cache")
-if not cache or cache["name"] != "data" or cache.get("subPath") != "kms-cache":
-    fail(f"kms-init must cache the plugin on the data PVC (volume data, subPath kms-cache): {cache}")
-if env.get("PLUGIN_CACHE_DIR") != "/openbao/kms-cache":
-    fail("PLUGIN_CACHE_DIR must point at the cache mount")
+# The cache lives in a directory on the data PVC, mounted WITHOUT subPath: the
+# kubelet creates subPath directories root-owned (0755) and fsGroup does not
+# apply to them, so uid 100 could never write the cache (seen 2026-11-05).
+cache = init_mounts.get("/openbao/data")
+if not cache or cache["name"] != "data" or cache.get("subPath"):
+    fail(f"kms-init must mount the data PVC at /openbao/data without subPath: {cache}")
+if env.get("PLUGIN_CACHE_DIR") != "/openbao/data/kms-cache":
+    fail("PLUGIN_CACHE_DIR must be /openbao/data/kms-cache (a plain directory on the data PVC)")
 if init.get("securityContext", {}).get("allowPrivilegeEscalation") is not False:
     fail("kms-init must set allowPrivilegeEscalation: false like the server")
 

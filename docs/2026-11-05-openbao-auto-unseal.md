@@ -33,7 +33,7 @@ Runbook (migration, verification, rollback): `docs/runbooks/openbao-seal-migrati
   on the init container, so the chart values hold no OCIDs.
 - **Restarts do not depend on GitHub.** The first start downloads the
   15 MB tarball; after verifying it, `kms-init` keeps a copy on the
-  replica's data PVC (`subPath: kms-cache`, never part of the raft files)
+  replica's data PVC (`/openbao/data/kms-cache`, a sibling of `raft/`, never part of the raft files; mounted without `subPath` because the kubelet creates subPath directories root-owned and fsGroup does not apply to them)
   and later starts use it when its sha256 still matches. Only a version
   bump or a rebuilt PVC (node rebuild) downloads again — those need
   network anyway. A cold start after a WAN outage therefore unseals as
@@ -186,3 +186,23 @@ secret now opens the vault, where before it needed 3 Shamir shares.
   release asset and matches `checksums-kms-oci.txt`.
 
 **2026-11-05 follow-up:** the OpenBao StatefulSet uses `updateStrategyType: OnDelete`, so after any chart change it reports *Progressing* until the pods are restarted by hand. The snapshot CronJob/SA/ConfigMap sat in later sync-waves, which made every ArgoCD sync wait on that health and never finish (and queue the next revision). The waves are removed; a sync now applies everything at once and completes, and the pod restart only decides when the new spec takes effect.
+
+## Migration executed (2026-11-05)
+
+Runbook passes A and B ran on 2026-11-05 (19:21–19:50 UTC); all three
+replicas report `Seal Type ocikms`, `Recovery Seal Type shamir`, 2.7.1.
+Lessons folded back into the runbook:
+
+- After pass A the leader was `openbao-1`, not `openbao-0`: pass B's
+  "standbys first" is whatever `openbao-active=true` is **not** at that
+  moment.
+- The snapshot CronJob needs the `snapshot` policy and the
+  `openbao-snapshot` Kubernetes auth role (`scripts/openbao/README.md`
+  Phase 6); until those exist, take the snapshot with
+  `bao operator raft snapshot save` on the active pod and `kubectl cp` it.
+- The plugin cache never worked with `subPath: kms-cache` (root-owned
+  directory); fixed here by mounting the data volume plainly.
+- `argocd app terminate-op` is a patch of `.status.operationState.phase`
+  on the main resource — the Application CRD has no status subresource,
+  so `kubectl patch --subresource=status` returns NotFound.
+
