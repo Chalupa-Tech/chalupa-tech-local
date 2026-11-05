@@ -94,8 +94,19 @@ jobs:
       - name: Terraform init
         run: terraform init -backend-config=backend.hcl
 
+      # Plan to a file, refuse plans that would delete/replace the OpenBao seal
+      # dependencies (KMS key, vault, API key) or create billable Key
+      # Management resources, then apply exactly that plan.
+      - name: Terraform plan
+        run: |
+          terraform plan -input=false -out=tfplan
+          terraform show -json tfplan > plan.json
+
+      - name: Plan guard
+        run: scripts/plan-guard.sh plan.json
+
       - name: Terraform apply
-        run: terraform apply -auto-approve -input=false
+        run: terraform apply -input=false tfplan
 
   ansible-configure:
     name: Ansible Configure

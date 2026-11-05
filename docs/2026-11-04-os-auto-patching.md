@@ -41,10 +41,12 @@ when a Stage 1 run happened to touch `proxmox_prep` (PR 1 removed that).
    route) and polls `uptime -s` for up to 30 min until the boot time changes,
    then waits up to 15 min for 100/101/200/250 to be `running`, then for all
    six Talos nodes Ready.
-4. OpenBao: if the `OPENBAO_UNSEAL_KEYS` secret exists, `scripts/openbao/
-   unseal-ci.sh` unseals any sealed replica; otherwise the step logs a notice
-   and the `OpenBaoSealed` alert (PR 2) fires until someone runs
-   `scripts/openbao/unseal.sh`.
+4. OpenBao: once migrated to OCI KMS (`docs/2026-11-05-openbao-auto-unseal.md`)
+   replicas unseal themselves after the reboot; the health check's retries
+   cover the minute that takes. On a cluster that has not migrated yet,
+   `scripts/openbao/unseal-ci.sh` unseals with `OPENBAO_UNSEAL_KEYS` if that
+   secret exists; otherwise the `OpenBaoSealed` alert (PR 2) fires until
+   someone runs `scripts/openbao/unseal.sh`.
 5. `health-check.yml` (reusable; also `gh workflow run health-check.yml`):
    pve1 SSH, guests running, Talos nodes, ArgoCD apps Healthy, OpenBao
    unsealed, ExternalSecrets Ready, Plex `/identity`, HA HTTP, TrueNAS NFS.
@@ -62,15 +64,18 @@ to reboot without a pending update).
   06:00 local, randomised) and reboot at the next 04:30/04:45 window, i.e.
   the following night.
 - The Oracle VM reboots at 10:15 UTC the first day `reboot-required` is set.
-- `openbao-2` is currently sealed; without the unseal secret it stays that
-  way after the host reboot (see decision below).
+- `openbao-2` has been sealed since September; the seal-migration runbook
+  (`docs/runbooks/openbao-seal-migration.md`) restarts and unseals it as its
+  first step.
 
 ## Decisions
 
-- **OpenBao unseal in CI is opt-in** (spec §8). Storing 3 of 5 Shamir
-  shares as `OPENBAO_UNSEAL_KEYS` makes host reboots and (PR 4) Talos node
-  upgrades fully unattended. Without it, ExternalSecrets stop syncing after
-  every pve1 reboot until a human unseals. The owner decides.
+- **OpenBao unseal** — decided 2026-11-05: OCI KMS auto-unseal
+  (`docs/2026-11-05-openbao-auto-unseal.md`), which makes host reboots and
+  (PR 4) Talos node upgrades fully unattended with no key material in CI.
+  Until the migration runbook has run, `OPENBAO_UNSEAL_KEYS` (3 of 5 Shamir
+  shares) is an optional stop-gap; without either, ExternalSecrets stop
+  syncing after every pve1 reboot until a human unseals.
 - **pve1 never auto-reboots** — only the gated Sunday window does.
 - **Tailscale LXC definition stays manual** (`protection: 1`); Ansible only
   manages the in-container patch policy, over `pct exec` (no SSH key inside).

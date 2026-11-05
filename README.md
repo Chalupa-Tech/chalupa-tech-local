@@ -63,7 +63,10 @@ the LXCs and the Oracle VM reboot themselves when required (04:30 / 04:45 /
 10:15 UTC); `pve1` only reboots in the Sunday maintenance window, which is
 gated on fresh backups (`gh workflow run maintenance-window.yml`; health check
 alone: `gh workflow run health-check.yml`). Details:
-`docs/2026-11-04-os-auto-patching.md`. Home Assistant updates itself nightly
+`docs/2026-11-04-os-auto-patching.md`. Once migrated to OCI KMS (free
+tier), OpenBao unseals itself after any restart (migration runbook in
+`docs/runbooks/openbao-seal-migration.md`, design in
+`docs/2026-11-05-openbao-auto-unseal.md`). Home Assistant updates itself nightly
 (`docs/2026-11-04-homeassistant-auto-update.md`); TrueNAS upgrades stay manual
 (`docs/runbooks/truenas-upgrade.md`).
 
@@ -71,8 +74,9 @@ alone: `gh workflow run health-check.yml`). Details:
 
 Nightly vzdump at 01:00: the TrueNAS VM (101) goes to the `nvme-backups`
 dir storage on the spare NVMe; Home Assistant (250), Plex (200) and the
-Tailscale LXC (100) go to `truenas-backups` (TrueNAS NFS) once
-`proxmox_prep_backup_nfs_export` is set, otherwise also to `nvme-backups`.
+Tailscale LXC (100) go to `truenas-backups` (TrueNAS NFS export
+`/mnt/AppData/Backups/proxmox`; clear `proxmox_prep_backup_nfs_export` to
+fall back to `nvme-backups`).
 Retention 7 daily + 4 weekly. Talos VMs are not backed up (recreatable).
 Freshness/failure alerts come from the vzdump hook metrics (VMRule
 `backups`). A monthly restore drill proves the archives restore

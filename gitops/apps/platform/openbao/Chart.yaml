@@ -1,6 +1,6 @@
 apiVersion: v2
 name: openbao-wrapper
-description: Wrapper chart for OpenBao (HA Raft, manual Shamir unseal)
+description: Wrapper chart for OpenBao (HA Raft, OCI KMS auto-unseal via the kms-oci plugin; Shamir shares are the recovery keys)
 type: application
 version: 0.1.0
 appVersion: "v2.5.3"
