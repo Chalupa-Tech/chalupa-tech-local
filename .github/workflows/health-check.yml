@@ -1,0 +1,54 @@
+name: Health Check
+
+# Estate-wide health check (scripts/health-check.sh): pve1, guests, Talos
+# nodes, ArgoCD apps, OpenBao seal state, ExternalSecrets, Plex, Home
+# Assistant, TrueNAS NFS. Reusable (called after the maintenance window) and
+# runnable by hand. See docs/2026-11-04-os-auto-patching.md.
+
+on:
+  workflow_call:
+    inputs:
+      attempts:
+        description: Re-run the suite up to N times, 60 s apart (post-reboot settle)
+        type: number
+        default: 1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    name: Check estate health
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Connect to Proxmox
+        uses: ./.github/actions/connect-proxmox
+        with:
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          ssh-private-key: ${{ secrets.PROXMOX_SSH_KEY }}
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+      - name: Install Pulumi CLI
+        run: curl -fsSL https://get.pulumi.com | sh && echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Get kubeconfig from Pulumi
+        run: |
+          pulumi stack output kubeconfig --show-secrets --stack tayvenb13/chalupa-talos/proxmox --cwd pulumi-talos/ > /tmp/kubeconfig
+          chmod 600 /tmp/kubeconfig
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Run health check
+        run: bash scripts/health-check.sh
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          HC_ATTEMPTS: ${{ inputs.attempts || 1 }}

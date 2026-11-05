@@ -1,0 +1,10 @@
+---
+# Shared by proxmox_prep (host), lxc_baseline (Ubuntu LXCs) and the Oracle
+# base role. Origins are apt Origins-Pattern entries; the caller decides
+# which vendors may auto-apply.
+unattended_upgrades_origins: []
+unattended_upgrades_auto_reboot: false
+unattended_upgrades_reboot_time: "04:30"
+unattended_upgrades_remove_unused: false
+# Optional mail target (empty = none); the host alerts via metrics instead.
+unattended_upgrades_mail: ""

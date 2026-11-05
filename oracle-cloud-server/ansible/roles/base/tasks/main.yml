@@ -8,21 +8,31 @@
 - name: Install base packages
   ansible.builtin.apt:
     name:
-      - unattended-upgrades
       - iptables-persistent
       - unzip
       - jq
       # Required for Ansible's become_user handoff to unprivileged users
       # (setfacl on remote temp files); Ubuntu minimal images omit it.
       - acl
+      # Off-box copy of the world backups (instance-principal auth, no keys).
+      - rclone
     state: present
 
-- name: Enable unattended security upgrades
-  ansible.builtin.copy:
-    dest: /etc/apt/apt.conf.d/20auto-upgrades
-    content: |
-      APT::Periodic::Update-Package-Lists "1";
-      APT::Periodic::Unattended-Upgrade "1";
-    owner: root
-    group: root
-    mode: "0644"
+# Security + updates + Tailscale apply daily; the reboot (only when
+# required) happens at 10:15 UTC, after the 09:30 world backup and before
+# the 10:00 server-build update has a chance to overlap meaningfully.
+- name: Unattended upgrades with post-backup reboot
+  ansible.builtin.import_role:
+    name: unattended_upgrades
+  vars:
+    unattended_upgrades_origins:
+      - "origin=Ubuntu,codename=${distro_codename}-security,label=Ubuntu"
+      - "origin=Ubuntu,codename=${distro_codename}-updates"
+      - "origin=Tailscale"
+    unattended_upgrades_auto_reboot: true
+    unattended_upgrades_reboot_time: "10:15"
+    unattended_upgrades_remove_unused: true
+
+- name: Enable Tailscale self-update
+  ansible.builtin.command: tailscale set --auto-update=true
+  changed_when: false

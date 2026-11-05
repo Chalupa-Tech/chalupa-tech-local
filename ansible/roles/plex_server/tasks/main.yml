@@ -166,11 +166,13 @@
 
 # ──────────────────────────────────────────────────────────
 # 8. Install Plex Media Server
-#    --force-confold preserves existing config on upgrades
+#    --force-confold preserves existing config on upgrades.
+#    No version pin: unattended-upgrades (lxc_baseline, Plex origin)
+#    keeps Plex current; a pin here would make Stage 3 downgrade it.
 # ──────────────────────────────────────────────────────────
 - name: Install plexmediaserver
   ansible.builtin.apt:
-    name: plexmediaserver=1.43.5.11029-6bf8af3f0
+    name: plexmediaserver
     state: present
     update_cache: true
     dpkg_options: "force-confold"

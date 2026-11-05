@@ -18,3 +18,30 @@
   gather_facts: false
   roles:
     - plex_server
+    - role: lxc_baseline
+      vars:
+        lxc_baseline_extra_origins:
+          - "origin=Plex Media Server Repository"
+        # The Plex container runs UTC (verified): 11:30 UTC = 04:30 MST,
+        # after the 01:00 MST vzdump. (CT 100 runs America/Denver.)
+        lxc_baseline_reboot_time: "11:30"
+
+# Play 3: Baseline the Tailscale subnet-router LXC (VMID 100). The container
+# itself was created by hand and stays that way (protection: 1); only its
+# in-container patch policy is managed here. No SSH key lives inside it —
+# the proxmox_pct_remote connection runs `pct exec` on pve1 over the
+# existing root SSH session. Reboots at 04:45 drop the CI subnet route for
+# about a minute, at a time no scheduled workflow runs.
+- name: Configure Tailscale LXC
+  hosts: tailscale_lxc
+  gather_facts: false
+  pre_tasks:
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - role: lxc_baseline
+      vars:
+        lxc_baseline_extra_origins:
+          - "origin=Tailscale"
+        lxc_baseline_reboot_time: "04:45"
+        lxc_baseline_tailscale_auto_update: true

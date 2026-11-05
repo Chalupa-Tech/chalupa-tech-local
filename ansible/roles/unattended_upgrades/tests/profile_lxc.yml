@@ -1,0 +1,9 @@
+---
+unattended_upgrades_origins:
+  - "origin=Ubuntu,codename=${distro_codename}-security,label=Ubuntu"
+  - "origin=Ubuntu,codename=${distro_codename}-updates"
+  - "origin=Plex Media Server Repository"
+  - "origin=Tailscale"
+unattended_upgrades_auto_reboot: true
+unattended_upgrades_reboot_time: "04:30"
+unattended_upgrades_remove_unused: true

@@ -14,3 +14,11 @@ tar -czf "$backup_dir/worlds-$(date +%F-%H%M).tar.gz" -C "{{ valheim_data_dir }}
 
 # Keep the newest 14 archives
 ls -1t "$backup_dir"/worlds-*.tar.gz | tail -n +15 | xargs -r rm --
+
+# Off-box copy (rclone -> OCI Object Storage via instance principal). The
+# config only exists when CI rendered it with the OCI coordinates. `copy`,
+# not `sync`: local pruning (and an emptied local dir) must never delete the
+# off-box archives — the bucket's 30-day lifecycle rule does the pruning.
+if [ -f "{{ valheim_home }}/rclone.conf" ]; then
+  rclone copy "$backup_dir" "oos:{{ valheim_backup_bucket }}" --config "{{ valheim_home }}/rclone.conf" --quiet
+fi

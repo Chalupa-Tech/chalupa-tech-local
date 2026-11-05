@@ -5,3 +5,11 @@ all:
         plex:
           ansible_host: 192.168.1.224
           ansible_user: root
+    tailscale_lxc:
+      hosts:
+        tailscale:
+          # pct exec on pve1 as root; see playbooks/vm-configure.yml Play 3.
+          ansible_host: 192.168.1.223
+          ansible_user: root
+          ansible_connection: community.proxmox.proxmox_pct_remote
+          proxmox_vmid: 100

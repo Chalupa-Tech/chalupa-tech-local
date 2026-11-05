@@ -1,0 +1,19 @@
+---
+# Test-only play: renders the role's templates into out_dir on localhost.
+- name: Render unattended_upgrades templates
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../defaults/main.yml
+  tasks:
+    - name: Render 50unattended-upgrades
+      ansible.builtin.template:
+        src: "{{ template_dir }}/50unattended-upgrades.j2"
+        dest: "{{ out_dir }}/50unattended-upgrades"
+        mode: "0644"
+    - name: Render 20auto-upgrades
+      ansible.builtin.template:
+        src: "{{ template_dir }}/20auto-upgrades.j2"
+        dest: "{{ out_dir }}/20auto-upgrades"
+        mode: "0644"

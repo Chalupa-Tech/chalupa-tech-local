@@ -1,0 +1,14 @@
+---
+- name: Unattended upgrades with nightly reboot
+  ansible.builtin.import_role:
+    name: unattended_upgrades
+  vars:
+    unattended_upgrades_origins: "{{ lxc_baseline_origins + lxc_baseline_extra_origins }}"
+    unattended_upgrades_auto_reboot: true
+    unattended_upgrades_reboot_time: "{{ lxc_baseline_reboot_time }}"
+    unattended_upgrades_remove_unused: true
+
+- name: Enable Tailscale self-update
+  ansible.builtin.command: tailscale set --auto-update=true
+  changed_when: false
+  when: lxc_baseline_tailscale_auto_update

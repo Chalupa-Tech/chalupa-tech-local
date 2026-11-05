@@ -169,3 +169,7 @@ jobs:
         working-directory: oracle-cloud-server/ansible/
         env:
           VALHEIM_PASSWORD: ${{ secrets.VALHEIM_PASSWORD }}
+          # Off-box backup target (terraform/backups.tf); same secrets Terraform uses.
+          OCI_NAMESPACE: ${{ secrets.OCI_NAMESPACE }}
+          OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
+          OCI_REGION: ${{ secrets.OCI_REGION }}

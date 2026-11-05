@@ -24,3 +24,51 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# --- Server-build auto-update + rollback -----------------------------------
+- name: Install update and rollback scripts
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ valheim_home }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - valheim-update.sh
+    - valheim-rollback.sh
+
+- name: Install update environment file
+  ansible.builtin.template:
+    src: update.env.j2
+    dest: "{{ valheim_home }}/update.env"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install update service and timer
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: valheim-update.service.j2, dest: valheim-update.service }
+    - { src: valheim-update.timer.j2, dest: valheim-update.timer }
+
+- name: Enable update timer
+  ansible.builtin.systemd_service:
+    name: valheim-update.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# --- Off-box backup copy ----------------------------------------------------
+- name: Install rclone config for the backup bucket
+  ansible.builtin.template:
+    src: rclone.conf.j2
+    dest: "{{ valheim_home }}/rclone.conf"
+    owner: "{{ valheim_user }}"
+    group: "{{ valheim_user }}"
+    mode: "0600"
+  when: valheim_backup_offsite_enabled | bool

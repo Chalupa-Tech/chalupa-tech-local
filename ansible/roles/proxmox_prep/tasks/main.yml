@@ -8,6 +8,17 @@
 - name: Manage apt repositories
   ansible.builtin.import_tasks: repos.yml
 
+# Security/vendor patches apply daily without a reboot; the monthly
+# maintenance-window workflow owns full upgrades + reboots behind the backup
+# gate (docs/2026-11-04-os-auto-patching.md).
+- name: Unattended security upgrades (packages only, never reboots)
+  ansible.builtin.import_role:
+    name: unattended_upgrades
+  vars:
+    unattended_upgrades_origins: "{{ proxmox_prep_unattended_origins }}"
+    unattended_upgrades_auto_reboot: false
+    unattended_upgrades_remove_unused: false
+
 - name: Check if GRUB is used
   ansible.builtin.stat:
     path: /etc/default/grub

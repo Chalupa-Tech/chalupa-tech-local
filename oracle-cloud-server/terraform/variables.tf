@@ -65,3 +65,9 @@ variable "budget_alert_email" {
   description = "Recipient for budget alert emails (GitHub secret OCI_BUDGET_ALERT_EMAIL)"
   type        = string
 }
+
+variable "backup_bucket_name" {
+  description = "Object Storage bucket that receives the Valheim world backups (rclone from the instance)"
+  type        = string
+  default     = "valheim-backups"
+}

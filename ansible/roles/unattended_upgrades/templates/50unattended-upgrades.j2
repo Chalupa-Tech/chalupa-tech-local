@@ -1,0 +1,18 @@
+// {{ ansible_managed | default('Managed by Ansible (unattended_upgrades role)') }}
+Unattended-Upgrade::Origins-Pattern {
+{% for origin in unattended_upgrades_origins %}
+    "{{ origin }}";
+{% endfor %}
+};
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if unattended_upgrades_auto_reboot else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ unattended_upgrades_reboot_time }}";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "{{ 'true' if unattended_upgrades_remove_unused else 'false' }}";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "{{ 'true' if unattended_upgrades_remove_unused else 'false' }}";
+Unattended-Upgrade::MinimalSteps "true";
+Unattended-Upgrade::InstallOnShutdown "false";
+Unattended-Upgrade::SyslogEnable "true";
+{% if unattended_upgrades_mail %}
+Unattended-Upgrade::Mail "{{ unattended_upgrades_mail }}";
+Unattended-Upgrade::MailReport "only-on-error";
+{% endif %}

@@ -157,3 +157,19 @@ valheim_mod_settings:
     section: TameAssist
     option: TakeIntoDungeons
     value: "false"
+
+# --- Automatic server-build updates (valheim-update.timer) ---
+# Daily at 10:00 UTC: pull the current Steam build, keep the previous one in
+# /opt/valheim/server.prev, restart only if the binary changed. Roll back
+# with /opt/valheim/valheim-rollback.sh.
+valheim_update_on_calendar: "*-*-* 10:00:00"
+
+# --- Off-box backup copy (rclone -> OCI Object Storage, instance principal) ---
+# The bucket/IAM come from terraform/backups.tf. Namespace/compartment/region
+# arrive from CI env (same secrets Terraform uses); when any is empty the
+# rclone step is skipped so a local run still works.
+valheim_backup_bucket: valheim-backups
+valheim_oci_namespace: "{{ lookup('env', 'OCI_NAMESPACE') }}"
+valheim_oci_compartment_ocid: "{{ lookup('env', 'OCI_COMPARTMENT_OCID') }}"
+valheim_oci_region: "{{ lookup('env', 'OCI_REGION') }}"
+valheim_backup_offsite_enabled: "{{ (valheim_oci_namespace | length > 0) and (valheim_oci_compartment_ocid | length > 0) and (valheim_oci_region | length > 0) }}"
