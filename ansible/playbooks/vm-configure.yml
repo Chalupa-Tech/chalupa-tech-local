@@ -45,3 +45,7 @@
           - "origin=Tailscale"
         lxc_baseline_reboot_time: "04:45"
         lxc_baseline_tailscale_auto_update: true
+        # Exit node for remote work from networks that also use 192.168.1.0/24
+        # (docs/2026-11-07-tailscale-exit-node.md). Approve it once in the
+        # Tailscale admin console after the first run.
+        lxc_baseline_tailscale_exit_node: true

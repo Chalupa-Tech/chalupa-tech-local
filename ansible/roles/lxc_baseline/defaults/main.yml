@@ -11,3 +11,10 @@ lxc_baseline_reboot_time: "04:30"
 # `tailscale set --auto-update=true` lets tailscaled upgrade itself on the
 # containers that run it (the subnet router and, if ever installed, Plex).
 lxc_baseline_tailscale_auto_update: false
+# `tailscale set --advertise-exit-node=<bool>` on the subnet router: lets a
+# remote client route ALL its traffic through the home LAN, which is the only
+# way to reach 192.168.1.x from a network that also uses 192.168.1.0/24 (the
+# local interface always beats the subnet route). The node must still be
+# approved as an exit node in the Tailscale admin console (or by an
+# autoApprovers rule); the flag alone only advertises it.
+lxc_baseline_tailscale_exit_node: false

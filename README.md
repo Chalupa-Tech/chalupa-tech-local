@@ -66,7 +66,9 @@ alone: `gh workflow run health-check.yml`). Details:
 `docs/2026-11-04-os-auto-patching.md`. Once migrated to OCI KMS (free
 tier), OpenBao unseals itself after any restart (migration runbook in
 `docs/runbooks/openbao-seal-migration.md`, design in
-`docs/2026-11-05-openbao-auto-unseal.md`). Home Assistant updates itself nightly
+`docs/2026-11-05-openbao-auto-unseal.md`). The Tailscale LXC is also an exit node
+for remote work from clashing 192.168.1.0/24 networks
+(`docs/2026-11-07-tailscale-exit-node.md`). Home Assistant updates itself nightly
 (`docs/2026-11-04-homeassistant-auto-update.md`); TrueNAS upgrades stay manual
 (`docs/runbooks/truenas-upgrade.md`).
 
