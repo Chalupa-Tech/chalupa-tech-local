@@ -12,3 +12,23 @@
   ansible.builtin.command: tailscale set --auto-update=true
   changed_when: false
   when: lxc_baseline_tailscale_auto_update
+
+# Exit-node advertisement (see defaults). Forwarding is a hard requirement
+# for both subnet routing and exit nodes; the container already routes
+# 192.168.1.0/24, so this only verifies it and fails loudly if a rebuild lost it.
+- name: Check IPv4 forwarding is on (required for subnet router / exit node)
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: lxc_baseline_ip_forward
+  changed_when: false
+  when: lxc_baseline_tailscale_exit_node
+
+- name: Fail if IPv4 forwarding is off
+  ansible.builtin.assert:
+    that: lxc_baseline_ip_forward.stdout | trim == "1"
+    fail_msg: "net.ipv4.ip_forward is {{ lxc_baseline_ip_forward.stdout | trim }}; the exit node cannot forward traffic"
+  when: lxc_baseline_tailscale_exit_node
+
+- name: Advertise (or withdraw) this container as a Tailscale exit node
+  ansible.builtin.command: "tailscale set --advertise-exit-node={{ lxc_baseline_tailscale_exit_node | bool | lower }}"
+  changed_when: false
+  when: lxc_baseline_tailscale_auto_update or lxc_baseline_tailscale_exit_node

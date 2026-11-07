@@ -65,6 +65,8 @@ jobs:
               - 'ansible/roles/plex_server/**'
               - 'ansible/roles/lxc_baseline/**'
               - 'ansible/roles/unattended_upgrades/**'
+              - 'ansible/roles/lxc_baseline/**'
+              - 'ansible/roles/unattended_upgrades/**'
               - 'pulumi/**'
               - '.github/workflows/deploy.yml'
               - '.github/actions/connect-proxmox/**'
