@@ -4,8 +4,9 @@
 #
 # Logs in with the pod's Kubernetes service-account token (auth role
 # openbao-snapshot, policy `snapshot`), saves a raft snapshot onto the
-# backups NFS volume, verifies it with `bao operator raft snapshot inspect`,
-# prunes to KEEP newest. A sealed OpenBao cannot be snapshotted: fail loudly,
+# backups NFS volume, verifies the archive (gzip tar of meta.json, state.bin
+# and SHA256SUMS: `sha256sum -c` must pass — OpenBao's CLI has no `snapshot
+# inspect` subcommand), prunes to KEEP newest. A sealed OpenBao cannot be snapshotted: fail loudly,
 # write nothing. The login token lives in BAO_TOKEN only and is never printed.
 set -eu
 
@@ -41,9 +42,18 @@ trap 'rm -f "$tmp"' EXIT
 bao operator raft snapshot save "$tmp"
 size=$(stat -c %s "$tmp" 2>/dev/null || stat -f %z "$tmp")
 [ "$size" -gt 0 ] || { log "snapshot is empty" >&2; exit 1; }
-bao operator raft snapshot inspect "$tmp" >/dev/null
+# Verify: the snapshot is a tar.gz carrying SHA256SUMS over meta.json and
+# state.bin. Unpack to a scratch dir and check the sums.
+vdir=$(mktemp -d)
+if ! tar -xzf "$tmp" -C "$vdir" meta.json state.bin SHA256SUMS 2>/dev/null \
+   || ! (cd "$vdir" && sha256sum -c SHA256SUMS >/dev/null 2>&1); then
+  rm -rf "$vdir"
+  log "snapshot verification failed (sha256 mismatch or incomplete archive); discarding $tmp" >&2
+  exit 1
+fi
+rm -rf "$vdir"
 mv -f "$tmp" "$out"
-log "saved $out ($size bytes)"
+log "saved $out ($size bytes, sha256 verified)"
 
 # Names carry a UTC timestamp: reverse name sort is newest-first.
 find "$OUT_DIR" -maxdepth 1 -name 'raft-*.snap' | sort -r | tail -n +$((KEEP + 1)) | while IFS= read -r f; do

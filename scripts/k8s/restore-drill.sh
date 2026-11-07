@@ -8,12 +8,13 @@
 #      volume into a fresh PVC; assert raft/raft.db is present.
 #   2. Throwaway CNPG cluster arrs-pg-drill (1 instance); load the newest
 #      pg_dumpall archive; assert database radarr_main exists.
-#   3. `bao operator raft snapshot inspect` on the newest raft snapshot.
+#   3. Verify the newest raft snapshot archive: unpack it and `sha256sum -c`
+#      its SHA256SUMS (OpenBao's CLI has no `snapshot inspect` subcommand).
 set -euo pipefail
 
 DRILL_WAIT_ATTEMPTS="${DRILL_WAIT_ATTEMPTS:-60}"   # x DRILL_WAIT_SLEEP = 15 min
 DRILL_WAIT_SLEEP="${DRILL_WAIT_SLEEP:-15}"
-OPENBAO_IMAGE="${OPENBAO_IMAGE:-quay.io/openbao/openbao:2.6.2}"
+OPENBAO_IMAGE="${OPENBAO_IMAGE:-quay.io/openbao/openbao:2.7.1}"
 PG_IMAGE="${PG_IMAGE:-ghcr.io/cloudnative-pg/postgresql:18.6}"
 
 failures=0
@@ -137,12 +138,12 @@ kubectl -n media delete cluster.postgresql.cnpg.io arrs-pg-drill --ignore-not-fo
 kubectl -n media delete secret arrs-pg-drill-superuser --ignore-not-found >/dev/null 2>&1 || true
 
 # ------------------------------------------------------- 3. raft snapshot file
-log "3/3 inspect newest OpenBao raft snapshot"
+log "3/3 verify newest OpenBao raft snapshot (sha256sum -c SHA256SUMS)"
 if kubectl -n openbao run snapshot-inspect-drill --rm -i --restart=Never --quiet --image="$OPENBAO_IMAGE" \
-    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":100,\"runAsGroup\":1000,\"fsGroup\":1000},\"containers\":[{\"name\":\"snapshot-inspect-drill\",\"image\":\"$OPENBAO_IMAGE\",\"command\":[\"sh\",\"-c\",\"f=\$(ls -1 /backups/openbao/raft-*.snap | sort | tail -n 1); [ -n \\\"\$f\\\" ] && bao operator raft snapshot inspect \\\"\$f\\\"\"],\"volumeMounts\":[{\"name\":\"backups\",\"mountPath\":\"/backups\",\"readOnly\":true}]}],\"volumes\":[{\"name\":\"backups\",\"persistentVolumeClaim\":{\"claimName\":\"backups-k8s\"}}]}}" >/dev/null 2>&1; then
-  log "newest raft snapshot inspects cleanly — OK"
+    --overrides="{\"spec\":{\"securityContext\":{\"runAsUser\":100,\"runAsGroup\":1000,\"fsGroup\":1000},\"containers\":[{\"name\":\"snapshot-inspect-drill\",\"image\":\"$OPENBAO_IMAGE\",\"command\":[\"sh\",\"-c\",\"f=\$(ls -1 /backups/openbao/raft-*.snap | sort | tail -n 1); [ -n \\\"\$f\\\" ] && d=\$(mktemp -d) && tar -xzf \\\"\$f\\\" -C \\\"\$d\\\" && cd \\\"\$d\\\" && sha256sum -c SHA256SUMS\"],\"volumeMounts\":[{\"name\":\"backups\",\"mountPath\":\"/backups\",\"readOnly\":true}]}],\"volumes\":[{\"name\":\"backups\",\"persistentVolumeClaim\":{\"claimName\":\"backups-k8s\"}}]}}" >/dev/null 2>&1; then
+  log "newest raft snapshot verifies (sha256) — OK"
 else
-  err "newest raft snapshot failed inspection (or none exists)"
+  err "newest raft snapshot failed sha256 verification (or none exists)"
 fi
 
 if [ "$failures" -ne 0 ]; then
