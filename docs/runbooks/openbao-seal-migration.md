@@ -7,7 +7,7 @@ serving secrets throughout (one standby restarts at a time, the leader last).
 **Warning.** The OCI key becomes a hard dependency of the raft data: with it
 deleted, no raft snapshot can be opened again. Terraform sets
 `prevent_destroy`; never remove that. The five Shamir shares become the
-**recovery keys** — keep them exactly where they are (1Password).
+**recovery keys** — keep them exactly where they are (Bitwarden).
 
 ## 0. Prerequisites
 
@@ -44,7 +44,7 @@ deleted, no raft snapshot can be opened again. Terraform sets
      --from-literal=management_endpoint='<openbao_kms_management_endpoint>'
    ```
 
-   Store `openbao-unseal.pem` in 1Password (OpenBao item, "OCI unseal API
+   Store `openbao-unseal.pem` in Bitwarden (OpenBao item, "OCI unseal API
    key") **before** `rm oci-config openbao-unseal.pem`; the secret must not
    be the only copy.
 
@@ -159,7 +159,7 @@ restart openbao-2 && kubectl -n openbao wait --for=condition=ready pod/openbao-2
 kubectl get clustersecretstore openbao   # Ready
 ```
 
-- 1Password note on the OpenBao item: "Seal: OCI KMS (key `openbao-unseal`,
+- Bitwarden note on the OpenBao item: "Seal: OCI KMS (key `openbao-unseal`,
   tenancy …). The 5 Shamir shares are now RECOVERY keys: they cannot unseal
   on their own; they authorise `generate-root`, rekey and a migration back."
 - `OPENBAO_UNSEAL_KEYS` (GitHub secret) is no longer needed; delete it if it

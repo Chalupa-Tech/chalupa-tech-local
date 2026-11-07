@@ -6,6 +6,6 @@
 # Bound to the `external-secrets` Kubernetes auth role alongside the other
 # *-read policies (see scripts/openbao/README.md). Seed the value once with
 #   OPENBAO_TOKEN=... ./scripts/openbao/kv-put.sh backups/restic password=<random-64>
-# and keep a copy in 1Password: without it the restic repositories are unreadable.
+# and keep a copy in Bitwarden: without it the restic repositories are unreadable.
 
 path "secret/data/backups/*" { capabilities = ["read"] }

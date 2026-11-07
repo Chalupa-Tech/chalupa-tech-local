@@ -20,7 +20,7 @@ kubectl -n openbao exec openbao-0 -- bao operator init -key-shares=5 -key-thresh
 chmod 600 ~/secure/openbao-init.json
 ```
 
-**Save the contents of `openbao-init.json` in 1Password under "homelab-openbao-keys" before continuing.** The unseal keys and root token cannot be recovered if lost. If you lose them, every secret stored in OpenBao is unrecoverable and OpenBao must be re-initialized from scratch (PVCs deleted, chart re-synced).
+**Save the contents of `openbao-init.json` in Bitwarden under "homelab-openbao-keys" before continuing.** The unseal keys and root token cannot be recovered if lost. If you lose them, every secret stored in OpenBao is unrecoverable and OpenBao must be re-initialized from scratch (PVCs deleted, chart re-synced).
 
 ### Phase 2: One-time per cluster lifetime — Configure
 
@@ -68,7 +68,7 @@ OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json) \
   ./scripts/openbao/kv-put.sh cloudflare/api-token token "abc123..."
 ```
 
-For ongoing operations, replace the root token with a per-operator token that has `update` capability on the relevant `secret/data/<path>` paths. Keep the root token in 1Password and only export it for the rare administrative operations that need it.
+For ongoing operations, replace the root token with a per-operator token that has `update` capability on the relevant `secret/data/<path>` paths. Keep the root token in Bitwarden and only export it for the rare administrative operations that need it.
 
 ### Phase 5: Routine — Update a policy (e.g. add a new app's KV path)
 
@@ -111,7 +111,7 @@ OPENBAO_TOKEN=$(jq -r '.root_token' ~/secure/openbao-init.json)
 
 # 1. restic repository password, read by ESO for every VolSync source
 OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/kv-put.sh backups/restic password="$(openssl rand -hex 32)"
-#    -> copy the value into 1Password ("homelab-restic-password"): without it the repositories are unreadable.
+#    -> copy the value into Bitwarden ("homelab-restic-password"): without it the repositories are unreadable.
 OPENBAO_TOKEN=$OPENBAO_TOKEN ./scripts/openbao/apply-policy.sh backups-read
 #    Append to the role's LIVE policy list (never replace it — other policies
 #    may have been bound outside this repo):
