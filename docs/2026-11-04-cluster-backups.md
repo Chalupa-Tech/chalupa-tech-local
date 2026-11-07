@@ -21,7 +21,7 @@ Everything lands on the TrueNAS export **`/mnt/AppData/Backups/k8s`**
 |---|---|---|---|---|
 | every local-path PVC (10: openbao ×3, grafana, audiobookshelf ×2, readmebook ×2, vmsingle, victoria-logs) | VolSync `ReplicationSource` (restic, `copyMethod: Direct`, mover runs as the UID owning the files) → restic REST server `restic-rest.backups:8000` | hourly (openbao :00; grafana/media :15), daily 02:30 (metrics/logs) | 24 h / 14 d / 8 w, prune weekly | `restic/<namespace>-<pvc>/` |
 | arrs-pg (Postgres 18) | CronJob `arrs-pg-dump`: `pg_dumpall --no-role-passwords` as superuser, gzip (the CNPG image has no zstd), `gzip -t` verified | 00:00 America/Denver | 14 | `postgres/arrs-pg-<ts>.sql.gz` |
-| OpenBao raft | CronJob `openbao-snapshot`: `bao operator raft snapshot save` via Kubernetes auth (role `openbao-snapshot`, policy `snapshot`), `inspect` verified | hourly :05 | 48 | `openbao/raft-<ts>.snap` |
+| OpenBao raft | CronJob `openbao-snapshot`: `bao operator raft snapshot save` via Kubernetes auth (role `openbao-snapshot`, policy `snapshot`), archive verified with `sha256sum -c SHA256SUMS` (OpenBao has no `snapshot inspect`) | hourly :05 | 48 | `openbao/raft-<ts>.snap` |
 | etcd | `.github/workflows/etcd-snapshot.yml`: `talosctl etcd snapshot` → `pve1:/mnt/nvme-backups/talos/` | Mondays 09:00 UTC | 8 | (NVMe on pve1) |
 
 Charts: `gitops/apps/platform/backups` (NFS PV/PVC, `restic/rest-server`
@@ -47,8 +47,9 @@ VolSync operator (`backups/volsync`, HTTPS with self-signed cert).
 monthly after the Proxmox drill): VolSync `ReplicationDestination` of
 `openbao/data-openbao-0` into a scratch PVC (asserts `raft/raft.db`), a
 throwaway CNPG cluster `arrs-pg-drill` loaded from the newest dump (asserts
-`radarr_main` exists), and `bao operator raft snapshot inspect` on the newest
-raft snapshot. Everything it creates is named `*-drill`; it deletes only
+`radarr_main` exists), and a `sha256sum -c SHA256SUMS` check of the newest
+raft snapshot archive (OpenBao's CLI has no `snapshot inspect`; the script
+originally called it and failed on every run — fixed 2026-11-07). Everything it creates is named `*-drill`; it deletes only
 those names, also on failure.
 
 ## Restoring for real
