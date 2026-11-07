@@ -85,7 +85,7 @@ those names, also on failure.
    `apply-policy.sh backups-read` + rebind the `external-secrets` role with
    it; `apply-policy.sh snapshot` + create role `openbao-snapshot`;
    `kv-put.sh backups/restic password=<64 random chars>` — **store the
-   password in 1Password; without it every restic repository is unreadable.**
+   password in Bitwarden; without it every restic repository is unreadable.**
 3. After the first hour: `kubectl get replicationsource -A` shows
    `Successful` for all ten; `kubectl -n media get jobs`, `kubectl -n openbao
    get jobs` show the CronJobs green; then `gh workflow run restore-drill.yml`.

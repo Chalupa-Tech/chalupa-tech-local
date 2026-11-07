@@ -21,7 +21,7 @@
 #   ./scripts/openbao/seed-grafana-admin.sh --keys-file PATH     # custom path
 #   ./scripts/openbao/seed-grafana-admin.sh --force              # regenerate password + overwrite
 #
-# Outputs the new password ONCE to stdout when generated. Save it in 1Password
+# Outputs the new password ONCE to stdout when generated. Save it in Bitwarden
 # (or your password manager). After that, the password lives only in OpenBao.
 #
 # Security:
@@ -136,11 +136,11 @@ if [[ "$NEED_WRITE" -eq 1 ]]; then
   echo "==> Wrote secret/grafana/admin (admin-user=admin, admin-password=<new>)"
   echo
   echo "  ┌─────────────────────────────────────────────────────────────────┐"
-  echo "  │ SAVE THIS PASSWORD IN 1PASSWORD NOW. It is shown only once.    │"
+  echo "  │ SAVE THIS PASSWORD IN BITWARDEN NOW. It is shown only once.    │"
   echo "  │                                                                 │"
   printf "  │   admin-password: %-44s │\n" "$GRAFANA_PASS"
   echo "  │                                                                 │"
-  echo "  │ Suggested 1Password entry: 'homelab-grafana-admin'              │"
+  echo "  │ Suggested Bitwarden entry: 'homelab-grafana-admin'              │"
   echo "  └─────────────────────────────────────────────────────────────────┘"
   echo
   unset GRAFANA_PASS
