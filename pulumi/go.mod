@@ -2,12 +2,12 @@ module pulumi_temp
 
 go 1.26.6
 
-require github.com/pulumi/pulumi/sdk/v3 v3.270.0
+require github.com/pulumi/pulumi/sdk/v3 v3.274.1
 
 require (
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
-	github.com/pulumi/pulumi-cloud-sdk/go v1.20260918.0 // indirect
+	github.com/pulumi/pulumi-cloud-sdk/go v1.20261104.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.9 // indirect
 )
 
