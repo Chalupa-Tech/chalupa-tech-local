@@ -8,7 +8,7 @@ truenas_storage_ip: "10.10.10.40"
 
 # Home Assistant OS image. Pinned for proxmox_prep download + decompress.
 # Stays in sync with pulumi/Pulumi.proxmox.yaml -> chalupa-infra:haosVersion.
-haos_version: "18.4"
+haos_version: "18.5"
 # Filename and checksum derive from haos_version so a Renovate bump is a
 # one-line change. At 18.2 the filename was still hard-pinned to 17.3, which
 # would have 404'd Stage 1. The checksum is resolved by get_url from the
