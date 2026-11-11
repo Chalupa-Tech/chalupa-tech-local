@@ -88,6 +88,7 @@ Admins only: `JereKuusela-Server_devcommands` 1.115.0 ([Thunderstore](https://th
 
 - **SSH:** `ssh ubuntu@oracle-server` (over Tailscale; the host has no public SSH ingress at all).
 - **Logs:** `journalctl -u valheim -f`
+- **Mod logs:** BepInEx writes mod output to `/opt/valheim/server/BepInEx/LogOutput.log` (root-readable only: `sudo`), not the journal. ServersideQoL runs with `DiagnosticLogs = true`, so each start dumps its effective config (`grep -A400 'Config:'`) and processor order (`grep -A60 'Processor order:'`).
 - **Confirm BepInEx/mods loaded:** `journalctl -u valheim | grep -i 'Loading \['`
 - **Restart the server:** `sudo systemctl restart valheim`
 - **Backups:** a systemd timer (`valheim-backup.timer`) runs daily, archiving the world save (`worlds_local`) to `/opt/valheim/backups`, keeping the newest 14 archives.
