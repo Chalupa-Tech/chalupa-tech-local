@@ -1,7 +1,7 @@
 # Turn on ServersideQoL diagnostic logs (Valheim)
 
 **Date:** 2026-11-11
-**PR:** _TBD_
+**PR:** [#464](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/464)
 
 ## What
 
