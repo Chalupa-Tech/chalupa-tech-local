@@ -28,7 +28,7 @@ renovate:
     # /auth volume that config.js reads at startup.
     initContainers:
       - name: mint-github-token
-        image: node:22.23.4-alpine
+        image: node:22.23.5-alpine
         command: ["node", "/scripts/mint-token.js"]
         volumeMounts:
           - name: github-app
