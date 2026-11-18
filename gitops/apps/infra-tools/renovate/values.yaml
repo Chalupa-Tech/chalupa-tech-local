@@ -14,7 +14,7 @@ renovate:
   image:
     repository: renovatebot/renovate
     registry: ghcr.io
-    tag: "44.249.3"
+    tag: "44.252.0"
 
   cronjob:
     schedule: "0 6 * * *"
