@@ -159,7 +159,7 @@ snapshot:
   # version the chart deploys; Renovate tracks this repository/tag pair.
   image:
     repository: quay.io/openbao/openbao
-    tag: "2.7.1"
+    tag: "2.7.2"
   schedule: "5 * * * *"
   keep: 48
   nfsServer: 10.10.10.40
