@@ -465,7 +465,7 @@ jobs:
           helm repo update
           helm upgrade --install argocd argo/argo-cd \
             --namespace argocd --create-namespace \
-            --version 9.5.11 \
+            --version 9.7.1 \
             --values .github/argocd-bootstrap-values.yaml \
             --wait --timeout 5m \
             --force-conflicts
