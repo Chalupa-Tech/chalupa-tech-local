@@ -35,7 +35,8 @@ spec:
         oldObject.metadata.labels[?"chalupa.tech/allow-argocd-delete"].orValue("") == "true"
       messageExpression: >-
         "argocd-delete-guard: ArgoCD may not delete " + request.resource.resource +
-        " " + (request.namespace != "" ? request.namespace + "/" : "") + request.name +
+        " " + (oldObject.metadata.?namespace.orValue("") != "" ?
+        oldObject.metadata.namespace + "/" : "") + oldObject.metadata.name +
         ". Remove it by hand, or label it chalupa.tech/allow-argocd-delete=true to let ArgoCD prune it."
       reason: Forbidden
 ---
