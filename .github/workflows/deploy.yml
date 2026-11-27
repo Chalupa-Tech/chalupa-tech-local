@@ -463,9 +463,19 @@ jobs:
           export KUBECONFIG=/tmp/kubeconfig
           helm repo add argo https://argoproj.github.io/argo-helm
           helm repo update
+          # Same chart version ArgoCD self-manages (platform/argocd wrapper), so
+          # a deploy never downgrades the running ArgoCD before it re-syncs.
+          # Renovate bumps it there; there is no second pin to drift.
+          chart_version=$(yq '.dependencies[] | select(.name == "argo-cd") | .version' \
+            gitops/apps/platform/argocd/Chart.yaml)
+          if [ -z "$chart_version" ] || [ "$chart_version" = "null" ]; then
+            echo "::error::argo-cd dependency version not found in gitops/apps/platform/argocd/Chart.yaml"
+            exit 1
+          fi
+          echo "Bootstrapping argo-cd chart $chart_version"
           helm upgrade --install argocd argo/argo-cd \
             --namespace argocd --create-namespace \
-            --version 9.7.1 \
+            --version "$chart_version" \
             --values .github/argocd-bootstrap-values.yaml \
             --wait --timeout 5m \
             --force-conflicts
