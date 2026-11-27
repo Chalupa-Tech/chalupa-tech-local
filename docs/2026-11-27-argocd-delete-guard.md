@@ -1,7 +1,7 @@
 # ArgoCD delete guard (ValidatingAdmissionPolicy)
 
 **Date:** 2026-11-27
-**PR:** TBD
+**PR:** [#494](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/494)
 
 ## What
 
