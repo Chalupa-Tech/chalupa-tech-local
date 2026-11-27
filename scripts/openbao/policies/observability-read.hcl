@@ -15,3 +15,4 @@
 
 path "secret/data/grafana/*" { capabilities = ["read"] }
 path "secret/data/vmalert/*" { capabilities = ["read"] }
+path "secret/data/truenas-alerts/*" { capabilities = ["read"] }
