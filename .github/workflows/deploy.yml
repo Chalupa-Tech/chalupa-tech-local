@@ -466,7 +466,7 @@ jobs:
           # wrapper), and a helm upgrade here would fight it: chart 10.x adds
           # NetworkPolicies ArgoCD created without Helm ownership, so helm
           # refuses ("cannot be imported into the current release").
-          # To force a re-bootstrap, delete that Application first.
+          # A fresh cluster has no Application CRD yet, so this falls through.
           if kubectl -n argocd get application argocd >/dev/null 2>&1; then
             echo "ArgoCD is self-managed (Application argocd exists); skipping helm bootstrap."
             exit 0
