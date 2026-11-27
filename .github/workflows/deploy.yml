@@ -75,6 +75,7 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'gitops/bootstrap/root-app.yaml'
               - 'pulumi-talos/**'
+              - 'scripts/k8s/prune-orphans.sh'
 
   # ════════════════════════════════════════════════════
   # Stage 1: Run Ansible against Proxmox host
@@ -561,6 +562,16 @@ jobs:
           echo "========================================================"
           echo "== END METALLB DIAGNOSTICS"
           echo "========================================================"
+
+      # The platform/observability/infra-tools AppSets run prune:false (a
+      # dropped CRD must not cascade-delete its CRs), so chart renames leave
+      # orphans that hold apps OutOfSync and fail the verify below. Prune
+      # only low-risk kinds that nothing live still uses; anything else is
+      # surfaced as a warning. See docs/2026-11-27-argocd-allowlisted-prune.md.
+      - name: Prune allowlisted ArgoCD orphans
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          bash scripts/k8s/prune-orphans.sh
 
       - name: Verify GitOps reconciliation
         run: |
