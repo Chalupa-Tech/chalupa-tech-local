@@ -27,6 +27,16 @@
     "helmUpdateSubChartArchives",
     "gomodTidy"
   ],
+  "customDatasources": {
+    "haos-ova": {
+      "description": "HAOS releases that actually ship the generic-x86-64 OVA qcow2 + SHA256SUMS that proxmox_prep downloads. Some releases (e.g. 18.5) are Raspberry Pi-only and would 404 Stage 1.",
+      "defaultRegistryUrlTemplate": "https://api.github.com/repos/home-assistant/operating-system/releases?per_page=100",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": [$[draft = false and prerelease = false and $count(assets[$contains(name, /^haos_ova-[0-9.]+\\.qcow2\\.xz$/)]) > 0 and $count(assets[name = \"SHA256SUMS\"]) > 0].{\"version\": tag_name, \"releaseTimestamp\": published_at, \"sourceUrl\": html_url}]}"
+      ]
+    }
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -88,7 +98,7 @@
         "haosVersion:\\s*\"?(?<currentValue>[0-9.]+)\"?",
         "haos_version:\\s*\"?(?<currentValue>[0-9.]+)\"?"
       ],
-      "datasourceTemplate": "github-releases",
+      "datasourceTemplate": "custom.haos-ova",
       "depNameTemplate": "home-assistant/operating-system",
       "versioningTemplate": "loose"
     },
