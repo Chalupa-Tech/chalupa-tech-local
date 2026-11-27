@@ -28,7 +28,9 @@ spec:
         namespace: '{{.path.basename}}'
       syncPolicy:
         automated:
-          prune: false
+          # Safe because argocd-delete-guard (platform/argocd) blocks ArgoCD
+          # from deleting CRDs, PVCs, PVs and Namespaces.
+          prune: true
           selfHeal: true
         retry:
           limit: 5
