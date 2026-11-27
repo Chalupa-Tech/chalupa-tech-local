@@ -1,7 +1,7 @@
 # Alert on restart-looping pods (KubePodCrashLooping)
 
 **Date:** 2026-11-27
-**PR:** _pending_
+**PR:** [#491](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/491)
 
 ## What
 
