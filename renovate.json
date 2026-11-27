@@ -130,19 +130,6 @@
     },
     {
       "customType": "regex",
-      "description": "ArgoCD bootstrap chart version in deploy.yml Stage 4 (helm upgrade --install argocd argo/argo-cd --version X)",
-      "managerFilePatterns": [
-        "/\\.github/workflows/deploy\\.yml$/"
-      ],
-      "matchStrings": [
-        "helm upgrade --install argocd argo/argo-cd \\\\\\n\\s+--namespace argocd --create-namespace \\\\\\n\\s+--version (?<currentValue>[0-9.]+)"
-      ],
-      "datasourceTemplate": "helm",
-      "depNameTemplate": "argo-cd",
-      "registryUrlTemplate": "https://argoproj.github.io/argo-helm"
-    },
-    {
-      "customType": "regex",
       "description": "kubeconform release used by the gitops lint workflow",
       "managerFilePatterns": [
         "/\\.github/workflows/gitops\\.yml$/"
