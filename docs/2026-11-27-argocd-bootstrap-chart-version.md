@@ -1,7 +1,7 @@
 # ArgoCD bootstrap uses the self-managed chart version
 
 **Date:** 2026-11-27
-**PR:** TBD
+**PR:** [#498](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/498)
 
 ## What
 
