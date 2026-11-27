@@ -41,6 +41,10 @@ app-template:
                 secretKeyRef:
                   name: radarr-pg
                   key: log_db
+            # Overrides <AllowedHosts> in config.xml. Requests with any other
+            # Host header get "400 Invalid Hostname" — including kubelet probes
+            # (pod IP), hence the Host header on each probe below.
+            Radarr__Server__AllowedHosts: radarr,radarr.frame.chalupatech.com,radarr.media.svc,radarr.media.svc.cluster.local
           probes:
             liveness:
               enabled: true
@@ -49,6 +53,9 @@ app-template:
                 httpGet:
                   path: /ping
                   port: 7878
+                  httpHeaders:
+                    - name: Host
+                      value: radarr.frame.chalupatech.com
                 initialDelaySeconds: 30
                 periodSeconds: 30
                 timeoutSeconds: 10
@@ -60,6 +67,9 @@ app-template:
                 httpGet:
                   path: /ping
                   port: 7878
+                  httpHeaders:
+                    - name: Host
+                      value: radarr.frame.chalupatech.com
                 initialDelaySeconds: 5
                 periodSeconds: 10
                 timeoutSeconds: 5
@@ -71,6 +81,9 @@ app-template:
                 httpGet:
                   path: /ping
                   port: 7878
+                  httpHeaders:
+                    - name: Host
+                      value: radarr.frame.chalupatech.com
                 initialDelaySeconds: 30
                 periodSeconds: 10
                 timeoutSeconds: 5
