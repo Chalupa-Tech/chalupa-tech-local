@@ -31,3 +31,27 @@ between.
 - `scripts/renovate/validate.sh` passes; `actionlint` reports no new findings.
 - After the next Stage 4 run: the step log shows `Bootstrapping argo-cd chart 10.14.0`,
   and `helm -n argocd list` shows `argo-cd-10.14.0`.
+
+## Follow-up: bootstrap only on a fresh cluster ([#499](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/499))
+
+The first deploy after #498 (run
+[46070669131](https://github.com/Chalupa-Tech/chalupa-tech-local/actions/runs/46070669131))
+read the version correctly (`Bootstrapping argo-cd chart 10.14.0`), but Stage 4
+then failed:
+
+```
+UPGRADE FAILED: NetworkPolicy "argocd-application-controller" in namespace "argocd" exists and
+cannot be imported into the current release: invalid ownership metadata; missing key "meta.helm.sh/release-name"
+```
+
+Chart 10.x adds NetworkPolicies, which the self-managed `argocd` Application had
+already created without Helm ownership annotations. The 9.7.1 pin only hid the
+underlying problem: Stage 4 ran `helm upgrade` against an ArgoCD that manages
+itself, so Helm and ArgoCD both owned the same objects. Helm rejected the
+upgrade before changing anything, and the cluster stayed on v3.6.1, healthy.
+
+The fix is that Stage 4 skips the helm step when `Application argocd` exists.
+Helm installs ArgoCD only on a fresh cluster, and after that ArgoCD manages
+itself through `gitops/apps/platform/argocd`. The `argocd` Helm release
+(rev 109, `argo-cd-9.7.1`) stays as stale metadata. Nothing reads it, and
+`helm -n argocd list` will keep showing 9.7.1.

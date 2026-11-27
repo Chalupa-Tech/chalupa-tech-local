@@ -461,11 +461,20 @@ jobs:
       - name: Install ArgoCD (bootstrap)
         run: |
           export KUBECONFIG=/tmp/kubeconfig
+          # Helm only bootstraps a fresh cluster. Once the self-managed `argocd`
+          # Application exists, ArgoCD owns its own install (platform/argocd
+          # wrapper), and a helm upgrade here would fight it: chart 10.x adds
+          # NetworkPolicies ArgoCD created without Helm ownership, so helm
+          # refuses ("cannot be imported into the current release").
+          # A fresh cluster has no Application CRD yet, so this falls through.
+          if kubectl -n argocd get application argocd >/dev/null 2>&1; then
+            echo "ArgoCD is self-managed (Application argocd exists); skipping helm bootstrap."
+            exit 0
+          fi
           helm repo add argo https://argoproj.github.io/argo-helm
           helm repo update
-          # Same chart version ArgoCD self-manages (platform/argocd wrapper), so
-          # a deploy never downgrades the running ArgoCD before it re-syncs.
-          # Renovate bumps it there; there is no second pin to drift.
+          # Same chart version ArgoCD self-manages, so the first self-sync after
+          # bootstrap is not a version change. Renovate bumps it there.
           chart_version=$(yq '.dependencies[] | select(.name == "argo-cd") | .version' \
             gitops/apps/platform/argocd/Chart.yaml)
           if [ -z "$chart_version" ] || [ "$chart_version" = "null" ]; then
