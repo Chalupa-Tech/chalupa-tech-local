@@ -1,7 +1,7 @@
 # Turn on prune for platform, observability and infra-tools ApplicationSets
 
 **Date:** 2026-11-27
-**PR:** TBD
+**PR:** [#495](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/495)
 
 ## What
 
