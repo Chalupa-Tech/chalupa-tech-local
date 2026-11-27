@@ -32,7 +32,7 @@ between.
 - After the next Stage 4 run: the step log shows `Bootstrapping argo-cd chart 10.14.0`,
   and `helm -n argocd list` shows `argo-cd-10.14.0`.
 
-## Follow-up: bootstrap only on a fresh cluster
+## Follow-up: bootstrap only on a fresh cluster ([#499](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/499))
 
 The first deploy after #498 (run
 [46070669131](https://github.com/Chalupa-Tech/chalupa-tech-local/actions/runs/46070669131))
