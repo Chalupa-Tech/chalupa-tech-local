@@ -1,7 +1,7 @@
 # Pin Radarr Allowed Hosts in git and send a Host header on probes
 
 **Date:** 2026-11-27
-**PR:** TBD
+**PR:** [#497](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/497)
 
 ## What
 
