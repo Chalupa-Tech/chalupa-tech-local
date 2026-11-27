@@ -1,0 +1,48 @@
+# Stops ArgoCD from deleting the kinds whose deletion destroys data, so the
+# ApplicationSets can run prune:true and clean up chart renames on their own.
+#   CRD        -> cascade-deletes every custom resource of that type
+#   PVC / PV   -> deletes the volume's data (reclaimPolicy Delete)
+#   Namespace  -> deletes everything inside it
+# Only the application-controller (sync prune + app cascade delete) is
+# blocked; humans and CI delete these normally. A blocked prune fails the sync
+# loudly with the message below. To let ArgoCD delete one specific object,
+# label it chalupa.tech/allow-argocd-delete=true first.
+# See docs/2026-11-27-argocd-delete-guard.md.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: argocd-delete-guard
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        operations: ["DELETE"]
+        resources: ["persistentvolumeclaims", "persistentvolumes", "namespaces"]
+      - apiGroups: ["apiextensions.k8s.io"]
+        apiVersions: ["*"]
+        operations: ["DELETE"]
+        resources: ["customresourcedefinitions"]
+  matchConditions:
+    - name: is-argocd-application-controller
+      expression: >-
+        request.userInfo.username ==
+        "system:serviceaccount:{{ .Release.Namespace }}:argocd-application-controller"
+  validations:
+    - expression: >-
+        has(oldObject.metadata.labels) &&
+        oldObject.metadata.labels[?"chalupa.tech/allow-argocd-delete"].orValue("") == "true"
+      messageExpression: >-
+        "argocd-delete-guard: ArgoCD may not delete " + request.resource.resource +
+        " " + (request.namespace != "" ? request.namespace + "/" : "") + request.name +
+        ". Remove it by hand, or label it chalupa.tech/allow-argocd-delete=true to let ArgoCD prune it."
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: argocd-delete-guard
+spec:
+  policyName: argocd-delete-guard
+  validationActions: [Deny]
