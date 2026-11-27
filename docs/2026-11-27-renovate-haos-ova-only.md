@@ -1,7 +1,7 @@
 # Renovate: only offer HAOS releases that ship the OVA qcow2
 
 **Date:** 2026-11-27
-**PR:** TBD
+**PR:** [#492](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/492)
 
 ## What
 
