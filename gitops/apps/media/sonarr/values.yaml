@@ -41,6 +41,10 @@ app-template:
                 secretKeyRef:
                   name: sonarr-pg
                   key: log_db
+            # Overrides <AllowedHosts> in config.xml. Requests with any other
+            # Host header get "400 Invalid Hostname" — including kubelet probes
+            # (pod IP), hence the Host header on each probe below.
+            Sonarr__Server__AllowedHosts: sonarr.frame.chalupatech.com,sonarr.media.svc,sonarr.media.svc.cluster.local
           probes:
             liveness:
               enabled: true
@@ -49,6 +53,9 @@ app-template:
                 httpGet:
                   path: /ping
                   port: 8989
+                  httpHeaders:
+                    - name: Host
+                      value: sonarr.frame.chalupatech.com
                 initialDelaySeconds: 30
                 periodSeconds: 30
                 timeoutSeconds: 10
@@ -60,6 +67,9 @@ app-template:
                 httpGet:
                   path: /ping
                   port: 8989
+                  httpHeaders:
+                    - name: Host
+                      value: sonarr.frame.chalupatech.com
                 initialDelaySeconds: 5
                 periodSeconds: 10
                 timeoutSeconds: 5
@@ -71,6 +81,9 @@ app-template:
                 httpGet:
                   path: /ping
                   port: 8989
+                  httpHeaders:
+                    - name: Host
+                      value: sonarr.frame.chalupatech.com
                 initialDelaySeconds: 30
                 periodSeconds: 10
                 timeoutSeconds: 5
