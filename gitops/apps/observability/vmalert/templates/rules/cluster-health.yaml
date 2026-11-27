@@ -44,3 +44,21 @@ spec:
           annotations:
             summary: 'Node {{ "{{ $labels.node }}" }} is NotReady'
             description: 'Talos node has been NotReady for 10+ minutes — check the VM on pve1 and `talosctl -n <ip> dmesg`.'
+        # Fires on any container (or init container) that restarted at least once
+        # in every 30m window for 2h. Keys on restarts, not the CrashLoopBackOff
+        # waiting reason: Sonarr was killed by a failing startup probe every
+        # ~10 min for 5 days and kube-state-metrics never sampled it in
+        # CrashLoopBackOff (docs/2026-11-27-crashloop-alert.md). The 2h hold
+        # skips the one-off restart bursts flannel/kube-proxy/metallb take on a
+        # node reboot.
+        - alert: KubePodCrashLooping
+          expr: |-
+            max by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[30m])) >= 1
+              or
+            max by (namespace, pod, container) (increase(kube_pod_init_container_status_restarts_total[30m])) >= 1
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Pod {{ "{{ $labels.namespace }}" }}/{{ "{{ $labels.pod }}" }} ({{ "{{ $labels.container }}" }}) is restart-looping'
+            description: 'Container has restarted at least every 30 minutes for 2+ hours. Check `kubectl -n {{ "{{ $labels.namespace }}" }} describe pod {{ "{{ $labels.pod }}" }}` for probe failures and `kubectl logs --previous` for crashes.'
