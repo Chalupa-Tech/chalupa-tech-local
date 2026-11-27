@@ -1,7 +1,7 @@
 # Allowlisted pruning of ArgoCD orphans in deploy Stage 4
 
 **Date:** 2026-11-27
-**PR:** TBD
+**PR:** [#493](https://github.com/Chalupa-Tech/chalupa-tech-local/pull/493)
 
 ## What
 
